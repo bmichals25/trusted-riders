@@ -1,10 +1,13 @@
+import { useRef } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker } from "@/components/Map";
 
 import { GradientCard } from "@/components/ui/gradient-card";
+import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useLocation } from "@/lib/location-context";
 import { colors, radii, spacing } from "@/lib/theme";
 
 const rideData: Record<string, {
@@ -50,9 +53,14 @@ export default function RideDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
   const ride = rideData[rideId] ?? rideData["#8829"];
+  const { location } = useLocation();
+  const mapRef = useRef<MapView | null>(null);
 
-  const midLat = (ride.pickupCoords.latitude + ride.dropoffCoords.latitude) / 2;
-  const midLng = (ride.pickupCoords.longitude + ride.dropoffCoords.longitude) / 2;
+  const allCoords = [ride.pickupCoords, ride.dropoffCoords];
+  if (location) allCoords.push({ latitude: location.latitude, longitude: location.longitude });
+
+  const midLat = allCoords.reduce((sum, c) => sum + c.latitude, 0) / allCoords.length;
+  const midLng = allCoords.reduce((sum, c) => sum + c.longitude, 0) / allCoords.length;
 
   return (
     <ScrollView
@@ -62,15 +70,24 @@ export default function RideDetailsScreen() {
     >
       <View style={{ height: 200, borderRadius: radii.md, overflow: "hidden", margin: spacing.md, borderCurve: "continuous" }}>
         <MapView
+          ref={mapRef}
           style={{ flex: 1 }}
           initialRegion={{
             latitude: midLat,
             longitude: midLng,
-            latitudeDelta: 0.03,
-            longitudeDelta: 0.03,
+            latitudeDelta: 0.04,
+            longitudeDelta: 0.04,
+          }}
+          onMapReady={() => {
+            mapRef.current?.fitToCoordinates(allCoords, {
+              edgePadding: { top: 30, right: 30, bottom: 30, left: 30 },
+              animated: false,
+            });
           }}
           scrollEnabled={false}
           zoomEnabled={false}
+          showsUserLocation
+          showsMyLocationButton={false}
         >
           <Marker
             coordinate={ride.pickupCoords}
@@ -89,14 +106,14 @@ export default function RideDetailsScreen() {
         <View style={{ gap: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <StatusBadge status="scheduled" />
-            <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.5 }}>
+            <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
               {ride.time}
             </Text>
           </View>
           <Text style={{ color: colors.primary, fontSize: 28, fontWeight: "900" }}>
             {ride.name}
           </Text>
-          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textTransform: "uppercase" }}>
+          <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "500", textTransform: "uppercase" }}>
             {ride.type} — {ride.vehicle}
           </Text>
         </View>
@@ -110,61 +127,45 @@ export default function RideDetailsScreen() {
         </View>
 
         <View style={{
-          backgroundColor: "rgba(220, 38, 38, 0.06)",
+          backgroundColor: colors.errorSoft,
           borderRadius: radii.md,
           borderCurve: "continuous",
           padding: spacing.md,
           gap: 8,
         }}>
-          <Text style={{ color: colors.error, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.3 }}>
+          <Text style={{ color: colors.error, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.3 }}>
             Care Notes
           </Text>
-          <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
+          <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600", lineHeight: 20 }}>
             {ride.notes}
           </Text>
         </View>
 
         <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, borderCurve: "continuous", padding: spacing.md, gap: 8 }}>
-          <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.3 }}>
+          <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.3 }}>
             Emergency Contact
           </Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "700" }}>
+            <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "700" }}>
               {ride.emergencyContact}
             </Text>
             <View style={{ backgroundColor: colors.primary, borderRadius: radii.xs, paddingHorizontal: 12, paddingVertical: 8 }}>
-              <Text style={{ color: colors.surface, fontSize: 11, fontWeight: "800" }}>Call</Text>
+              <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "700" }}>Call</Text>
             </View>
           </View>
         </View>
 
-        <Pressable onPress={() => router.push({ pathname: "/chat", params: { rideId, riderName: ride.name } })}>
+        <Pressable onPress={() => router.push({ pathname: "/chat", params: { rideId, riderName: ride.name } })} accessibilityRole="button" accessibilityLabel="Open admin chat">
           <GradientCard padding={16}>
             <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
-              <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.5 }}>
+              <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>
                 Admin Chat
               </Text>
-              <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "900" }}>→</Text>
+              <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800" }}>→</Text>
             </View>
           </GradientCard>
         </Pressable>
       </View>
     </ScrollView>
-  );
-}
-
-function LocationRow({ color, label, address }: { color: string; label: string; address: string }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>
-          {label}
-        </Text>
-        <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "700" }}>
-          {address}
-        </Text>
-      </View>
-    </View>
   );
 }

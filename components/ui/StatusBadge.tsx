@@ -5,6 +5,8 @@ export function StatusBadge({ status }: { status: StatusKey }) {
   const scheme = statusColors[status];
   return (
     <View
+      accessibilityRole="text"
+      accessibilityLabel={`Status: ${statusLabels[status]}`}
       style={{
         backgroundColor: scheme.bg,
         borderRadius: radii.xs,
@@ -16,7 +18,7 @@ export function StatusBadge({ status }: { status: StatusKey }) {
       <Text
         style={{
           color: scheme.text,
-          fontSize: 9,
+          fontSize: 11,
           fontWeight: "900",
           textTransform: "uppercase",
           letterSpacing: 1,

@@ -11,6 +11,8 @@ export const activeMission = {
   age: "72 Years",
   transit: "Wheelchair / Van",
   eta: "4m",
+  pickupCoords: { latitude: 37.788, longitude: -122.408 },
+  dropoffCoords: { latitude: 37.775, longitude: -122.42 },
 };
 
 export const scheduledRides = [
@@ -31,10 +33,10 @@ export const scheduledRides = [
 ];
 
 export const pastRides = [
-  "William Chen",
-  "Andrea Torres",
-  "Maya Thompson",
-  "Jerome Patel",
+  { name: "William Chen", date: "Apr 8, 2026", type: "Wheelchair Round-Trip" },
+  { name: "Andrea Torres", date: "Apr 6, 2026", type: "Sedan One-Way" },
+  { name: "Maya Thompson", date: "Mar 29, 2026", type: "Ambulatory Round-Trip" },
+  { name: "Jerome Patel", date: "Mar 22, 2026", type: "Wheelchair One-Way" },
 ];
 
 export const routeSteps = [

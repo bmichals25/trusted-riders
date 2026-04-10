@@ -2,24 +2,22 @@ import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
   BottomSheetModal,
-  BottomSheetScrollView,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
-  LayoutAnimation,
   LayoutChangeEvent,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
   Text,
   TextStyle,
-  UIManager,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -31,21 +29,23 @@ import Animated, {
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline } from "@/components/Map";
 
+import { Avatar } from "@/components/ui/Avatar";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
+import { useDispatch } from "@/lib/dispatch-context";
+import { useHaptics } from "@/lib/haptics-context";
+import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
+import { useLocation } from "@/lib/location-context";
 import {
-  activeMission,
   pastRides,
   routeSteps,
   scheduledRides,
 } from "@/lib/mock-data";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type TabKey = "current" | "scheduled" | "past" | "requests";
 
@@ -55,7 +55,8 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<TabKey | null>("current");
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [riderProfileOpen, setRiderProfileOpen] = useState(false);
-  const [requestsCount, setRequestsCount] = useState(1);
+  const { pendingRides, scheduledRides: dispatchedScheduled, activeRide, acceptRide, declineRide } = useDispatch();
+  const { impact, notification, selection } = useHaptics();
 
   const protocolBars = useMemo(() => new Array(5).fill(0), []);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -73,34 +74,18 @@ export default function HomeScreen() {
     };
 
   const toggleSection = (tab: TabKey) => {
-    LayoutAnimation.configureNext({
-      duration: 320,
-      create: {
-        type: LayoutAnimation.Types.easeOut,
-        property: LayoutAnimation.Properties.opacity,
-        duration: 200,
-      },
-      update: {
-        type: LayoutAnimation.Types.spring,
-        springDamping: 0.82,
-      },
-      delete: {
-        type: LayoutAnimation.Types.easeOut,
-        property: LayoutAnimation.Properties.opacity,
-        duration: 180,
-      },
-    });
+    selection();
     setActiveTab((current) => {
-      if (current === tab) return null;
+      const next = current === tab ? "current" : tab;
 
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         scrollViewRef.current?.scrollTo({
-          y: Math.max(sectionOffsets.current[tab], 0),
+          y: Math.max(sectionOffsets.current[next], 0),
           animated: true,
         });
-      });
+      }, 350);
 
-      return tab;
+      return next;
     });
   };
 
@@ -114,11 +99,12 @@ export default function HomeScreen() {
           paddingBottom: 100,
         }}
       >
+        <LocationPermissionBanner />
         <View
           style={{
-            paddingHorizontal: spacing.md,
+            paddingHorizontal: spacing.sm,
             paddingTop: spacing.sm,
-            gap: 6,
+            gap: 4,
           }}
         >
           <AccordionSection
@@ -127,99 +113,208 @@ export default function HomeScreen() {
             onLayout={handleSectionLayout("current")}
             onPress={() => toggleSection("current")}
           >
-            <View style={{ gap: spacing.md }}>
-              <Pressable
-                onPress={() => setRiderProfileOpen(true)}
-                style={({ pressed }) => ({
-                  backgroundColor: colors.surfaceLowest,
-                  borderRadius: radii.md,
-                  borderCurve: "continuous",
-                  padding: spacing.md,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 14,
-                  opacity: pressed ? 0.96 : 1,
-                  transform: [{ scale: pressed ? 0.99 : 1 }],
-                })}
-              >
-                <Avatar initials="ER" size={48} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <Text selectable style={eyebrow}>
-                      Active Mission
+            {activeRide ? (
+              <View style={{ gap: spacing.md }}>
+                <Pressable
+                  onPress={() => setRiderProfileOpen(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View rider profile for ${activeRide.passengerName}`}
+                  style={({ pressed }) => ({
+                    backgroundColor: colors.surfaceLowest,
+                    borderRadius: radii.md,
+                    borderCurve: "continuous",
+                    padding: spacing.md,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    opacity: pressed ? 0.96 : 1,
+                    transform: [{ scale: pressed ? 0.99 : 1 }],
+                  })}
+                >
+                  <Avatar initials={activeRide.passengerName.split(" ").map(n => n[0]).join("")} size={48} />
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <Text style={eyebrow}>
+                        Active Mission
+                      </Text>
+                      <StatusBadge status="enRoute" />
+                    </View>
+                    <Text selectable style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
+                      {activeRide.passengerName}
                     </Text>
-                    <StatusBadge status="enRoute" />
+                    <Text selectable style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8 }}>
+                      {activeRide.transitType} {activeRide.tripType}
+                    </Text>
                   </View>
-                  <Text selectable style={{ color: colors.primary, fontSize: 22, fontWeight: "900" }}>
-                    {activeMission.name}
-                  </Text>
-                  <Text selectable style={{ color: colors.slate500, fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                    {activeMission.type}
-                  </Text>
-                </View>
-                <View style={{ alignItems: "flex-end", gap: 2 }}>
-                  <Text selectable style={{ color: colors.slate400, fontSize: 9, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1 }}>ETA</Text>
-                  <Text selectable style={{ color: colors.primary, fontSize: 22, fontWeight: "900" }}>{activeMission.eta}</Text>
-                </View>
-              </Pressable>
+                  <View style={{ alignItems: "flex-end", gap: 2 }}>
+                    <Text selectable style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>TIME</Text>
+                    <Text selectable style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>{activeRide.scheduledTime}</Text>
+                  </View>
+                </Pressable>
 
-              <Pressable
-                onPress={() => router.push("/mission")}
-                style={({ pressed }) => ({
-                  height: 140,
-                  backgroundColor: "#E5EBF2",
+                <Pressable
+                  onPress={() => router.push("/mission")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open live mission map"
+                  style={({ pressed }) => ({
+                    height: 140,
+                    backgroundColor: colors.mapPlaceholder,
+                    borderRadius: radii.md,
+                    overflow: "hidden",
+                    borderCurve: "continuous",
+                    transform: [{ scale: pressed ? 0.995 : 1 }],
+                  })}
+                >
+                  <MiniMap />
+                  <View style={{ position: "absolute", left: 12, bottom: 12, flexDirection: "row", gap: 8 }}>
+                    <View style={{ backgroundColor: colors.surfaceFrosted, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: colors.blue }} />
+                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>{activeRide.pickupAddress}</Text>
+                    </View>
+                    <View style={{ backgroundColor: colors.surfaceFrosted, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: colors.green }} />
+                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>{activeRide.dropoffAddress}</Text>
+                    </View>
+                  </View>
+                  <View style={{ position: "absolute", right: 12, top: 12, backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs }}>
+                    <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "800", letterSpacing: 0.8 }}>Live GPS</Text>
+                  </View>
+                </Pressable>
+
+                <Pressable onPress={() => router.push("/mission")} accessibilityRole="button" accessibilityLabel="Track live mission">
+                  <GradientCard padding={16}>
+                    <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
+                      <Text style={primaryActionText}>Track Live Mission</Text>
+                      <Text style={primaryActionText}>→</Text>
+                    </View>
+                  </GradientCard>
+                </Pressable>
+              </View>
+            ) : (
+              <View
+                style={{
                   borderRadius: radii.md,
-                  overflow: "hidden",
                   borderCurve: "continuous",
-                  transform: [{ scale: pressed ? 0.995 : 1 }],
-                })}
+                  paddingVertical: 24,
+                  paddingHorizontal: spacing.lg,
+                  alignItems: "center",
+                  gap: 6,
+                }}
               >
-                <MiniMap />
-                <View style={{ position: "absolute", left: 12, bottom: 12, flexDirection: "row", gap: 8 }}>
-                  <View style={{ backgroundColor: "rgba(255,255,255,0.88)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: colors.blue }} />
-                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>{activeMission.pickup}</Text>
-                  </View>
-                  <View style={{ backgroundColor: "rgba(255,255,255,0.88)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: colors.green }} />
-                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>{activeMission.dropoff}</Text>
-                  </View>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: radii.sm,
+                    backgroundColor: colors.surfaceLow,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 2,
+                  }}
+                >
+                  <Text style={{ color: colors.slate300, fontSize: 18 }}>⌂</Text>
                 </View>
-                <View style={{ position: "absolute", right: 12, top: 12, backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs }}>
-                  <Text style={{ color: colors.surface, fontSize: 10, fontWeight: "800", letterSpacing: 0.8 }}>Live GPS</Text>
-                </View>
-              </Pressable>
-
-              <Pressable onPress={() => router.push("/mission")}>
-                <GradientCard padding={16}>
-                  <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
-                    <Text style={primaryActionText}>Track Live Mission</Text>
-                    <Text style={primaryActionText}>→</Text>
-                  </View>
-                </GradientCard>
-              </Pressable>
-            </View>
+                <Text style={emptyStateHeading}>
+                  No active ride
+                </Text>
+                <Text style={emptyStateText}>
+                  Accept a ride request to start a mission
+                </Text>
+              </View>
+            )}
           </AccordionSection>
 
           <AccordionSection
             title="Scheduled Rides"
             active={activeTab === "scheduled"}
+            badge={dispatchedScheduled.length > 0 ? String(dispatchedScheduled.length + scheduledRides.length) : undefined}
             onLayout={handleSectionLayout("scheduled")}
             onPress={() => toggleSection("scheduled")}
           >
             <View style={{ gap: spacing.md }}>
-              {scheduledRides.map((ride) => (
+              {dispatchedScheduled.length === 0 && scheduledRides.length === 0 ? (
                 <View
-                  key={ride.id}
                   style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: radii.md,
+                    borderCurve: "continuous",
+                    paddingVertical: 24,
+                    paddingHorizontal: spacing.xl,
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Text style={{ color: colors.slate300, fontSize: 20 }}>▸</Text>
+                  <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "700" }}>
+                    No upcoming rides
+                  </Text>
+                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
+                    Scheduled rides will appear here
+                  </Text>
+                </View>
+              ) : null}
+              {dispatchedScheduled.map((ride) => (
+                <Pressable
+                  key={ride.id}
+                  onPress={() => router.push({ pathname: "/ride-details", params: { rideId: ride.id } })}
+                  style={({ pressed }) => ({
+                    backgroundColor: colors.surface,
+                    borderRadius: radii.md,
+                    borderCurve: "continuous",
+                    padding: 20,
+                    gap: 10,
+                    opacity: pressed ? 0.92 : 1,
+                    transform: [{ scale: pressed ? 0.99 : 1 }],
+                    ...shadows.soft,
+                  })}
+                >
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text selectable style={timeBadge}>
+                      {ride.scheduledDate} {ride.scheduledTime}
+                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <StatusBadge status="scheduled" />
+                      <Text selectable style={microLabel}>
+                        {ride.id}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text selectable style={cardTitle}>
+                    {ride.passengerName}
+                  </Text>
+                  <Text selectable style={cardMeta}>
+                    {ride.transitType} — {ride.tripType}
+                  </Text>
+                  <View style={{ gap: 4 }}>
+                    <View style={rowCenter}>
+                      <View style={routeDotBlue} />
+                      <Text style={routeAddressText}>{ride.pickupAddress}</Text>
+                    </View>
+                    <View style={rowCenter}>
+                      <View style={routeDotGreen} />
+                      <Text style={routeAddressText}>{ride.dropoffAddress}</Text>
+                    </View>
+                  </View>
+                  <Text selectable style={dispatcherHint}>
+                    Waiting for dispatcher to release
+                  </Text>
+                </Pressable>
+              ))}
+              {scheduledRides.map((ride) => (
+                <Pressable
+                  key={ride.id}
+                  onPress={() => router.push({ pathname: "/ride-details", params: { rideId: ride.id } })}
+                  style={({ pressed }) => ({
                     backgroundColor: colors.surface,
                     borderRadius: radii.md,
                     borderCurve: "continuous",
                     padding: 20,
                     flexDirection: "row",
                     gap: 16,
+                    opacity: pressed ? 0.92 : 1,
+                    transform: [{ scale: pressed ? 0.99 : 1 }],
                     ...shadows.soft,
-                  }}
+                  })}
                 >
                   <View style={{ flex: 1, gap: 10 }}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -239,10 +334,6 @@ export default function HomeScreen() {
                     <Text selectable style={cardMeta}>
                       {ride.type} — {ride.vehicle}
                     </Text>
-                    <View style={{ flexDirection: "row", gap: 10 }}>
-                      <SmallButton label="Details" onPress={() => router.push({ pathname: "/ride-details", params: { rideId: ride.id } })} />
-                      <SmallButton label="Admin Chat" filled onPress={() => router.push({ pathname: "/chat", params: { rideId: ride.id, riderName: ride.name } })} />
-                    </View>
                   </View>
                     <View
                       style={{
@@ -251,24 +342,18 @@ export default function HomeScreen() {
                         borderRadius: radii.md,
                         overflow: "hidden",
                         borderCurve: "continuous",
+                        backgroundColor: colors.mapPlaceholder,
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                   >
-                    <MapView
-                      style={{ flex: 1 }}
-                      initialRegion={{
-                        latitude: 37.782,
-                        longitude: -122.413,
-                        latitudeDelta: 0.02,
-                        longitudeDelta: 0.02,
-                      }}
-                      scrollEnabled={false}
-                      zoomEnabled={false}
-                      pitchEnabled={false}
-                      rotateEnabled={false}
-                      pointerEvents="none"
-                    />
+                    <View style={{ gap: 6, alignItems: "center" }}>
+                      <View style={{ width: 8, height: 8, borderRadius: radii.pill, backgroundColor: colors.blue, opacity: 0.6 }} />
+                      <View style={{ width: 1, height: 20, backgroundColor: colors.slate300 }} />
+                      <View style={{ width: 8, height: 8, borderRadius: radii.pill, backgroundColor: colors.green, opacity: 0.6 }} />
+                    </View>
                   </View>
-                </View>
+                </Pressable>
               ))}
             </View>
           </AccordionSection>
@@ -280,10 +365,33 @@ export default function HomeScreen() {
             onPress={() => toggleSection("past")}
           >
             <View style={{ gap: 4 }}>
+              {pastRides.length === 0 ? (
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: radii.md,
+                    borderCurve: "continuous",
+                    paddingVertical: 24,
+                    paddingHorizontal: spacing.xl,
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <Text style={{ color: colors.slate300, fontSize: 20 }}>◷</Text>
+                  <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "700" }}>
+                    No ride history
+                  </Text>
+                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "500", textAlign: "center" }}>
+                    Completed rides will appear here
+                  </Text>
+                </View>
+              ) : null}
               {pastRides.map((ride, index) => (
                 <Pressable
-                  key={ride}
-                  onPress={() => router.push({ pathname: "/past-ride", params: { riderName: ride } })}
+                  key={ride.name}
+                  onPress={() => router.push({ pathname: "/past-ride", params: { riderName: ride.name } })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View past ride with ${ride.name}`}
                   style={({ pressed }) => ({
                     backgroundColor: colors.surface,
                     borderRadius: radii.md,
@@ -297,17 +405,17 @@ export default function HomeScreen() {
                     transform: [{ scale: pressed ? 0.99 : 1 }],
                   })}
                 >
-                  <View style={{ gap: 4 }}>
-                    <Text selectable style={pastRideName}>
-                      {ride}
+                  <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+                    <Text selectable style={pastRideName} numberOfLines={1}>
+                      {ride.name}
                     </Text>
-                    <Text selectable style={microLabel}>
-                      Completed · Oct 2023
+                    <Text style={microLabel} numberOfLines={1}>
+                      {ride.date} · {ride.type}
                     </Text>
                   </View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
                     <StatusBadge status="completed" />
-                    <Text style={{ color: colors.slate300, fontSize: 18 }}>›</Text>
+                    <Text style={{ color: colors.slate300, fontSize: 16 }}>▸</Text>
                   </View>
                 </Pressable>
               ))}
@@ -317,76 +425,67 @@ export default function HomeScreen() {
           <AccordionSection
             title="Ride Requests"
             active={activeTab === "requests"}
-            badge={requestsCount > 0 ? String(requestsCount) : undefined}
+            badge={pendingRides.length > 0 ? String(pendingRides.length) : undefined}
             onLayout={handleSectionLayout("requests")}
             onPress={() => toggleSection("requests")}
           >
-            {requestsCount > 0 ? (
-              <View
-                style={{
-                  backgroundColor: colors.surface,
-                  borderRadius: radii.md,
-                  padding: spacing.lg,
-                  gap: spacing.md,
-                  overflow: "hidden",
-                  borderCurve: "continuous",
-                  ...shadows.soft,
-                }}
-              >
-                <View
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 4,
-                    backgroundColor: colors.primary,
-                  }}
-                />
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <View>
-                    <Text selectable style={requestMinutes}>
-                      32
-                    </Text>
-                    <Text selectable style={microLabel}>
-                      Est. Minutes
-                    </Text>
-                  </View>
+            {pendingRides.length > 0 ? (
+              <View style={{ gap: spacing.md }}>
+                {pendingRides.map((ride) => (
+                  <View
+                    key={ride.id}
+                    style={requestCard}
+                  >
+                    <View
+                      style={requestTopBar}
+                    />
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <View>
+                        <Text selectable style={requestTimeBadge}>
+                          {ride.scheduledTime}
+                        </Text>
+                      </View>
                       <View
-                        style={{
-                          alignSelf: "flex-start",
-                          backgroundColor: colors.primary,
-                          paddingHorizontal: 10,
-                          paddingVertical: 6,
-                          borderRadius: radii.xs,
-                        }}
+                        style={requestIdBadge}
                       >
-                    <Text selectable style={{ color: colors.accent, fontSize: 9, fontWeight: "900", letterSpacing: 1 }}>
-                      HIGH PRIORITY
-                    </Text>
+                        <Text selectable style={requestIdText}>
+                          {ride.id}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ gap: 4 }}>
+                      <Text selectable style={cardTitle}>
+                        {ride.passengerName}
+                      </Text>
+                      <Text selectable style={cardMeta}>
+                        {ride.transitType} {ride.tripType}
+                      </Text>
+                    </View>
+                    <View style={{ gap: 6 }}>
+                      <View style={rowCenter}>
+                        <View style={routeDotBlue} />
+                        <Text selectable style={routeAddressText}>{ride.pickupAddress}</Text>
+                      </View>
+                      <View style={rowCenter}>
+                        <View style={routeDotGreen} />
+                        <Text selectable style={routeAddressText}>{ride.dropoffAddress}</Text>
+                      </View>
+                    </View>
+                    {ride.notes ? (
+                      <Text selectable style={{ color: colors.slate400, fontSize: 12, fontWeight: "500", fontStyle: "italic" }}>
+                        {ride.notes}
+                      </Text>
+                    ) : null}
+                    <Pressable onPress={() => { notification(NotificationFeedbackType.Success); acceptRide(ride.id); }} accessibilityRole="button" accessibilityLabel={`Accept ride ${ride.id}`}>
+                      <GradientCard padding={18}>
+                        <Text style={primaryActionText}>Accept Mission</Text>
+                      </GradientCard>
+                    </Pressable>
+                    <Pressable onPress={() => { notification(NotificationFeedbackType.Warning); declineRide(ride.id); }} accessibilityRole="button" accessibilityLabel={`Decline ride ${ride.id}`} style={{ minHeight: 44, justifyContent: "center" }}>
+                      <Text style={declineText}>Decline</Text>
+                    </Pressable>
                   </View>
-                </View>
-                <View style={{ gap: 4 }}>
-                  <Text selectable style={cardTitle}>
-                    Thomas O'Malley
-                  </Text>
-                  <Text selectable style={cardMeta}>
-                    Dialysis Transfer - Wheelchair
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => {
-                    setRequestsCount(0);
-                    setActiveTab("scheduled");
-                  }}
-                >
-                  <GradientCard padding={18}>
-                    <Text style={primaryActionText}>Commit to Mission</Text>
-                  </GradientCard>
-                </Pressable>
-                <Pressable onPress={() => setRequestsCount(0)}>
-                  <Text style={declineText}>Decline</Text>
-                </Pressable>
+                ))}
               </View>
             ) : (
               <View
@@ -413,10 +512,10 @@ export default function HomeScreen() {
                 >
                   <Text style={{ color: colors.slate300, fontSize: 20 }}>✓</Text>
                 </View>
-                <Text selectable style={emptyStateHeading}>
+                <Text style={emptyStateHeading}>
                   All clear
                 </Text>
-                <Text selectable style={emptyStateText}>
+                <Text style={emptyStateText}>
                   No pending ride requests
                 </Text>
               </View>
@@ -428,57 +527,61 @@ export default function HomeScreen() {
       <OperatorSheet bottomInset={insets.bottom} />
 
       <SheetModal
-        visible={riderProfileOpen}
+        visible={riderProfileOpen && !!activeRide}
         onClose={() => setRiderProfileOpen(false)}
         snapPoints={["56%", "90%"]}
       >
         <View style={{ alignItems: "center", gap: 18, paddingBottom: spacing.lg }}>
-          <Avatar initials="ER" size={96} />
+          <Avatar initials={activeRide?.passengerName.split(" ").map(n => n[0]).join("") ?? ""} size={96} />
           <View style={{ alignItems: "center", gap: 4 }}>
             <Text selectable style={modalTitle}>
-              {activeMission.name}
+              {activeRide?.passengerName}
             </Text>
-            <Text selectable style={microLabel}>
+            <Text style={microLabel}>
               Rider Profile & Protocols
             </Text>
           </View>
         </View>
-        <BottomSheetScrollView
+        <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={{ flex: 1 }}
           contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.xl }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={alertCardStyle}>
-            <Text selectable style={alertTitle}>
-              Critical Care Notes
-            </Text>
-            <Text selectable style={alertBody}>
-              {activeMission.notes}
-            </Text>
-          </View>
+          {activeRide?.notes ? (
+            <View style={alertCardStyle}>
+              <Text style={alertTitle}>
+                Critical Care Notes
+              </Text>
+              <Text selectable style={alertBody}>
+                {activeRide.notes}
+              </Text>
+            </View>
+          ) : null}
 
           <View style={{ flexDirection: "row", gap: 14 }}>
-            <InfoTile label="Transit Type" value={activeMission.transit} />
-            <InfoTile label="Member Since" value={activeMission.memberSince} />
+            <InfoTile label="Transit Type" value={activeRide?.transitType ?? ""} />
+            <InfoTile label="Trip Type" value={activeRide?.tripType ?? ""} />
           </View>
 
-          <View style={{ gap: 10 }}>
-            <Text selectable style={microLabel}>
-              Emergency Contact
-            </Text>
-            <View style={infoRowCard}>
-              <Text selectable style={infoRowValue}>
-                {activeMission.emergencyContact}
+          {activeRide?.emergencyContact ? (
+            <View style={{ gap: 10 }}>
+              <Text style={microLabel}>
+                Emergency Contact
               </Text>
-              <View style={callPill}>
-                <Text style={{ color: colors.surface, fontWeight: "800" }}>Call</Text>
+              <View style={infoRowCard}>
+                <Text selectable style={infoRowValue}>
+                  {activeRide.emergencyContact}
+                </Text>
+                <View style={callPill}>
+                  <Text style={{ color: colors.surface, fontWeight: "800" }}>Call</Text>
+                </View>
               </View>
             </View>
-          </View>
+          ) : null}
 
           <View style={{ gap: 10 }}>
-            <Text selectable style={microLabel}>
+            <Text style={microLabel}>
               Protocol Compliance
             </Text>
             <View style={{ flexDirection: "row", gap: 4 }}>
@@ -494,12 +597,12 @@ export default function HomeScreen() {
                 />
               ))}
             </View>
-            <Text selectable style={protocolCaption}>
+            <Text style={protocolCaption}>
               Perfect safety record last 20 trips
             </Text>
           </View>
-        </BottomSheetScrollView>
-        <Pressable onPress={() => setRiderProfileOpen(false)}>
+        </ScrollView>
+        <Pressable onPress={() => setRiderProfileOpen(false)} accessibilityRole="button" accessibilityLabel="Return to mission">
           <GradientCard padding={18}>
             <Text style={primaryActionText}>Return to Mission</Text>
           </GradientCard>
@@ -516,14 +619,14 @@ export default function HomeScreen() {
             <Text selectable style={modalSectionTitle}>
               Route Protocol
             </Text>
-            <Pressable onPress={() => setDirectionsOpen(false)}>
-              <Text selectable style={microLabel}>
+            <Pressable onPress={() => setDirectionsOpen(false)} accessibilityRole="button" accessibilityLabel="Dismiss directions" style={{ minHeight: 44, justifyContent: "center" }}>
+              <Text style={microLabel}>
                 Dismiss
               </Text>
             </Pressable>
           </View>
         </View>
-        <BottomSheetScrollView
+        <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           style={{ flex: 1 }}
           contentContainerStyle={{ gap: 10, paddingBottom: spacing.xl }}
@@ -588,11 +691,11 @@ export default function HomeScreen() {
               Final Destination
             </Text>
             <Text selectable style={destinationTitle}>
-              {activeMission.dropoff}
+              {activeRide?.dropoffAddress ?? "—"}
             </Text>
           </View>
-        </BottomSheetScrollView>
-        <Pressable onPress={() => setDirectionsOpen(false)}>
+        </ScrollView>
+        <Pressable onPress={() => setDirectionsOpen(false)} accessibilityRole="button" accessibilityLabel="Return to map">
           <GradientCard padding={18}>
             <Text style={primaryActionText}>Return to Map</Text>
           </GradientCard>
@@ -618,14 +721,48 @@ function AccordionSection({
   onPress: () => void;
   children: React.ReactNode;
 }) {
+  const contentHeight = useSharedValue(0);
+  const measuredHeight = useRef(0);
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      contentHeight.value = active ? measuredHeight.current : 0;
+      return;
+    }
+    contentHeight.value = withTiming(active ? measuredHeight.current : 0, {
+      duration: 300,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [active]);
+
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    height: contentHeight.value,
+    overflow: "hidden" as const,
+  }));
+
+  const onContentLayout = useCallback((event: LayoutChangeEvent) => {
+    const h = event.nativeEvent.layout.height;
+    if (h > 0 && h !== measuredHeight.current) {
+      measuredHeight.current = h;
+      if (active) {
+        contentHeight.value = withTiming(h, { duration: 200, easing: Easing.out(Easing.quad) });
+      }
+    }
+  }, [active]);
+
   return (
-    <View onLayout={onLayout} style={{ marginBottom: 6 }}>
+    <View onLayout={onLayout} style={{ marginBottom: 4 }}>
       <Pressable
         onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${title} section, ${active ? "expanded" : "collapsed"}`}
+        accessibilityState={{ expanded: active }}
         style={{
           backgroundColor: active ? colors.surface : colors.surfaceHigh,
           paddingHorizontal: spacing.md,
-          paddingVertical: 18,
+          paddingVertical: 14,
           borderTopLeftRadius: radii.md,
           borderTopRightRadius: radii.md,
           borderBottomLeftRadius: active ? 0 : radii.md,
@@ -648,22 +785,23 @@ function AccordionSection({
                 paddingVertical: 2,
               }}
             >
-              <Text style={{ color: colors.surface, fontSize: 10, fontWeight: "900" }}>
+              <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "900" }}>
                 {badge}
               </Text>
             </View>
           ) : null}
         </View>
         <Text style={{ color: colors.primary, fontSize: 18 }}>
-          {active ? "⌄" : "›"}
+          {active ? "▾" : "▸"}
         </Text>
       </Pressable>
-      {active ? (
+      <Animated.View style={animatedContentStyle}>
         <View
+          onLayout={onContentLayout}
           style={{
             backgroundColor: colors.surface,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.sm,
+            paddingVertical: spacing.sm,
             borderBottomLeftRadius: radii.md,
             borderBottomRightRadius: radii.md,
             borderCurve: "continuous",
@@ -671,7 +809,7 @@ function AccordionSection({
         >
           {children}
         </View>
-      ) : null}
+      </Animated.View>
     </View>
   );
 }
@@ -688,6 +826,51 @@ function SheetModal({
   snapPoints: Array<string | number>;
   children: React.ReactNode;
 }) {
+  if (Platform.OS === "web") {
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <Pressable
+          onPress={onClose}
+          style={{
+            flex: 1,
+            backgroundColor: colors.scrim,
+            justifyContent: "flex-end",
+          }}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              height: snapPoints[0] ?? "56%",
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: radii.lg,
+              borderTopRightRadius: radii.lg,
+              ...shadows.soft,
+            }}
+          >
+            <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 6 }}>
+              <View style={{ width: 44, height: 5, borderRadius: radii.pill, backgroundColor: colors.slate300 }} />
+            </View>
+            <View
+              style={{
+                flex: 1,
+                paddingHorizontal: spacing.lg,
+                paddingTop: spacing.md,
+                paddingBottom: spacing.lg,
+              }}
+            >
+              {children}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  }
+
   const modalRef = useRef<BottomSheetModal>(null);
 
   useEffect(() => {
@@ -756,6 +939,41 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   const [locationEnabled, setLocationEnabled] = useState(true);
   const flipProgress = useSharedValue(0);
   const [cardFlipped, setCardFlipped] = useState(false);
+  const modalDragY = useSharedValue(0);
+  const { height: screenHeight } = Dimensions.get("window");
+
+  // Swipe-up gesture on the collapsed bar to open
+  const barPanGesture = Gesture.Pan()
+    .activeOffsetY([-10, 10])
+    .onEnd((e) => {
+      if (e.translationY < -40 || e.velocityY < -400) {
+        runOnJS(setExpanded)(true);
+      }
+    });
+
+  const barTapGesture = Gesture.Tap().onEnd(() => {
+    runOnJS(setExpanded)(true);
+  });
+
+  const barGesture = Gesture.Race(barPanGesture, barTapGesture);
+
+  // Swipe-down gesture on the expanded modal to close
+  const modalPanGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      modalDragY.value = Math.max(0, e.translationY);
+    })
+    .onEnd((e) => {
+      if (e.translationY > 120 || e.velocityY > 800) {
+        modalDragY.value = withTiming(screenHeight, { duration: 250, easing: Easing.out(Easing.quad) });
+        runOnJS(setExpanded)(false);
+      } else {
+        modalDragY.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.quad) });
+      }
+    });
+
+  const modalDragStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: modalDragY.value }],
+  }));
 
   const flipCard = useCallback(() => {
     const toValue = cardFlipped ? 0 : 1;
@@ -767,7 +985,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
     .activeOffsetX([-15, 15])
     .failOffsetY([-10, 10])
     .onUpdate((e) => {
-      const clamped = Math.max(0, Math.min(1, cardFlipped ? 1 - e.translationX / 200 : e.translationX / -200));
+      const clamped = Math.max(0, Math.min(1, cardFlipped ? 1 - Math.abs(e.translationX) / 200 : Math.abs(e.translationX) / 200));
       flipProgress.value = clamped;
     })
     .onEnd((e) => {
@@ -806,75 +1024,91 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   });
 
   // Collapsed: just the header row + safe area
-  const collapsedHeight = 68 + bottomInset;
-  // Expanded: fill up to the navigation header (status bar + nav bar = insets.top + 44)
-  const { height: screenHeight } = Dimensions.get("window");
-  const expandedHeight = screenHeight - insets.top - 44;
-  const snapPoints = useMemo(() => [collapsedHeight, expandedHeight], [collapsedHeight, expandedHeight]);
+  const collapsedHeight = 88 + bottomInset;
+  const snapPoints = useMemo(() => [collapsedHeight], [collapsedHeight]);
 
   // Card height fills available space dynamically
-  const cardHeight = Math.min(expandedHeight - 68 - 140 - bottomInset, 420);
+  const cardHeight = Math.min(screenHeight - insets.top - 68 - 180 - bottomInset, 420);
 
   const handleToggle = useCallback(() => {
-    if (expanded) {
-      sheetRef.current?.snapToIndex(0);
-    } else {
-      sheetRef.current?.snapToIndex(1);
-    }
-  }, [expanded]);
-
-  const handleSheetChange = useCallback((index: number) => {
-    setExpanded(index > 0);
-    if (index === 0) {
-      setCardFlipped(false);
-      flipProgress.value = withTiming(0, { duration: 200 });
-    }
+    setExpanded((v) => !v);
   }, []);
 
-  return (
-    <BottomSheet
-      ref={sheetRef}
-      index={0}
-      snapPoints={snapPoints}
-      handleComponent={null}
-      onChange={handleSheetChange}
-      backgroundStyle={{
-        backgroundColor: colors.primary,
-        borderTopLeftRadius: radii.xl,
-        borderTopRightRadius: radii.xl,
+  const bottomBar = (
+    <GestureDetector gesture={barGesture}>
+    <Animated.View
+      style={{
+        paddingHorizontal: spacing.lg,
+        paddingTop: 20,
+        paddingBottom: 20,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
       }}
-      animateOnMount={false}
-      overDragResistanceFactor={4}
     >
-      <BottomSheetView style={{ flex: 1, paddingBottom: bottomInset }}>
-        <Pressable
-          onPress={handleToggle}
-          style={{
-            paddingHorizontal: spacing.lg,
-            paddingTop: spacing.md,
-            paddingBottom: 14,
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <View style={{ width: 28, height: 28, borderRadius: radii.xs, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: colors.slate300, fontSize: 14 }}>⛊</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ width: 36, height: 36, borderRadius: radii.sm, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: colors.slate300, fontSize: 18 }}>⛊</Text>
             </View>
             <View>
               <Text selectable style={operatorName}>
                 User #Ben123
               </Text>
-              <Text selectable style={{ color: colors.slate400, fontSize: 9, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>
+              <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>
                 Tap to show ID badge
               </Text>
             </View>
           </View>
-          <Text style={{ color: colors.slate300, fontSize: 18 }}>
-            {expanded ? "✕" : "⌃"}
-          </Text>
-        </Pressable>
+          <Text style={{ color: colors.slate300, fontSize: 14 }}>▴</Text>
+    </Animated.View>
+    </GestureDetector>
+  );
+
+  return (
+    <>
+    <View
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: colors.primary,
+        borderTopLeftRadius: radii.xl,
+        borderTopRightRadius: radii.xl,
+        paddingBottom: bottomInset,
+      }}
+    >
+      {bottomBar}
+    </View>
+
+    <Modal
+      visible={expanded}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setExpanded(false)}
+      onShow={() => { modalDragY.value = 0; }}
+    >
+      <GestureHandlerRootView style={{ flex: 1 }}>
+      <Animated.View style={[{ flex: 1, backgroundColor: colors.primary, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, overflow: "hidden" }, modalDragStyle]}>
+        <GestureDetector gesture={modalPanGesture}>
+        <Animated.View style={{ paddingTop: insets.top + 12, paddingHorizontal: spacing.lg, paddingBottom: 14 }}>
+          <Pressable onPress={() => setExpanded(false)} accessibilityRole="button" accessibilityLabel="Close operator badge">
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View style={{ width: 28, height: 28, borderRadius: radii.xs, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: colors.slate300, fontSize: 14 }}>⛊</Text>
+                </View>
+                <View>
+                  <Text style={operatorName}>User #Ben123</Text>
+                  <Text style={{ color: colors.slate400, fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Tap to close</Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.slate300, fontSize: 16 }}>×</Text>
+            </View>
+          </Pressable>
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.primarySoft, alignSelf: "center", marginTop: 8 }} />
+        </Animated.View>
+        </GestureDetector>
 
         <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md, flex: 1 }}>
           <View style={{ height: 1, backgroundColor: colors.primarySoft }} />
@@ -897,19 +1131,19 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                     <Text style={{ color: colors.surface, fontSize: 28, fontWeight: "900" }}>BD</Text>
                   </View>
                   <View style={{ flex: 1, gap: 4, justifyContent: "center" }}>
-                    <Text selectable style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
+                    <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
                       Ben Driver
                     </Text>
                     <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                      <Text selectable style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>
+                      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>
                         ID: 099-242
                       </Text>
                       <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.slate300 }} />
-                      <Text selectable style={{ color: colors.green, fontSize: 10, fontWeight: "800", textTransform: "uppercase" }}>
+                      <Text style={{ color: colors.green, fontSize: 13, fontWeight: "800", textTransform: "uppercase" }}>
                         Active
                       </Text>
                     </View>
-                    <Text selectable style={{ color: colors.slate400, fontSize: 11, fontWeight: "600" }}>
+                    <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600" }}>
                       Certified since March 2024
                     </Text>
                   </View>
@@ -918,7 +1152,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                 <View style={{ height: 1, backgroundColor: colors.slate100 }} />
 
                 <View style={{ gap: 10 }}>
-                  <Text style={{ color: colors.slate400, fontSize: 9, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.5 }}>
+                  <Text style={{ color: colors.slate400, fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
                     Certifications
                   </Text>
                   {[
@@ -932,9 +1166,9 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                         <View style={{ width: 20, height: 20, borderRadius: radii.xs, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }}>
                           <Text style={{ color: colors.green, fontSize: 8, fontWeight: "900" }}>{cert.icon}</Text>
                         </View>
-                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>{cert.label}</Text>
+                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>{cert.label}</Text>
                       </View>
-                      <Text style={{ color: colors.slate400, fontSize: 11, fontWeight: "600" }}>{cert.date}</Text>
+                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "500" }}>{cert.date}</Text>
                     </View>
                   ))}
                 </View>
@@ -942,7 +1176,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                 <View style={{ flex: 1 }} />
 
                 <View style={{ alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "700" }}>Tap or swipe to show QR</Text>
+                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "700" }}>Tap or swipe to show QR</Text>
                   <Text style={{ color: colors.slate300, fontSize: 12 }}>↻</Text>
                 </View>
               </View>
@@ -991,13 +1225,13 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                   <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>
                     ID: 099-242
                   </Text>
-                  <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "600", textAlign: "center", lineHeight: 16, paddingHorizontal: 20 }}>
+                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 16, paddingHorizontal: 20 }}>
                     Scan to verify operator identity and certification status
                   </Text>
                 </View>
 
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "700" }}>Tap or swipe to show ID</Text>
+                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "700" }}>Tap or swipe to show ID</Text>
                   <Text style={{ color: colors.slate300, fontSize: 12 }}>↻</Text>
                 </View>
               </View>
@@ -1008,19 +1242,21 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Pressable
               onPress={() => setLocationEnabled((c) => !c)}
+              accessibilityRole="button"
+              accessibilityLabel={locationEnabled ? "Disable location sharing" : "Enable location sharing"}
               style={{
                 flex: 1,
                 borderRadius: radii.md,
                 borderCurve: "continuous",
-                backgroundColor: locationEnabled ? "rgba(22, 163, 74, 0.15)" : "rgba(220, 38, 38, 0.15)",
+                backgroundColor: locationEnabled ? colors.greenSoftDark : colors.errorSoftDark,
                 paddingVertical: 14,
                 alignItems: "center",
               }}
             >
-              <Text selectable style={{
-                color: locationEnabled ? "#86EFAC" : "#FCA5A5",
-                fontSize: 10,
-                fontWeight: "900",
+              <Text style={{
+                color: locationEnabled ? colors.greenLight : colors.errorLight,
+                fontSize: 13,
+                fontWeight: "700",
                 textTransform: "uppercase",
                 letterSpacing: 1,
               }}>
@@ -1029,6 +1265,8 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
             </Pressable>
             <Pressable
               onPress={() => router.push("/settings")}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
               style={{
                 flex: 1,
                 borderRadius: radii.md,
@@ -1038,91 +1276,75 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                 alignItems: "center",
               }}
             >
-              <Text selectable style={{ color: colors.slate300, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1 }}>
+              <Text style={{ color: colors.slate300, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
                 Settings
               </Text>
             </Pressable>
           </View>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Emergency assistance"
             style={{
               borderRadius: radii.md,
               borderCurve: "continuous",
-              backgroundColor: "rgba(220, 38, 38, 0.2)",
+              backgroundColor: colors.errorSoftStrong,
               paddingVertical: 16,
               alignItems: "center",
             }}
           >
-            <Text selectable style={{ color: "#FCA5A5", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.5 }}>
+            <Text style={{ color: colors.errorLight, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.5 }}>
               Emergency
             </Text>
           </Pressable>
         </View>
-      </BottomSheetView>
-    </BottomSheet>
-  );
-}
-
-function Avatar({ initials, size }: { initials: string; size: number }) {
-  return (
-    <GradientCard padding={0} borderRadius={size / 2}>
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Text
-          selectable
-          style={{
-            color: colors.surface,
-            fontSize: size * 0.34,
-            fontWeight: "900",
-          }}
-        >
-          {initials}
-        </Text>
-      </View>
-    </GradientCard>
+      </Animated.View>
+      </GestureHandlerRootView>
+    </Modal>
+    </>
   );
 }
 
 function MiniMap() {
+  const { location } = useLocation();
+  const { activeRide } = useDispatch();
+
+  const pickup = activeRide?.pickupCoords ?? { latitude: 37.788, longitude: -122.408 };
+  const dropoff = activeRide?.dropoffCoords ?? { latitude: 37.775, longitude: -122.42 };
+
+  const center = location
+    ? { latitude: location.latitude, longitude: location.longitude }
+    : pickup;
+
   return (
     <MapView
       style={{ flex: 1 }}
       initialRegion={{
-        latitude: 37.782,
-        longitude: -122.413,
+        ...center,
         latitudeDelta: 0.025,
         longitudeDelta: 0.025,
       }}
+      region={location ? { ...center, latitudeDelta: 0.025, longitudeDelta: 0.025 } : undefined}
       scrollEnabled={false}
       zoomEnabled={false}
       pitchEnabled={false}
       rotateEnabled={false}
       pointerEvents="none"
+      showsUserLocation
+      showsMyLocationButton={false}
     >
       <Marker
-        coordinate={{ latitude: 37.788, longitude: -122.408 }}
+        coordinate={pickup}
         title="Pickup"
         pinColor={colors.blue}
       />
       <Marker
-        coordinate={{ latitude: 37.775, longitude: -122.42 }}
+        coordinate={dropoff}
         title="Drop-off"
         pinColor={colors.green}
       />
       <Polyline
-        coordinates={[
-          { latitude: 37.788, longitude: -122.408 },
-          { latitude: 37.783, longitude: -122.412 },
-          { latitude: 37.778, longitude: -122.416 },
-          { latitude: 37.775, longitude: -122.42 },
-        ]}
+        coordinates={[pickup, dropoff]}
         strokeColor={colors.blue}
         strokeWidth={3}
       />
@@ -1142,7 +1364,7 @@ function InfoTile({ label, value }: { label: string; value: string }) {
         gap: 4,
       }}
     >
-      <Text selectable style={microLabel}>
+      <Text style={microLabel}>
         {label}
       </Text>
       <Text selectable style={infoTileValue}>
@@ -1152,37 +1374,10 @@ function InfoTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SmallButton({ label, filled, onPress }: { label: string; filled?: boolean; onPress?: () => void }) {
-  return (
-    <Pressable onPress={onPress}>
-      <View
-        style={{
-          backgroundColor: filled ? colors.blue : colors.surfaceLow,
-          borderRadius: radii.xs,
-          paddingHorizontal: 12,
-          paddingVertical: 10,
-        }}
-      >
-        <Text
-          selectable
-          style={{
-            color: filled ? colors.surface : colors.primary,
-            fontSize: 10,
-            fontWeight: "800",
-            letterSpacing: 1,
-            textTransform: "uppercase",
-          }}
-        >
-          {label}
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
 
 const eyebrow = {
   color: colors.slate400,
-  fontSize: 10,
+  fontSize: 12,
   fontWeight: "700" as const,
   textTransform: "uppercase" as const,
   letterSpacing: 2,
@@ -1190,8 +1385,8 @@ const eyebrow = {
 
 const primaryActionText = {
   color: colors.surface,
-  fontSize: 13,
-  fontWeight: "900" as const,
+  fontSize: 14,
+  fontWeight: "800" as const,
   textAlign: "center" as const,
   letterSpacing: 1.5,
   textTransform: "uppercase" as const,
@@ -1199,16 +1394,16 @@ const primaryActionText = {
 
 const sectionTitle = {
   color: colors.primary,
-  fontSize: 15,
-  fontWeight: "900" as const,
+  fontSize: 16,
+  fontWeight: "700" as const,
   textTransform: "uppercase" as const,
   letterSpacing: 0.5,
 };
 
 const timeBadge = {
   color: colors.blue,
-  fontSize: 12,
-  fontWeight: "900" as const,
+  fontSize: 14,
+  fontWeight: "700" as const,
   backgroundColor: colors.blueSoft,
   paddingHorizontal: 8,
   paddingVertical: 4,
@@ -1218,28 +1413,28 @@ const timeBadge = {
 
 const microLabel = {
   color: colors.slate400,
-  fontSize: 10,
-  fontWeight: "800" as const,
+  fontSize: 12,
+  fontWeight: "600" as const,
   textTransform: "uppercase" as const,
   letterSpacing: 1,
 };
 
 const cardTitle = {
   color: colors.primary,
-  fontSize: 22,
+  fontSize: 24,
   fontWeight: "900" as const,
 };
 
 const cardMeta = {
   color: colors.slate500,
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: "600" as const,
   textTransform: "uppercase" as const,
 };
 
 const pastRideName = {
   color: colors.primary,
-  fontSize: 15,
+  fontSize: 18,
   fontWeight: "800" as const,
 };
 
@@ -1252,8 +1447,8 @@ const requestMinutes = {
 
 const declineText = {
   color: colors.error,
-  fontSize: 10,
-  fontWeight: "800" as const,
+  fontSize: 12,
+  fontWeight: "700" as const,
   textAlign: "center" as const,
   textTransform: "uppercase" as const,
   letterSpacing: 1.5,
@@ -1261,14 +1456,14 @@ const declineText = {
 
 const emptyStateHeading = {
   color: colors.primary,
-  fontSize: 15,
-  fontWeight: "800" as const,
+  fontSize: 17,
+  fontWeight: "700" as const,
 };
 
 const emptyStateText = {
   color: colors.slate400,
-  fontSize: 11,
-  fontWeight: "700" as const,
+  fontSize: 14,
+  fontWeight: "500" as const,
   textAlign: "center" as const,
 };
 
@@ -1292,7 +1487,7 @@ const modalSectionTitle = {
 };
 
 const alertCardStyle = {
-  backgroundColor: "rgba(220, 38, 38, 0.06)",
+  backgroundColor: colors.errorSoft,
   borderRadius: radii.md,
   borderCurve: "continuous" as const,
   padding: spacing.lg,
@@ -1301,17 +1496,17 @@ const alertCardStyle = {
 
 const alertTitle = {
   color: colors.error,
-  fontSize: 11,
-  fontWeight: "900" as const,
+  fontSize: 12,
+  fontWeight: "700" as const,
   textTransform: "uppercase" as const,
   letterSpacing: 1.3,
 };
 
 const alertBody = {
   color: colors.primary,
-  fontSize: 15,
+  fontSize: 16,
   fontWeight: "600" as const,
-  lineHeight: 22,
+  lineHeight: 24,
 };
 
 const infoRowCard = {
@@ -1326,7 +1521,7 @@ const infoRowCard = {
 
 const infoRowValue = {
   color: colors.primary,
-  fontSize: 15,
+  fontSize: 17,
   fontWeight: "700" as const,
 };
 
@@ -1339,14 +1534,14 @@ const callPill = {
 
 const protocolCaption = {
   color: colors.slate500,
-  fontSize: 10,
+  fontSize: 12,
   fontWeight: "700" as const,
   textTransform: "uppercase" as const,
 };
 
 const nextActionLabel = {
   color: colors.blue,
-  fontSize: 10,
+  fontSize: 12,
   fontWeight: "900" as const,
   textTransform: "uppercase" as const,
   letterSpacing: 1.4,
@@ -1368,7 +1563,7 @@ const routeSecondaryTitle = {
 
 const routeSubtitle = {
   color: colors.slate500,
-  fontSize: 14,
+  fontSize: 16,
   fontWeight: "500" as const,
 };
 
@@ -1394,7 +1589,7 @@ const destinationPin = {
 
 const destinationLabel = {
   color: colors.primary,
-  fontSize: 12,
+  fontSize: 13,
   fontWeight: "900" as const,
   textTransform: "uppercase" as const,
   letterSpacing: 1.5,
@@ -1407,8 +1602,87 @@ const destinationTitle = {
   textAlign: "left" as const,
 };
 
+// ── Extracted from loops (M4 perf) ──────────────────────────
+
+const rowCenter = {
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 8,
+};
+
+const routeDotBlue = {
+  width: 7,
+  height: 7,
+  borderRadius: radii.pill,
+  backgroundColor: colors.blue,
+};
+
+const routeDotGreen = {
+  width: 7,
+  height: 7,
+  borderRadius: radii.pill,
+  backgroundColor: colors.green,
+};
+
+const routeAddressText = {
+  color: colors.slate500,
+  fontSize: 14,
+  fontWeight: "600" as const,
+};
+
+const requestCard = {
+  backgroundColor: colors.surface,
+  borderRadius: radii.md,
+  padding: spacing.lg,
+  gap: spacing.md,
+  overflow: "hidden" as const,
+  borderCurve: "continuous" as const,
+  ...shadows.soft,
+};
+
+const requestTopBar = {
+  position: "absolute" as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  height: 4,
+  backgroundColor: colors.primary,
+};
+
+const requestTimeBadge = {
+  color: colors.blue,
+  fontSize: 14,
+  fontWeight: "700" as const,
+  backgroundColor: colors.blueSoft,
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: radii.xs,
+  overflow: "hidden" as const,
+};
+
+const requestIdBadge = {
+  alignSelf: "flex-start" as const,
+  backgroundColor: colors.primary,
+  paddingHorizontal: 10,
+  paddingVertical: 6,
+  borderRadius: radii.xs,
+};
+
+const requestIdText = {
+  color: colors.accent,
+  fontSize: 13,
+  fontWeight: "600" as const,
+  letterSpacing: 1,
+};
+
+const dispatcherHint = {
+  color: colors.slate400,
+  fontSize: 13,
+  fontWeight: "600" as const,
+};
+
 const infoTileValue = {
   color: colors.primary,
-  fontSize: 16,
+  fontSize: 18,
   fontWeight: "800" as const,
 };

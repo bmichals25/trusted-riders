@@ -1,9 +1,10 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline } from "@/components/Map";
 
 import { GradientCard } from "@/components/ui/gradient-card";
+import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { colors, radii, spacing } from "@/lib/theme";
 
@@ -116,14 +117,14 @@ export default function PastRideScreen() {
           <View style={{ gap: 6, flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <StatusBadge status="completed" />
-              <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.5 }}>
+              <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
                 {ride.date}
               </Text>
             </View>
             <Text style={{ color: colors.primary, fontSize: 28, fontWeight: "900" }}>
               {ride.name}
             </Text>
-            <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textTransform: "uppercase" }}>
+            <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "500", textTransform: "uppercase" }}>
               {ride.type}
             </Text>
           </View>
@@ -131,7 +132,7 @@ export default function PastRideScreen() {
             <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
               {ride.fare}
             </Text>
-            <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "800", textTransform: "uppercase" }}>
+            <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase" }}>
               Fare
             </Text>
           </View>
@@ -151,13 +152,13 @@ export default function PastRideScreen() {
           </View>
         </View>
 
-        <Pressable onPress={() => router.push({ pathname: "/chat", params: { rideId: "past", riderName: ride.name } })}>
+        <Pressable onPress={() => router.push({ pathname: "/chat", params: { rideId: "past", riderName: ride.name } })} accessibilityRole="button" accessibilityLabel="View chat history">
           <GradientCard padding={16}>
             <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
-              <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.5 }}>
+              <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>
                 View Chat History
               </Text>
-              <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "900" }}>→</Text>
+              <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800" }}>→</Text>
             </View>
           </GradientCard>
         </Pressable>
@@ -177,28 +178,12 @@ function StatTile({ label, value }: { label: string; value: string }) {
       alignItems: "center",
       gap: 4,
     }}>
-      <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800" }}>
+      <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "700" }}>
         {value}
       </Text>
-      <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
+      <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>
         {label}
       </Text>
-    </View>
-  );
-}
-
-function LocationRow({ color, label, address }: { color: string; label: string; address: string }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ color: colors.slate400, fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>
-          {label}
-        </Text>
-        <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "700" }}>
-          {address}
-        </Text>
-      </View>
     </View>
   );
 }
