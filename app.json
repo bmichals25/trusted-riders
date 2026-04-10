@@ -6,13 +6,50 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": false
+      "bundleIdentifier": "com.trustedriders.prototype",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "TrustedRiders needs your location to show your position on the map and calculate routes to pickups.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "TrustedRiders needs background location access to track your position during active missions and share it with dispatch.",
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ]
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      "expo-task-manager",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "TrustedRiders needs your location to navigate to pickups and share your position with dispatch during active missions.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9b68846e-95f5-471a-95d1-452666314e18"
+      }
+    },
+    "owner": "benmichals"
   }
 }

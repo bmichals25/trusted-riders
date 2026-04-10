@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextStyle,
@@ -55,6 +56,7 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<TabKey | null>("current");
   const [directionsOpen, setDirectionsOpen] = useState(false);
   const [riderProfileOpen, setRiderProfileOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { pendingRides, scheduledRides: dispatchedScheduled, activeRide, acceptRide, declineRide } = useDispatch();
   const { impact, notification, selection } = useHaptics();
 
@@ -98,6 +100,17 @@ export default function HomeScreen() {
         contentContainerStyle={{
           paddingBottom: 100,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              setTimeout(() => setRefreshing(false), 1500);
+            }}
+            tintColor={colors.blue}
+            colors={[colors.blue]}
+          />
+        }
       >
         <LocationPermissionBanner />
         <View
@@ -970,7 +983,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
 
   const tapGestureSheet = Gesture.Tap().onEnd(() => {
     runOnJS(impact)(ImpactFeedbackStyle.Light);
-    runOnJS(setExpanded)(true);
+    runOnJS(open)();
   });
 
   const sheetGesture = Gesture.Race(panGestureSheet, tapGestureSheet);
