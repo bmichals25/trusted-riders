@@ -116,7 +116,7 @@ export default function HomeScreen() {
             {activeRide ? (
               <View style={{ gap: spacing.md }}>
                 <Pressable
-                  onPress={() => setRiderProfileOpen(true)}
+                  onPress={() => { impact(ImpactFeedbackStyle.Light); setRiderProfileOpen(true); }}
                   accessibilityRole="button"
                   accessibilityLabel={`View rider profile for ${activeRide.passengerName}`}
                   style={({ pressed }) => ({
@@ -153,7 +153,7 @@ export default function HomeScreen() {
                 </Pressable>
 
                 <Pressable
-                  onPress={() => router.push("/mission")}
+                  onPress={() => { impact(ImpactFeedbackStyle.Light); router.push("/mission"); }}
                   accessibilityRole="button"
                   accessibilityLabel="Open live mission map"
                   style={({ pressed }) => ({
@@ -181,7 +181,7 @@ export default function HomeScreen() {
                   </View>
                 </Pressable>
 
-                <Pressable onPress={() => router.push("/mission")} accessibilityRole="button" accessibilityLabel="Track live mission">
+                <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); router.push("/mission"); }} accessibilityRole="button" accessibilityLabel="Track live mission">
                   <GradientCard padding={16}>
                     <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
                       <Text style={primaryActionText}>Track Live Mission</Text>
@@ -256,7 +256,7 @@ export default function HomeScreen() {
               {dispatchedScheduled.map((ride) => (
                 <Pressable
                   key={ride.id}
-                  onPress={() => router.push({ pathname: "/ride-details", params: { rideId: ride.id } })}
+                  onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/ride-details", params: { rideId: ride.id } }); }}
                   style={({ pressed }) => ({
                     backgroundColor: colors.surface,
                     borderRadius: radii.md,
@@ -303,7 +303,7 @@ export default function HomeScreen() {
               {scheduledRides.map((ride) => (
                 <Pressable
                   key={ride.id}
-                  onPress={() => router.push({ pathname: "/ride-details", params: { rideId: ride.id } })}
+                  onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/ride-details", params: { rideId: ride.id } }); }}
                   style={({ pressed }) => ({
                     backgroundColor: colors.surface,
                     borderRadius: radii.md,
@@ -389,7 +389,7 @@ export default function HomeScreen() {
               {pastRides.map((ride, index) => (
                 <Pressable
                   key={ride.name}
-                  onPress={() => router.push({ pathname: "/past-ride", params: { riderName: ride.name } })}
+                  onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/past-ride", params: { riderName: ride.name } }); }}
                   accessibilityRole="button"
                   accessibilityLabel={`View past ride with ${ride.name}`}
                   style={({ pressed }) => ({
@@ -602,7 +602,7 @@ export default function HomeScreen() {
             </Text>
           </View>
         </ScrollView>
-        <Pressable onPress={() => setRiderProfileOpen(false)} accessibilityRole="button" accessibilityLabel="Return to mission">
+        <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setRiderProfileOpen(false); }} accessibilityRole="button" accessibilityLabel="Return to mission">
           <GradientCard padding={18}>
             <Text style={primaryActionText}>Return to Mission</Text>
           </GradientCard>
@@ -619,7 +619,7 @@ export default function HomeScreen() {
             <Text selectable style={modalSectionTitle}>
               Route Protocol
             </Text>
-            <Pressable onPress={() => setDirectionsOpen(false)} accessibilityRole="button" accessibilityLabel="Dismiss directions" style={{ minHeight: 44, justifyContent: "center" }}>
+            <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setDirectionsOpen(false); }} accessibilityRole="button" accessibilityLabel="Dismiss directions" style={{ minHeight: 44, justifyContent: "center" }}>
               <Text style={microLabel}>
                 Dismiss
               </Text>
@@ -695,7 +695,7 @@ export default function HomeScreen() {
             </Text>
           </View>
         </ScrollView>
-        <Pressable onPress={() => setDirectionsOpen(false)} accessibilityRole="button" accessibilityLabel="Return to map">
+        <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setDirectionsOpen(false); }} accessibilityRole="button" accessibilityLabel="Return to map">
           <GradientCard padding={18}>
             <Text style={primaryActionText}>Return to Map</Text>
           </GradientCard>
@@ -933,375 +933,172 @@ function SheetModal({
 
 function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   const insets = useSafeAreaInsets();
-  const sheetRef = useRef<BottomSheet>(null);
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const { impact, notification, selection } = useHaptics();
   const [locationEnabled, setLocationEnabled] = useState(true);
   const flipProgress = useSharedValue(0);
   const [cardFlipped, setCardFlipped] = useState(false);
-  const modalDragY = useSharedValue(0);
   const { height: screenHeight } = Dimensions.get("window");
 
-  // Swipe-up gesture on the collapsed bar to open
-  const barPanGesture = Gesture.Pan()
-    .activeOffsetY([-10, 10])
+  const collapsedHeight = 88 + bottomInset;
+  const expandedHeight = screenHeight - insets.top - 20;
+  const sheetY = useSharedValue(0); // 0 = collapsed, 1 = expanded
+
+  const open = useCallback(() => {
+    sheetY.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.quad) });
+  }, []);
+
+  const close = useCallback(() => {
+    sheetY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+  }, []);
+
+  const panGestureSheet = Gesture.Pan()
+    .onUpdate((e) => {
+      // Dragging up from collapsed (negative translationY) or down from expanded
+      const current = sheetY.value;
+      const delta = -e.translationY / (expandedHeight - collapsedHeight);
+      sheetY.value = Math.max(0, Math.min(1, current + delta * 0.015));
+    })
     .onEnd((e) => {
-      if (e.translationY < -40 || e.velocityY < -400) {
-        runOnJS(setExpanded)(true);
+      const vy = -e.velocityY;
+      if (sheetY.value > 0.5 || vy > 500) {
+        sheetY.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.quad) });
+      } else if (sheetY.value < 0.5 || vy < -500) {
+        sheetY.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.quad) });
       }
     });
 
-  const barTapGesture = Gesture.Tap().onEnd(() => {
+  const tapGestureSheet = Gesture.Tap().onEnd(() => {
+    runOnJS(impact)(ImpactFeedbackStyle.Light);
     runOnJS(setExpanded)(true);
   });
 
-  const barGesture = Gesture.Race(barPanGesture, barTapGesture);
+  const sheetGesture = Gesture.Race(panGestureSheet, tapGestureSheet);
 
-  // Swipe-down gesture on the expanded modal to close
-  const modalPanGesture = Gesture.Pan()
-    .onUpdate((e) => {
-      modalDragY.value = Math.max(0, e.translationY);
-    })
-    .onEnd((e) => {
-      if (e.translationY > 120 || e.velocityY > 800) {
-        modalDragY.value = withTiming(screenHeight, { duration: 250, easing: Easing.out(Easing.quad) });
-        runOnJS(setExpanded)(false);
-      } else {
-        modalDragY.value = withTiming(0, { duration: 250, easing: Easing.out(Easing.quad) });
-      }
-    });
-
-  const modalDragStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: modalDragY.value }],
-  }));
+  const sheetAnimatedStyle = useAnimatedStyle(() => {
+    const height = collapsedHeight + (expandedHeight - collapsedHeight) * sheetY.value;
+    return { height };
+  });
 
   const flipCard = useCallback(() => {
-    const toValue = cardFlipped ? 0 : 1;
-    flipProgress.value = withTiming(toValue, { duration: 400, easing: Easing.out(Easing.quad) });
+    flipProgress.value = withTiming(cardFlipped ? 0 : 1, { duration: 400, easing: Easing.out(Easing.quad) });
     setCardFlipped(!cardFlipped);
   }, [cardFlipped]);
 
-  const panGesture = Gesture.Pan()
-    .activeOffsetX([-15, 15])
-    .failOffsetY([-10, 10])
-    .onUpdate((e) => {
-      const clamped = Math.max(0, Math.min(1, cardFlipped ? 1 - Math.abs(e.translationX) / 200 : Math.abs(e.translationX) / 200));
-      flipProgress.value = clamped;
-    })
-    .onEnd((e) => {
-      const shouldFlip = Math.abs(e.translationX) > 60;
-      if (shouldFlip) {
-        const newVal = cardFlipped ? 0 : 1;
-        flipProgress.value = withTiming(newVal, { duration: 250 });
-        runOnJS(setCardFlipped)(!cardFlipped);
-      } else {
-        flipProgress.value = withTiming(cardFlipped ? 1 : 0, { duration: 250 });
-      }
-    });
+  const cardPan = Gesture.Pan().activeOffsetX([-15, 15]).failOffsetY([-10, 10])
+    .onUpdate((e) => { flipProgress.value = Math.max(0, Math.min(1, cardFlipped ? 1 - Math.abs(e.translationX) / 200 : Math.abs(e.translationX) / 200)); })
+    .onEnd((e) => { const flip = Math.abs(e.translationX) > 60; flipProgress.value = withTiming(flip ? (cardFlipped ? 0 : 1) : (cardFlipped ? 1 : 0), { duration: 250 }); if (flip) runOnJS(setCardFlipped)(!cardFlipped); });
+  const cardTap = Gesture.Tap().onEnd(() => { runOnJS(flipCard)(); });
+  const cardGesture = Gesture.Exclusive(cardPan, cardTap);
 
-  const tapGesture = Gesture.Tap().onEnd(() => {
-    runOnJS(flipCard)();
-  });
+  const frontStyle = useAnimatedStyle(() => ({ transform: [{ perspective: 1000 }, { rotateY: `${interpolate(flipProgress.value, [0, 1], [0, 180])}deg` }], backfaceVisibility: "hidden" as const }));
+  const backStyle = useAnimatedStyle(() => ({ transform: [{ perspective: 1000 }, { rotateY: `${interpolate(flipProgress.value, [0, 1], [180, 360])}deg` }], backfaceVisibility: "hidden" as const, position: "absolute" as const, top: 0, left: 0, right: 0, bottom: 0 }));
 
-  const cardGesture = Gesture.Exclusive(panGesture, tapGesture);
+  const cardHeight = Math.min(screenHeight - insets.top - 300, 420);
 
-  const frontAnimatedStyle = useAnimatedStyle(() => {
-    const rotateY = interpolate(flipProgress.value, [0, 1], [0, 180]);
-    return {
-      transform: [{ perspective: 1000 }, { rotateY: `${rotateY}deg` }],
-      backfaceVisibility: "hidden" as const,
-    };
-  });
-
-  const backAnimatedStyle = useAnimatedStyle(() => {
-    const rotateY = interpolate(flipProgress.value, [0, 1], [180, 360]);
-    return {
-      transform: [{ perspective: 1000 }, { rotateY: `${rotateY}deg` }],
-      backfaceVisibility: "hidden" as const,
-      position: "absolute" as const,
-      top: 0, left: 0, right: 0, bottom: 0,
-    };
-  });
-
-  // Collapsed: just the header row + safe area
-  const collapsedHeight = 88 + bottomInset;
-  const snapPoints = useMemo(() => [collapsedHeight], [collapsedHeight]);
-
-  // Card height fills available space dynamically
-  const cardHeight = Math.min(screenHeight - insets.top - 68 - 180 - bottomInset, 420);
-
-  const handleToggle = useCallback(() => {
-    setExpanded((v) => !v);
-  }, []);
-
-  const bottomBar = (
-    <GestureDetector gesture={barGesture}>
-    <Animated.View
-      style={{
-        paddingHorizontal: spacing.lg,
-        paddingTop: 20,
-        paddingBottom: 20,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <View style={{ width: 36, height: 36, borderRadius: radii.sm, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: colors.slate300, fontSize: 18 }}>⛊</Text>
-            </View>
-            <View>
-              <Text selectable style={operatorName}>
-                User #Ben123
-              </Text>
-              <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>
-                Tap to show ID badge
-              </Text>
-            </View>
-          </View>
-          <Text style={{ color: colors.slate300, fontSize: 14 }}>▴</Text>
-    </Animated.View>
-    </GestureDetector>
-  );
+  const contentOpacity = useAnimatedStyle(() => ({
+    opacity: interpolate(sheetY.value, [0, 0.3, 1], [0, 0, 1]),
+  }));
 
   return (
-    <>
-    <View
-      style={{
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: colors.primary,
-        borderTopLeftRadius: radii.xl,
-        borderTopRightRadius: radii.xl,
-        paddingBottom: bottomInset,
-      }}
-    >
-      {bottomBar}
-    </View>
-
-    <Modal
-      visible={expanded}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setExpanded(false)}
-      onShow={() => { modalDragY.value = 0; }}
-    >
-      <GestureHandlerRootView style={{ flex: 1 }}>
-      <Animated.View style={[{ flex: 1, backgroundColor: colors.primary, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, overflow: "hidden" }, modalDragStyle]}>
-        <GestureDetector gesture={modalPanGesture}>
-        <Animated.View style={{ paddingTop: insets.top + 12, paddingHorizontal: spacing.lg, paddingBottom: 14 }}>
-          <Pressable onPress={() => setExpanded(false)} accessibilityRole="button" accessibilityLabel="Close operator badge">
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <View style={{ width: 28, height: 28, borderRadius: radii.xs, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: colors.slate300, fontSize: 14 }}>⛊</Text>
-                </View>
-                <View>
-                  <Text style={operatorName}>User #Ben123</Text>
-                  <Text style={{ color: colors.slate400, fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Tap to close</Text>
-                </View>
+    <GestureHandlerRootView style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
+      <GestureDetector gesture={sheetGesture}>
+        <Animated.View style={[{ backgroundColor: colors.primary, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, paddingBottom: bottomInset }, sheetAnimatedStyle]}>
+          {/* Handle */}
+          <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}>
+            <View style={{ width: 40, height: 5, borderRadius: radii.pill, backgroundColor: colors.primarySoft }} />
+          </View>
+          {/* Header */}
+          <View style={{ paddingHorizontal: spacing.lg, paddingTop: 8, paddingBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: radii.sm, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: colors.slate300, fontSize: 18 }}>⛊</Text>
               </View>
-              <Text style={{ color: colors.slate300, fontSize: 16 }}>×</Text>
+              <View>
+                <Text style={operatorName}>User #Ben123</Text>
+                <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Operator ID</Text>
+              </View>
             </View>
-          </Pressable>
-          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.primarySoft, alignSelf: "center", marginTop: 8 }} />
-        </Animated.View>
-        </GestureDetector>
-
-        <View style={{ paddingHorizontal: spacing.lg, gap: spacing.md, flex: 1 }}>
-          <View style={{ height: 1, backgroundColor: colors.primarySoft }} />
-
-          <GestureDetector gesture={cardGesture}>
-          <View style={{ height: cardHeight }}>
-            <Animated.View style={[{ backgroundColor: colors.surface, borderRadius: 12, borderCurve: "continuous", overflow: "hidden", height: cardHeight }, frontAnimatedStyle]}>
-              <View style={{ padding: 20, gap: 18, flex: 1 }}>
-                <View style={{ flexDirection: "row", gap: 16 }}>
-                  <View
-                    style={{
-                      width: 80,
-                      height: 96,
-                      borderRadius: radii.sm,
-                      backgroundColor: colors.primary,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ color: colors.surface, fontSize: 28, fontWeight: "900" }}>BD</Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 4, justifyContent: "center" }}>
-                    <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
-                      Ben Driver
-                    </Text>
-                    <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>
-                        ID: 099-242
-                      </Text>
-                      <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.slate300 }} />
-                      <Text style={{ color: colors.green, fontSize: 13, fontWeight: "800", textTransform: "uppercase" }}>
-                        Active
-                      </Text>
-                    </View>
-                    <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600" }}>
-                      Certified since March 2024
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={{ height: 1, backgroundColor: colors.slate100 }} />
-
-                <View style={{ gap: 10 }}>
-                  <Text style={{ color: colors.slate400, fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
-                    Certifications
-                  </Text>
-                  {[
-                    { label: "TrustedRiders Certified", date: "Mar 2024", icon: "◆" },
-                    { label: "ADA Compliance", date: "Jun 2024", icon: "◆" },
-                    { label: "Wheelchair Assist", date: "Mar 2024", icon: "◆" },
-                    { label: "First Aid / CPR", date: "Jan 2025", icon: "+" },
-                  ].map((cert) => (
-                    <View key={cert.label} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <View style={{ width: 20, height: 20, borderRadius: radii.xs, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ color: colors.green, fontSize: 8, fontWeight: "900" }}>{cert.icon}</Text>
+            <Pressable onPress={() => { if (sheetY.value > 0.5) close(); else open(); }}>
+              <Text style={{ color: colors.slate300, fontSize: 14 }}>▴</Text>
+            </Pressable>
+          </View>
+          {/* Expandable content */}
+          <Animated.View style={[{ flex: 1, overflow: "hidden" }, contentOpacity]}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+              <View style={{ height: 1, backgroundColor: colors.primarySoft }} />
+              <GestureDetector gesture={cardGesture}>
+              <View style={{ height: cardHeight }}>
+                <Animated.View style={[{ backgroundColor: colors.surface, borderRadius: 12, borderCurve: "continuous", overflow: "hidden", height: cardHeight }, frontStyle]}>
+                  <View style={{ padding: 20, gap: 18, flex: 1 }}>
+                    <View style={{ flexDirection: "row", gap: 16 }}>
+                      <View style={{ width: 80, height: 96, borderRadius: radii.sm, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ color: colors.surface, fontSize: 28, fontWeight: "900" }}>BD</Text>
+                      </View>
+                      <View style={{ flex: 1, gap: 4, justifyContent: "center" }}>
+                        <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>Ben Driver</Text>
+                        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>ID: 099-242</Text>
+                          <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.slate300 }} />
+                          <Text style={{ color: colors.green, fontSize: 13, fontWeight: "800", textTransform: "uppercase" }}>Active</Text>
                         </View>
-                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>{cert.label}</Text>
+                        <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600" }}>Certified since March 2024</Text>
                       </View>
-                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "500" }}>{cert.date}</Text>
                     </View>
-                  ))}
-                </View>
-
-                <View style={{ flex: 1 }} />
-
-                <View style={{ alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "700" }}>Tap or swipe to show QR</Text>
-                  <Text style={{ color: colors.slate300, fontSize: 12 }}>↻</Text>
-                </View>
-              </View>
-            </Animated.View>
-
-            <Animated.View style={[{ backgroundColor: colors.surface, borderRadius: 12, borderCurve: "continuous", overflow: "hidden", height: cardHeight }, backAnimatedStyle]}>
-              <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 24 }}>
-                <View
-                  style={{
-                    width: 180,
-                    height: 180,
-                    backgroundColor: colors.surfaceLow,
-                    borderRadius: radii.md,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderWidth: 1,
-                    borderColor: colors.slate100,
-                  }}
-                >
-                  <View style={{ gap: 3, alignItems: "center" }}>
-                    {[0, 1, 2, 3, 4, 5, 6].map((row) => (
-                      <View key={row} style={{ flexDirection: "row", gap: 3 }}>
-                        {[0, 1, 2, 3, 4, 5, 6].map((col) => (
-                          <View
-                            key={col}
-                            style={{
-                              width: 18,
-                              height: 18,
-                              borderRadius: 2,
-                              backgroundColor:
-                                (row < 3 && col < 3) || (row < 3 && col > 3) || (row > 3 && col < 3)
-                                  ? (row + col) % 2 === 0 ? colors.primary : colors.surface
-                                  : (row * col + row) % 3 === 0 ? colors.primary : colors.slate200,
-                            }}
-                          />
-                        ))}
-                      </View>
-                    ))}
+                    <View style={{ height: 1, backgroundColor: colors.slate100 }} />
+                    <View style={{ gap: 10 }}>
+                      <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>Certifications</Text>
+                      {[{ label: "TrustedRiders Certified", date: "Mar 2024", icon: "◆" }, { label: "ADA Compliance", date: "Jun 2024", icon: "◆" }, { label: "Wheelchair Assist", date: "Mar 2024", icon: "◆" }, { label: "First Aid / CPR", date: "Jan 2025", icon: "+" }].map((cert) => (
+                        <View key={cert.label} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <View style={{ width: 20, height: 20, borderRadius: radii.xs, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }}>
+                              <Text style={{ color: colors.green, fontSize: 8, fontWeight: "900" }}>{cert.icon}</Text>
+                            </View>
+                            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>{cert.label}</Text>
+                          </View>
+                          <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "500" }}>{cert.date}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={{ flex: 1 }} />
+                    <View style={{ alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "700" }}>Tap or swipe to show QR</Text>
+                      <Text style={{ color: colors.slate300, fontSize: 12 }}>↻</Text>
+                    </View>
                   </View>
-                </View>
-
-                <View style={{ alignItems: "center", gap: 6 }}>
-                  <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>
-                    Ben Driver
-                  </Text>
-                  <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>
-                    ID: 099-242
-                  </Text>
-                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 16, paddingHorizontal: 20 }}>
-                    Scan to verify operator identity and certification status
-                  </Text>
-                </View>
-
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "700" }}>Tap or swipe to show ID</Text>
-                  <Text style={{ color: colors.slate300, fontSize: 12 }}>↻</Text>
-                </View>
+                </Animated.View>
+                <Animated.View style={[{ backgroundColor: colors.surface, borderRadius: 12, borderCurve: "continuous", overflow: "hidden", height: cardHeight }, backStyle]}>
+                  <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 24 }}>
+                    <View style={{ width: 180, height: 180, backgroundColor: colors.surfaceLow, borderRadius: radii.md, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.slate100 }}>
+                      <View style={{ gap: 3, alignItems: "center" }}>
+                        {[0,1,2,3,4,5,6].map((row) => (<View key={row} style={{ flexDirection: "row", gap: 3 }}>{[0,1,2,3,4,5,6].map((col) => (<View key={col} style={{ width: 18, height: 18, borderRadius: 2, backgroundColor: (row<3&&col<3)||(row<3&&col>3)||(row>3&&col<3) ? (row+col)%2===0?colors.primary:colors.surface : (row*col+row)%3===0?colors.primary:colors.slate200 }} />))}</View>))}
+                      </View>
+                    </View>
+                    <View style={{ alignItems: "center", gap: 6 }}>
+                      <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>Ben Driver</Text>
+                      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>ID: 099-242</Text>
+                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18, paddingHorizontal: 20 }}>Scan to verify operator identity</Text>
+                    </View>
+                  </View>
+                </Animated.View>
               </View>
-            </Animated.View>
-          </View>
-          </GestureDetector>
-
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <Pressable
-              onPress={() => setLocationEnabled((c) => !c)}
-              accessibilityRole="button"
-              accessibilityLabel={locationEnabled ? "Disable location sharing" : "Enable location sharing"}
-              style={{
-                flex: 1,
-                borderRadius: radii.md,
-                borderCurve: "continuous",
-                backgroundColor: locationEnabled ? colors.greenSoftDark : colors.errorSoftDark,
-                paddingVertical: 14,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{
-                color: locationEnabled ? colors.greenLight : colors.errorLight,
-                fontSize: 13,
-                fontWeight: "700",
-                textTransform: "uppercase",
-                letterSpacing: 1,
-              }}>
-                {locationEnabled ? "Location On" : "Location Off"}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push("/settings")}
-              accessibilityRole="button"
-              accessibilityLabel="Open settings"
-              style={{
-                flex: 1,
-                borderRadius: radii.md,
-                borderCurve: "continuous",
-                backgroundColor: colors.primarySoft,
-                paddingVertical: 14,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ color: colors.slate300, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
-                Settings
-              </Text>
-            </Pressable>
-          </View>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Emergency assistance"
-            style={{
-              borderRadius: radii.md,
-              borderCurve: "continuous",
-              backgroundColor: colors.errorSoftStrong,
-              paddingVertical: 16,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: colors.errorLight, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.5 }}>
-              Emergency
-            </Text>
-          </Pressable>
-        </View>
-      </Animated.View>
-      </GestureHandlerRootView>
-    </Modal>
-    </>
+              </GestureDetector>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Pressable onPress={() => setLocationEnabled((c) => !c)} accessibilityRole="button" style={{ flex: 1, borderRadius: radii.md, backgroundColor: locationEnabled ? colors.greenSoftDark : colors.errorSoftDark, paddingVertical: 14, alignItems: "center" }}>
+                  <Text style={{ color: locationEnabled ? colors.greenLight : colors.errorLight, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>{locationEnabled ? "Location On" : "Location Off"}</Text>
+                </Pressable>
+                <Pressable onPress={() => { close(); setTimeout(() => router.push("/settings"), 350); }} accessibilityRole="button" style={{ flex: 1, borderRadius: radii.md, backgroundColor: colors.primarySoft, paddingVertical: 14, alignItems: "center" }}>
+                  <Text style={{ color: colors.slate300, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>Settings</Text>
+                </Pressable>
+              </View>
+              <Pressable accessibilityRole="button" style={{ borderRadius: radii.md, backgroundColor: colors.errorSoftStrong, paddingVertical: 16, alignItems: "center" }}>
+                <Text style={{ color: colors.errorLight, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.5 }}>Emergency</Text>
+              </Pressable>
+            </ScrollView>
+          </Animated.View>
+        </Animated.View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 }
 

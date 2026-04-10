@@ -11,6 +11,8 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useHaptics } from "@/lib/haptics-context";
+import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { colors, radii, spacing } from "@/lib/theme";
 
 type Message = {
@@ -33,6 +35,7 @@ export default function ChatScreen() {
   const { rideId, riderName } = useLocalSearchParams<{ rideId: string; riderName: string }>();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputText, setInputText] = useState("");
+  const { impact } = useHaptics();
   const flatListRef = useRef<FlatList>(null);
 
   const sendMessage = useCallback(() => {
@@ -180,7 +183,7 @@ export default function ChatScreen() {
           onSubmitEditing={sendMessage}
         />
         <Pressable
-          onPress={sendMessage}
+          onPress={() => { impact(ImpactFeedbackStyle.Light); sendMessage(); }}
           style={{
             width: 40,
             height: 40,

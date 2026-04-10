@@ -6,6 +6,8 @@ import MapView, { Marker, Polyline } from "@/components/Map";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useHaptics } from "@/lib/haptics-context";
+import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { colors, radii, spacing } from "@/lib/theme";
 
 const pastRideData: Record<string, {
@@ -79,6 +81,7 @@ export default function PastRideScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { riderName } = useLocalSearchParams<{ riderName: string }>();
+  const { impact } = useHaptics();
   const ride = pastRideData[riderName] ?? pastRideData["William Chen"];
 
   const midLat = (ride.pickupCoords.latitude + ride.dropoffCoords.latitude) / 2;
@@ -152,7 +155,7 @@ export default function PastRideScreen() {
           </View>
         </View>
 
-        <Pressable onPress={() => router.push({ pathname: "/chat", params: { rideId: "past", riderName: ride.name } })} accessibilityRole="button" accessibilityLabel="View chat history">
+        <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/chat", params: { rideId: "past", riderName: ride.name } }); }} accessibilityRole="button" accessibilityLabel="View chat history">
           <GradientCard padding={16}>
             <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
               <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>

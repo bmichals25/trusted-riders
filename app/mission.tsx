@@ -337,6 +337,7 @@ export default function MissionScreen() {
               <Text style={secondaryBtnText}>Cancel Ride</Text>
             </Pressable>
             <Pressable
+              onPress={() => notification(NotificationFeedbackType.Warning)}
               accessibilityRole="button"
               accessibilityLabel="Report an issue"
               style={secondaryBtn}
@@ -420,7 +421,7 @@ export default function MissionScreen() {
               </View>
             </ScrollView>
 
-            <Pressable onPress={() => setRiderProfileOpen(false)} accessibilityRole="button" accessibilityLabel="Close rider protocols">
+            <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setRiderProfileOpen(false); }} accessibilityRole="button" accessibilityLabel="Close rider protocols">
               <GradientCard padding={18}>
                 <Text style={primaryButtonText}>Close Protocols</Text>
               </GradientCard>

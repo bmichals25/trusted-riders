@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useHaptics } from "@/lib/haptics-context";
+import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
 import { colors, radii, spacing } from "@/lib/theme";
 
@@ -14,7 +15,7 @@ export default function SettingsScreen() {
 
   const [notifications, setNotifications] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
-  const { hapticsEnabled, setHapticsEnabled, selection } = useHaptics();
+  const { hapticsEnabled, setHapticsEnabled, selection, impact, notification } = useHaptics();
 
   return (
     <ScrollView
@@ -28,14 +29,14 @@ export default function SettingsScreen() {
             label="Push Notifications"
             description="New ride requests and mission updates"
             value={notifications}
-            onValueChange={setNotifications}
+            onValueChange={(v) => { selection(); setNotifications(v); }}
           />
           <Divider />
           <SettingsToggle
             label="Auto-Accept Rides"
             description="Automatically accept high-priority missions"
             value={autoAccept}
-            onValueChange={setAutoAccept}
+            onValueChange={(v) => { selection(); setAutoAccept(v); }}
           />
         </SettingsGroup>
 
@@ -45,6 +46,7 @@ export default function SettingsScreen() {
             description="Share GPS with dispatch during active missions"
             value={isTracking}
             onValueChange={(val) => {
+              selection();
               if (val) startTracking();
               else stopTracking();
             }}
@@ -88,6 +90,7 @@ export default function SettingsScreen() {
             TrustedRiders v0.1.0
           </Text>
           <Pressable
+            onPress={() => notification(NotificationFeedbackType.Warning)}
             accessibilityRole="button"
             accessibilityLabel="Sign out"
             style={({ pressed }) => ({
@@ -176,8 +179,10 @@ function SettingsToggle({
 }
 
 function SettingsRow({ label, detail }: { label: string; detail: string }) {
+  const { impact } = useHaptics();
   return (
     <Pressable
+      onPress={() => impact(ImpactFeedbackStyle.Light)}
       accessibilityRole="button"
       accessibilityLabel={`${label}, ${detail}`}
       style={({ pressed }) => ({

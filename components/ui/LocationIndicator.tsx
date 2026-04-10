@@ -10,11 +10,14 @@ import Animated, {
 } from "react-native-reanimated";
 
 import MapView, { Marker } from "@/components/Map";
+import { ImpactFeedbackStyle } from "@/lib/haptics";
+import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { colors, radii, spacing } from "@/lib/theme";
 
 export function LocationIndicator() {
   const { location, isTracking } = useLocation();
+  const { impact, selection } = useHaptics();
   const [mapOpen, setMapOpen] = useState(false);
   const pulseOpacity = useSharedValue(1);
 
@@ -37,7 +40,10 @@ export function LocationIndicator() {
   return (
     <>
       <Pressable
-        onPress={() => setMapOpen(true)}
+        onPress={() => {
+          impact(ImpactFeedbackStyle.Light);
+          setMapOpen(true);
+        }}
         accessibilityRole="button"
         accessibilityLabel={isTracking ? "Location tracking active, tap to view map" : "Location tracking off"}
         style={{ paddingLeft: 12, paddingRight: 16, paddingVertical: 8, marginRight: 4, flexDirection: "row", alignItems: "center", gap: 6 }}
@@ -68,6 +74,7 @@ export function LocationIndicator() {
 
 function LocationMapModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
+  const { impact, selection } = useHaptics();
   const { location, isTracking, startTracking, stopTracking } = useLocation();
   const mapRef = useRef<MapView | null>(null);
 
@@ -103,7 +110,10 @@ function LocationMapModal({ visible, onClose }: { visible: boolean; onClose: () 
             </Text>
           </View>
           <Pressable
-            onPress={onClose}
+            onPress={() => {
+              impact(ImpactFeedbackStyle.Light);
+              onClose();
+            }}
             accessibilityRole="button"
             accessibilityLabel="Close location map"
             style={{
@@ -171,7 +181,14 @@ function LocationMapModal({ visible, onClose }: { visible: boolean; onClose: () 
           )}
 
           <Pressable
-            onPress={isTracking ? stopTracking : startTracking}
+            onPress={() => {
+              selection();
+              if (isTracking) {
+                stopTracking();
+              } else {
+                startTracking();
+              }
+            }}
             accessibilityRole="button"
             accessibilityLabel={isTracking ? "Stop location tracking" : "Start location tracking"}
             style={{

@@ -7,6 +7,8 @@ import MapView, { Marker } from "@/components/Map";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useHaptics } from "@/lib/haptics-context";
+import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
 import { colors, radii, spacing } from "@/lib/theme";
 
@@ -54,6 +56,7 @@ export default function RideDetailsScreen() {
   const { rideId } = useLocalSearchParams<{ rideId: string }>();
   const ride = rideData[rideId] ?? rideData["#8829"];
   const { location } = useLocation();
+  const { impact } = useHaptics();
   const mapRef = useRef<MapView | null>(null);
 
   const allCoords = [ride.pickupCoords, ride.dropoffCoords];
@@ -155,7 +158,7 @@ export default function RideDetailsScreen() {
           </View>
         </View>
 
-        <Pressable onPress={() => router.push({ pathname: "/chat", params: { rideId, riderName: ride.name } })} accessibilityRole="button" accessibilityLabel="Open admin chat">
+        <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/chat", params: { rideId, riderName: ride.name } }); }} accessibilityRole="button" accessibilityLabel="Open admin chat">
           <GradientCard padding={16}>
             <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
               <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>
