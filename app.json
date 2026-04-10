@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "TrustedRiders Prototype",
+    "slug": "trustedriders-prototype",
+    "scheme": "trustedriders",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
