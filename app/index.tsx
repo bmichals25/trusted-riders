@@ -24,6 +24,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  withRepeat,
   Easing,
   interpolate,
   runOnJS,
@@ -1205,8 +1206,106 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   );
 }
 
+function PulsingDot() {
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 1500, easing: Easing.out(Easing.ease) }),
+      -1,
+      false,
+    );
+  }, [pulse]);
+
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: 1 - pulse.value,
+    transform: [{ scale: 1 + pulse.value * 2 }],
+  }));
+
+  return (
+    <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+      <Animated.View
+        style={[
+          {
+            position: "absolute",
+            width: 14,
+            height: 14,
+            borderRadius: 7,
+            backgroundColor: "rgba(37, 99, 235, 0.3)",
+          },
+          ringStyle,
+        ]}
+      />
+      <View
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: 7,
+          backgroundColor: colors.blue,
+          borderWidth: 2.5,
+          borderColor: "#fff",
+          shadowColor: colors.blue,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.6,
+          shadowRadius: 6,
+          elevation: 6,
+        }}
+      />
+    </View>
+  );
+}
+
+function LiveTrackingBadge() {
+  const pulse = useSharedValue(0.4);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+  }, [pulse]);
+
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: pulse.value,
+  }));
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: 10,
+        left: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: "rgba(0, 0, 0, 0.65)",
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 20,
+        zIndex: 10,
+      }}
+    >
+      <Animated.View
+        style={[
+          {
+            width: 7,
+            height: 7,
+            borderRadius: 3.5,
+            backgroundColor: "#22C55E",
+          },
+          dotStyle,
+        ]}
+      />
+      <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>
+        Live Tracking
+      </Text>
+    </View>
+  );
+}
+
 function MiniMap() {
-  const { location } = useLocation();
+  const { location, isTracking } = useLocation();
   const { activeRide } = useDispatch();
 
   const pickup = activeRide?.pickupCoords ?? { latitude: 37.788, longitude: -122.408 };
@@ -1217,38 +1316,49 @@ function MiniMap() {
     : pickup;
 
   return (
-    <MapView
-      style={{ flex: 1 }}
-      initialRegion={{
-        ...center,
-        latitudeDelta: 0.025,
-        longitudeDelta: 0.025,
-      }}
-      region={location ? { ...center, latitudeDelta: 0.025, longitudeDelta: 0.025 } : undefined}
-      scrollEnabled={false}
-      zoomEnabled={false}
-      pitchEnabled={false}
-      rotateEnabled={false}
-      pointerEvents="none"
-      showsUserLocation
-      showsMyLocationButton={false}
-    >
-      <Marker
-        coordinate={pickup}
-        title="Pickup"
-        pinColor={colors.blue}
-      />
-      <Marker
-        coordinate={dropoff}
-        title="Drop-off"
-        pinColor={colors.green}
-      />
-      <Polyline
-        coordinates={[pickup, dropoff]}
-        strokeColor={colors.blue}
-        strokeWidth={3}
-      />
-    </MapView>
+    <View style={{ flex: 1 }}>
+      {isTracking && <LiveTrackingBadge />}
+      <MapView
+        style={{ flex: 1 }}
+        initialRegion={{
+          ...center,
+          latitudeDelta: 0.025,
+          longitudeDelta: 0.025,
+        }}
+        region={location ? { ...center, latitudeDelta: 0.025, longitudeDelta: 0.025 } : undefined}
+        scrollEnabled={false}
+        zoomEnabled={false}
+        pitchEnabled={false}
+        rotateEnabled={false}
+        pointerEvents="none"
+        showsMyLocationButton={false}
+      >
+        {location && (
+          <Marker
+            coordinate={{ latitude: location.latitude, longitude: location.longitude }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges
+          >
+            <PulsingDot />
+          </Marker>
+        )}
+        <Marker
+          coordinate={pickup}
+          title="Pickup"
+          pinColor={colors.blue}
+        />
+        <Marker
+          coordinate={dropoff}
+          title="Drop-off"
+          pinColor={colors.green}
+        />
+        <Polyline
+          coordinates={[pickup, dropoff]}
+          strokeColor={colors.blue}
+          strokeWidth={3}
+        />
+      </MapView>
+    </View>
   );
 }
 

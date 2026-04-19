@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, Platform, type AppStateStatus } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
@@ -90,6 +90,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const shouldTrackRef = useRef(false);
   const backgroundTrackingRef = useRef(false);
@@ -105,15 +106,76 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // On web, use the browser Geolocation API directly with maximumAge: 0
+  // to force fresh GPS reads (expo-location caches positions)
+  const startPoll = useCallback(() => {
+    if (pollRef.current) return;
+    if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.geolocation) {
+      // Use watchPosition for real-time updates on web
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            heading: pos.coords.heading ?? null,
+            speed: pos.coords.speed ?? null,
+          });
+          setError(null);
+        },
+        () => { /* skip errors */ },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 },
+      );
+      // Store watchId as interval ref for cleanup
+      pollRef.current = watchId as unknown as ReturnType<typeof setInterval>;
+      return;
+    }
+    // Fallback: poll with expo-location
+    const poll = async () => {
+      try {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.BestForNavigation,
+        });
+        setLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          heading: loc.coords.heading ?? null,
+          speed: loc.coords.speed ?? null,
+        });
+        setError(null);
+      } catch {
+        // Skip this tick — next one will retry
+      }
+    };
+    poll();
+    pollRef.current = setInterval(poll, 3000);
+  }, []);
+
+  const stopPoll = useCallback(() => {
+    if (pollRef.current) {
+      if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(pollRef.current as unknown as number);
+      } else {
+        clearInterval(pollRef.current);
+      }
+      pollRef.current = null;
+    }
+  }, []);
+
   const startWatcher = useCallback(async () => {
+    // On web, use polling — watchPositionAsync is unreliable
+    if (Platform.OS === "web") {
+      startPoll();
+      return;
+    }
+
     if (subscriptionRef.current) return;
 
     try {
       const sub = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 10,
-          timeInterval: 3000,
+          accuracy: Location.Accuracy.BestForNavigation,
+          distanceInterval: 5,
+          timeInterval: 2000,
         },
         (loc) => {
           setLocation({
@@ -129,14 +191,15 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setError("Failed to start location tracking");
     }
-  }, []);
+  }, [startPoll]);
 
   const stopWatcher = useCallback(() => {
+    stopPoll();
     if (subscriptionRef.current) {
       subscriptionRef.current.remove();
       subscriptionRef.current = null;
     }
-  }, []);
+  }, [stopPoll]);
 
   const startBackgroundTracking = useCallback(async () => {
     try {

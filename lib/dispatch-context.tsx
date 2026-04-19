@@ -70,6 +70,8 @@ export function DispatchProvider({ driverName, children }: { driverName: string;
         lon: location.longitude,
         timestamp: ts,
         ride_id: 1,
+      }).then((ok) => {
+        console.log(`[fleet-api] update_location: ${ok ? "ok" : "failed"} (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`);
       });
     }
 
@@ -81,6 +83,40 @@ export function DispatchProvider({ driverName, children }: { driverName: string;
     wasTrackingRef.current = isTracking;
     isTrackingRef.current = isTracking;
   }, [location, isTracking, driverName, rides]);
+
+  // Periodic re-send: on web, location only fires on change — re-send every 10s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const loc = locationRef.current;
+      if (!loc || !isTrackingRef.current) return;
+
+      const ts = new Date().toISOString();
+
+      listenerRef.current?.sendLocation({
+        driverId: DRIVER_ID,
+        driverName,
+        lat: loc.latitude,
+        lon: loc.longitude,
+        heading: loc.heading,
+        speed: loc.speed,
+        battery: null,
+        timestamp: ts,
+        ride_id: 1,
+      });
+
+      updateLocation({
+        lat: loc.latitude,
+        lon: loc.longitude,
+        timestamp: ts,
+        ride_id: 1,
+      }).then((ok) => {
+        console.log(`[fleet-api] periodic update: ${ok ? "ok" : "failed"}`);
+      });
+    }, 10000);
+
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverName]);
 
   useEffect(() => {
     const listener = createDispatchListener(

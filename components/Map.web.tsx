@@ -241,10 +241,64 @@ const MapView = forwardRef<any, MapViewProps>(
 );
 MapView.displayName = "MapView";
 
+// ── Pulsing location dot (CSS-animated Leaflet divIcon) ──
+
+const PULSE_CSS_ID = "tr-pulse-css";
+
+function ensurePulseCSS() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(PULSE_CSS_ID)) return;
+  const style = document.createElement("style");
+  style.id = PULSE_CSS_ID;
+  style.textContent = `
+    @keyframes tr-pulse-ring {
+      0% { transform: scale(1); opacity: 0.6; }
+      100% { transform: scale(3); opacity: 0; }
+    }
+    .tr-pulse-dot {
+      position: relative;
+      width: 14px; height: 14px;
+    }
+    .tr-pulse-dot::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: rgba(37, 99, 235, 0.35);
+      animation: tr-pulse-ring 1.5s ease-out infinite;
+    }
+    .tr-pulse-dot::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: #2563EB;
+      border: 2.5px solid #fff;
+      box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function makePulseIcon() {
+  ensurePulseCSS();
+  return L.divIcon({
+    className: "",
+    html: '<div class="tr-pulse-dot"></div>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
 // ── Marker ──
 
 function Marker({ coordinate, title, pinColor, children }: MarkerProps) {
-  const icon = pinColor ? makeColoredIcon(pinColor) : undefined;
+  // If no pinColor and has children, render as pulsing location dot
+  const icon = pinColor
+    ? makeColoredIcon(pinColor)
+    : children
+      ? makePulseIcon()
+      : undefined;
 
   return (
     <LeafletMarker
