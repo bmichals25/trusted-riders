@@ -57,30 +57,42 @@ let backgroundQueue: DriverLocation[] = [];
 // POSTs each fix to the Fleet API so dispatch keeps receiving pings while the
 // phone is locked. Also appends to `backgroundQueue` so the UI can render the
 // most recent position when the app returns to the foreground.
-TaskManager.defineTask(BACKGROUND_TASK_NAME, async ({ data, error }) => {
-  if (error) return;
-  if (!data) return;
-  const { locations } = data as { locations: Location.LocationObject[] };
-  if (!locations?.length) return;
+//
+// The whole body is wrapped in try/catch: an uncaught throw from this block
+// propagates through the RN TurboModule bridge and can crash the app. Best to
+// drop a single background ping than to crash on launch.
+try {
+  TaskManager.defineTask(BACKGROUND_TASK_NAME, async ({ data, error }) => {
+    try {
+      if (error) return;
+      if (!data) return;
+      const { locations } = data as { locations: Location.LocationObject[] };
+      if (!locations?.length) return;
 
-  const rideId = await getActiveRideId();
+      const rideId = await getActiveRideId();
 
-  for (const loc of locations) {
-    backgroundQueue.push({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
-      heading: loc.coords.heading ?? null,
-      speed: loc.coords.speed ?? null,
-    });
-    // Fire-and-forget; updateLocation swallows its own network errors.
-    void updateLocation({
-      lat: loc.coords.latitude,
-      lon: loc.coords.longitude,
-      timestamp: new Date(loc.timestamp).toISOString(),
-      ride_id: rideId,
-    });
-  }
-});
+      for (const loc of locations) {
+        backgroundQueue.push({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          heading: loc.coords.heading ?? null,
+          speed: loc.coords.speed ?? null,
+        });
+        void updateLocation({
+          lat: loc.coords.latitude,
+          lon: loc.coords.longitude,
+          timestamp: new Date(loc.timestamp).toISOString(),
+          ride_id: rideId,
+        });
+      }
+    } catch {
+      // Background task handler failure is silent by design.
+    }
+  });
+} catch {
+  // defineTask throws if called twice (e.g. during Metro hot reload). Safe to
+  // swallow — subsequent invocations keep the first registered task.
+}
 
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useState<DriverLocation | null>(null);
