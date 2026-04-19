@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FLEET_API_URL } from "./config";
 
 const TOKEN_KEY = "trustedriders-auth-token";
+const ACTIVE_RIDE_KEY = "trustedriders-active-ride";
 
 let token: string | null = null;
 
@@ -58,6 +59,40 @@ export async function restoreToken(): Promise<string | null> {
   const stored = await readStorage(TOKEN_KEY);
   if (stored) token = stored;
   return stored;
+}
+
+// Active ride tracking — written by MissionScreen so the background location
+// TaskManager handler (which runs outside React) can read the current ride id.
+export async function setActiveRideId(rideId: number): Promise<void> {
+  await writeStorage(ACTIVE_RIDE_KEY, String(rideId));
+}
+
+export async function clearActiveRideId(): Promise<void> {
+  await writeStorage(ACTIVE_RIDE_KEY, null);
+}
+
+export async function getActiveRideId(): Promise<number | null> {
+  const stored = await readStorage(ACTIVE_RIDE_KEY);
+  if (!stored) return null;
+  const n = Number(stored);
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function registerPushToken(pushToken: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const res = await fetch(`${FLEET_API_URL}/api/register-push-token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ push_token: pushToken, platform: Platform.OS }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function updateLocation(loc: {

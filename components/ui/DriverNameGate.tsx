@@ -13,6 +13,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, spacing, radii } from "@/lib/theme";
 import { clearToken, login, restoreToken } from "@/lib/fleet-api";
+import { registerForPushNotifications } from "@/lib/push";
 
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
@@ -78,7 +79,12 @@ export function DriverNameGate({ children }: { children: (name: string) => React
       restoreToken(),
     ]).then(([storedEmail, storedName, storedToken]) => {
       if (storedEmail) setEmail(storedEmail);
-      if (storedName && storedToken) setName(storedName);
+      if (storedName && storedToken) {
+        setName(storedName);
+        // Re-register the push token on every cold boot so dispatch always
+        // has the current one (tokens can rotate on reinstall or OS restore).
+        void registerForPushNotifications();
+      }
       setLoading(false);
     });
   }, []);
@@ -95,6 +101,9 @@ export function DriverNameGate({ children }: { children: (name: string) => React
       await setStored(DRIVER_NAME_KEY, user.name);
       await setStored(DRIVER_EMAIL_KEY, trimmedEmail);
       setName(user.name);
+      // Ask for notification permission + hand our push token to the backend.
+      // Fire-and-forget — failures don't block entry to the app.
+      void registerForPushNotifications();
     } catch {
       setError("Invalid email or password");
     } finally {

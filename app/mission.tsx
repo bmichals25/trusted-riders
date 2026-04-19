@@ -17,6 +17,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { clearActiveRideId, setActiveRideId } from "@/lib/fleet-api";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
@@ -32,11 +33,26 @@ export default function MissionScreen() {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const mapRef = useRef<MapView | null>(null);
   const followMode = useRef(true);
-  const { location } = useLocation();
+  const { location, startBackgroundTracking, stopBackgroundTracking } = useLocation();
   const { impact, notification } = useHaptics();
   const snapPoints = useMemo(() => [380, "85%"], []);
   const [missionStep, setMissionStep] = useState(1);
   const [riderProfileOpen, setRiderProfileOpen] = useState(false);
+
+  // While on the mission screen, keep dispatch informed even if the phone is
+  // locked. `setActiveRideId` writes to AsyncStorage so the TaskManager task
+  // (which can't read React context) can stamp each background ping with the
+  // current ride id. Hardcoded to 1 until ride ids are plumbed end-to-end.
+  useEffect(() => {
+    const ACTIVE_RIDE_ID = 1;
+    setActiveRideId(ACTIVE_RIDE_ID);
+    startBackgroundTracking();
+    return () => {
+      stopBackgroundTracking();
+      clearActiveRideId();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentTarget =
     missionStep === 1

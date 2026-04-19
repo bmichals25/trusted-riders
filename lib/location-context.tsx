@@ -10,6 +10,8 @@ import { AppState, type AppStateStatus } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
+import { getActiveRideId, updateLocation } from "./fleet-api";
+
 const BACKGROUND_TASK_NAME = "trustedriders-background-location";
 
 export type DriverLocation = {
@@ -50,20 +52,33 @@ export function useLocation() {
 // Queue for background location updates — flushed when app comes to foreground
 let backgroundQueue: DriverLocation[] = [];
 
-// Register the background task at module level (required by expo-task-manager)
+// Register the background task at module level (required by expo-task-manager).
+// Runs outside the React tree — pulls the active ride id from AsyncStorage and
+// POSTs each fix to the Fleet API so dispatch keeps receiving pings while the
+// phone is locked. Also appends to `backgroundQueue` so the UI can render the
+// most recent position when the app returns to the foreground.
 TaskManager.defineTask(BACKGROUND_TASK_NAME, async ({ data, error }) => {
   if (error) return;
-  if (data) {
-    const { locations } = data as { locations: Location.LocationObject[] };
-    if (locations?.length) {
-      const latest = locations[locations.length - 1];
-      backgroundQueue.push({
-        latitude: latest.coords.latitude,
-        longitude: latest.coords.longitude,
-        heading: latest.coords.heading ?? null,
-        speed: latest.coords.speed ?? null,
-      });
-    }
+  if (!data) return;
+  const { locations } = data as { locations: Location.LocationObject[] };
+  if (!locations?.length) return;
+
+  const rideId = await getActiveRideId();
+
+  for (const loc of locations) {
+    backgroundQueue.push({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+      heading: loc.coords.heading ?? null,
+      speed: loc.coords.speed ?? null,
+    });
+    // Fire-and-forget; updateLocation swallows its own network errors.
+    void updateLocation({
+      lat: loc.coords.latitude,
+      lon: loc.coords.longitude,
+      timestamp: new Date(loc.timestamp).toISOString(),
+      ride_id: rideId,
+    });
   }
 });
 

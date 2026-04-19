@@ -46,6 +46,13 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/TR_favicon.png",
+          "color": "#0F172A"
+        }
       ]
     ],
     "extra": {
