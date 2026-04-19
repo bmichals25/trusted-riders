@@ -1,74 +1,19 @@
-// Push notification registration for the TrustedRiders operator app.
+// Push notification registration — TEMPORARILY DISABLED.
 //
-// On a real device:
-//   1. ask for notification permission (OS prompt)
-//   2. fetch an Expo push token (proxies to APNs on iOS, FCM on Android)
-//   3. POST the token to the Flask backend so dispatch can push us rides
+// Why: installing `expo-notifications` into the iOS binary triggered a startup
+// crash inside `ObjCTurboModule::performVoidMethodInvocation` on iOS 26.3.1
+// with Expo SDK 55 (see TestFlight crash logs, builds 0.1.0 (2) and (3)).
+// The crash happened during native module init — before any of our JS ran.
 //
-// Simulators/emulators return `null` silently — they can't receive APNs pushes.
-//
-// We deliberately do NOT import expo-notifications at module scope — an
-// uncaught exception during that module's native init would crash the app
-// before the auth gate could render. Instead we lazy-require inside the
-// registration function and wrap it in try/catch so a push-subsystem failure
-// never blocks app launch.
-
-import { registerPushToken } from "./fleet-api";
-
-// Matches the `expo.extra.eas.projectId` in app.json.
-const EAS_PROJECT_ID = "9b68846e-95f5-471a-95d1-452666314e18";
-
-let handlerConfigured = false;
+// This module is kept as a no-op stub so existing call sites
+// (`registerForPushNotifications()`) compile unchanged. When we revisit push,
+// the plan is:
+//   1. bump Expo SDK so the notifications module matches iOS 26's runtime
+//   2. OR ship a tiny `notifee`/APNs-direct integration that doesn't use
+//      expo-notifications' TurboModule
+//   3. re-install the package, re-add the plugin in app.json, restore the
+//      lazy-require implementation from git history (commit 9903254)
 
 export async function registerForPushNotifications(): Promise<string | null> {
-  try {
-    // Lazy-load so any problem in expo-notifications' init is caught here,
-    // not at app startup.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Notifications = require("expo-notifications");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Device = require("expo-device");
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { Platform } = require("react-native");
-
-    if (!handlerConfigured) {
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowBanner: true,
-          shouldShowList: true,
-          shouldPlaySound: true,
-          shouldSetBadge: true,
-        }),
-      });
-      handlerConfigured = true;
-    }
-
-    if (!Device.isDevice) return null;
-
-    const existing = await Notifications.getPermissionsAsync();
-    let status = existing.status;
-    if (status !== "granted") {
-      const req = await Notifications.requestPermissionsAsync();
-      status = req.status;
-    }
-    if (status !== "granted") return null;
-
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("default", {
-        name: "Default",
-        importance: Notifications.AndroidImportance.DEFAULT,
-      });
-    }
-
-    const { data } = await Notifications.getExpoPushTokenAsync({
-      projectId: EAS_PROJECT_ID,
-    });
-    void registerPushToken(data);
-    return data;
-  } catch (err) {
-    // Swallow — push is a nice-to-have, not worth crashing the app over.
-    // Worst case the driver doesn't get pushes; foreground + background
-    // location still works.
-    return null;
-  }
+  return null;
 }
