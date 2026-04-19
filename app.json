@@ -5,6 +5,10 @@
     "scheme": "trustedriders",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/TR_favicon.png",
+    "web": {
+      "favicon": "./assets/TR_favicon.png"
+    },
     "ios": {
       "bundleIdentifier": "com.trustedriders.prototype",
       "supportsTablet": false,

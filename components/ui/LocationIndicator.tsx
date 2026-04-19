@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useAnimatedStyle,
@@ -69,6 +70,114 @@ export function LocationIndicator() {
         onClose={() => setMapOpen(false)}
       />
     </>
+  );
+}
+
+/**
+ * Composite headerRight used only on the home screen — pairs the live/off
+ * pill with a gear that pushes to Settings. Other screens just render the
+ * bare LocationIndicator (no gear) since they're already downstream of home.
+ */
+export function HomeHeaderRight() {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <LocationIndicator />
+      <SettingsIconButton />
+    </View>
+  );
+}
+
+export function SettingsIconButton() {
+  const router = useRouter();
+  const { impact } = useHaptics();
+  return (
+    <Pressable
+      onPress={() => {
+        impact(ImpactFeedbackStyle.Light);
+        router.push("/settings");
+      }}
+      accessibilityRole="button"
+      accessibilityLabel="Open settings"
+      hitSlop={8}
+      style={({ pressed }) => ({
+        width: 36,
+        height: 36,
+        borderRadius: radii.xs,
+        backgroundColor: pressed ? colors.surfaceHigh : "transparent",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 4,
+      })}
+    >
+      <GearGlyph />
+    </Pressable>
+  );
+}
+
+// Composed from primitive Views so it renders identically across web + iOS
+// without pulling in an icon library. 8-spoke dispatch-console gear.
+function GearGlyph() {
+  const SIZE = 20;
+  const SPOKE_W = 3;
+  const SPOKE_H = 5;
+  const color = colors.primary;
+  const center = SIZE / 2;
+  const ringOuter = 16;
+  const ringInner = 10;
+  const hubSize = 5;
+
+  return (
+    <View style={{ width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center" }}>
+      {/* 8 teeth arranged around the ring */}
+      {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+        <View
+          key={deg}
+          style={{
+            position: "absolute",
+            top: center - SPOKE_H / 2,
+            left: center - SPOKE_W / 2,
+            width: SPOKE_W,
+            height: SPOKE_H,
+            backgroundColor: color,
+            borderRadius: 0.5,
+            transform: [
+              { rotate: `${deg}deg` },
+              { translateY: -ringOuter / 2 + 1 },
+            ],
+          }}
+        />
+      ))}
+      {/* Outer ring (filled circle) */}
+      <View
+        style={{
+          position: "absolute",
+          width: ringOuter,
+          height: ringOuter,
+          borderRadius: ringOuter / 2,
+          backgroundColor: color,
+        }}
+      />
+      {/* Inner cutout to leave a ring */}
+      <View
+        style={{
+          position: "absolute",
+          width: ringInner,
+          height: ringInner,
+          borderRadius: ringInner / 2,
+          backgroundColor: colors.surface,
+        }}
+      />
+      {/* Hub */}
+      <View
+        style={{
+          position: "absolute",
+          width: hubSize,
+          height: hubSize,
+          borderRadius: hubSize / 2,
+          backgroundColor: color,
+        }}
+      />
+    </View>
   );
 }
 

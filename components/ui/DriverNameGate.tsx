@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, spacing, radii } from "@/lib/theme";
-import { login, getToken } from "@/lib/fleet-api";
+import { clearToken, login, restoreToken } from "@/lib/fleet-api";
 
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
@@ -37,6 +38,25 @@ async function setStored(key: string, value: string): Promise<void> {
   } catch {}
 }
 
+async function removeStored(key: string): Promise<void> {
+  try {
+    if (Platform.OS === "web") {
+      localStorage.removeItem(key);
+    } else {
+      await AsyncStorage.removeItem(key);
+    }
+  } catch {}
+}
+
+type AuthContextValue = { signOut: () => Promise<void> };
+const AuthContext = createContext<AuthContextValue>({
+  signOut: async () => {},
+});
+
+export function useAuth(): AuthContextValue {
+  return useContext(AuthContext);
+}
+
 /**
  * Gates the app behind driver login.
  * Authenticates against the Fleet Tracking API, then renders children with the driver name.
@@ -50,9 +70,15 @@ export function DriverNameGate({ children }: { children: (name: string) => React
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Pre-fill email if stored from a previous login
-    getStored(DRIVER_EMAIL_KEY).then((storedEmail) => {
+    // Rehydrate stored credentials on boot. If the token is still present
+    // alongside the name, skip the login form and go straight into the app.
+    Promise.all([
+      getStored(DRIVER_EMAIL_KEY),
+      getStored(DRIVER_NAME_KEY),
+      restoreToken(),
+    ]).then(([storedEmail, storedName, storedToken]) => {
       if (storedEmail) setEmail(storedEmail);
+      if (storedName && storedToken) setName(storedName);
       setLoading(false);
     });
   }, []);
@@ -76,6 +102,18 @@ export function DriverNameGate({ children }: { children: (name: string) => React
     }
   };
 
+  const signOut = useCallback(async () => {
+    await clearToken();
+    await removeStored(DRIVER_NAME_KEY);
+    // Intentionally leave the email cached so the login form pre-fills
+    // for the next sign-in.
+    setPassword("");
+    setError(null);
+    setName(null);
+  }, []);
+
+  const authValue = useMemo<AuthContextValue>(() => ({ signOut }), [signOut]);
+
   if (loading) {
     return (
       <View style={s.center}>
@@ -85,63 +123,101 @@ export function DriverNameGate({ children }: { children: (name: string) => React
   }
 
   if (!name) {
+    const canSubmit = !!email.trim() && !!password.trim() && !submitting;
+    const webInputStyle =
+      Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null;
+
     return (
       <KeyboardAvoidingView
-        style={s.center}
+        style={s.screen}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={s.card}>
-          <View style={s.logoRow}>
-            <View style={s.logo}>
-              <Text style={s.logoText}>TR</Text>
-            </View>
+        {/* HERO — dark dispatch panel with the brand icon front-and-center */}
+        <View style={s.hero}>
+          <View style={s.heroKicker}>
+            <View style={s.dot} />
+            <Text style={s.kickerText}>Driver Portal · Secure</Text>
           </View>
-          <Text style={s.title}>TrustedRiders</Text>
-          <Text style={s.subtitle}>Sign in to start driving</Text>
 
-          <TextInput
-            style={s.input}
-            placeholder="Email"
-            placeholderTextColor={colors.slate400}
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            autoFocus
+          <Image
+            source={require("../../assets/TR_favicon.png")}
+            accessibilityLabel="TrustedRiders"
+            resizeMode="contain"
+            style={s.heroIcon}
           />
 
-          <TextInput
-            style={s.input}
-            placeholder="Password"
-            placeholderTextColor={colors.slate400}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            textContentType="password"
-            returnKeyType="done"
-            onSubmitEditing={handleLogin}
-          />
+          <Text style={s.heroTitle}>TrustedRiders</Text>
+          <Text style={s.heroSub}>Operator authentication</Text>
+        </View>
 
-          {error && <Text style={s.error}>{error}</Text>}
+        {/* FORM — dispatch-terminal style fields on the light surface */}
+        <View style={s.form}>
+          <Text style={s.sectionKicker}>Sign In</Text>
+
+          <View style={s.field}>
+            <Text style={s.fieldLabel}>Email</Text>
+            <TextInput
+              style={[s.input, webInputStyle]}
+              placeholder="driver@trustedriders.org"
+              placeholderTextColor={colors.slate400}
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              autoFocus
+            />
+          </View>
+
+          <View style={s.field}>
+            <Text style={s.fieldLabel}>Password</Text>
+            <TextInput
+              style={[s.input, webInputStyle]}
+              placeholder="••••••••"
+              placeholderTextColor={colors.slate400}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              textContentType="password"
+              returnKeyType="done"
+              onSubmitEditing={handleLogin}
+            />
+          </View>
+
+          {error ? <Text style={s.error}>{error}</Text> : null}
 
           <Pressable
-            style={[s.button, (!email.trim() || !password.trim() || submitting) && s.buttonDisabled]}
+            style={({ pressed }) => [
+              s.primaryButton,
+              !canSubmit && s.primaryButtonDisabled,
+              pressed && canSubmit ? { backgroundColor: "#1E293B" } : null,
+            ]}
             onPress={handleLogin}
-            disabled={!email.trim() || !password.trim() || submitting}
+            disabled={!canSubmit}
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
           >
             {submitting ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={s.buttonText}>Sign In</Text>
+              <>
+                <Text style={s.primaryButtonText}>Sign In</Text>
+                <Text style={s.primaryButtonArrow}>→</Text>
+              </>
             )}
           </Pressable>
+
+          <View style={s.footer}>
+            <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
+            <Text style={s.footerText}>Encrypted</Text>
+          </View>
         </View>
       </KeyboardAvoidingView>
     );
   }
 
-  return <>{children(name)}</>;
+  return <AuthContext.Provider value={authValue}>{children(name)}</AuthContext.Provider>;
 }
 
 const s = StyleSheet.create({
@@ -152,80 +228,149 @@ const s = StyleSheet.create({
     backgroundColor: colors.surfaceLow,
     padding: spacing.lg,
   },
-  card: {
-    width: "100%",
-    maxWidth: 360,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    padding: spacing.xl,
+  screen: {
+    flex: 1,
+    backgroundColor: colors.surfaceLow,
     alignItems: "center",
-    gap: spacing.md,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  logoRow: {
-    marginBottom: spacing.sm,
-  },
-  logo: {
-    width: 56,
-    height: 56,
-    borderRadius: radii.md,
-    backgroundColor: colors.blue,
     justifyContent: "center",
+  },
+  hero: {
+    width: "100%",
+    maxWidth: 440,
+    backgroundColor: colors.primary,
+    paddingVertical: 40,
+    paddingHorizontal: spacing.xl,
+    borderTopLeftRadius: radii.md,
+    borderTopRightRadius: radii.md,
+    borderCurve: "continuous",
     alignItems: "center",
+    gap: 14,
   },
-  logoText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: 0.5,
+  heroKicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(22, 163, 74, 0.16)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.xs,
   },
-  title: {
-    fontSize: 24,
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#86EFAC",
+  },
+  kickerText: {
+    color: "#86EFAC",
+    fontSize: 10,
     fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+  },
+  heroIcon: {
+    width: 96,
+    height: 96,
+    marginTop: 4,
+  },
+  heroTitle: {
+    color: "#FFFFFF",
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+  },
+  heroSub: {
+    color: colors.slate400,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 2.4,
+  },
+  form: {
+    width: "100%",
+    maxWidth: 440,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    borderBottomLeftRadius: radii.md,
+    borderBottomRightRadius: radii.md,
+    borderCurve: "continuous",
+    gap: spacing.md,
+  },
+  sectionKicker: {
+    color: colors.slate400,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 2.8,
+    marginBottom: 2,
+  },
+  field: {
+    gap: 8,
+  },
+  fieldLabel: {
     color: colors.primary,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.slate500,
-    marginBottom: spacing.sm,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 2.2,
+    paddingLeft: 2,
   },
   input: {
     width: "100%",
     backgroundColor: colors.surfaceLow,
     borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    padding: spacing.md,
-    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 15,
     fontWeight: "600",
     color: colors.primary,
   },
   error: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
-    color: "#DC2626",
+    color: colors.error,
+    textTransform: "uppercase",
+    letterSpacing: 1.4,
+    marginTop: -4,
   },
-  button: {
+  primaryButton: {
     width: "100%",
-    backgroundColor: colors.blue,
+    backgroundColor: colors.primary,
     borderRadius: radii.sm,
-    padding: spacing.md,
+    paddingVertical: 18,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 56,
+    marginTop: 6,
   },
-  buttonDisabled: {
-    opacity: 0.4,
+  primaryButtonDisabled: {
+    opacity: 0.35,
   },
-  buttonText: {
-    color: "#fff",
-    fontSize: 14,
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
     fontWeight: "900",
     textTransform: "uppercase",
-    letterSpacing: 1.5,
+    letterSpacing: 2.6,
+  },
+  primaryButtonArrow: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 14,
+  },
+  footerText: {
+    color: colors.slate400,
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 2,
   },
 });

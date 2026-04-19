@@ -227,9 +227,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.remove();
   }, [startWatcher, stopWatcher]);
 
-  // Auto-start tracking on mount
+  // On mount, check the current permission without prompting. If already
+  // granted (e.g. a returning user), start tracking silently. Otherwise the
+  // LocationSetupGate will ask the user to grant permission explicitly.
   useEffect(() => {
-    startTracking();
+    Location.getForegroundPermissionsAsync().then(({ status }) => {
+      setPermissionStatus(status);
+      if (status === Location.PermissionStatus.GRANTED) {
+        startTracking();
+      }
+    });
     return () => {
       stopWatcher();
     };

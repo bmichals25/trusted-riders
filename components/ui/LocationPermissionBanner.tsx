@@ -1,4 +1,4 @@
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Platform, Pressable, Text, View } from "react-native";
 
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
@@ -47,7 +47,14 @@ export function LocationPermissionBanner() {
           impact(ImpactFeedbackStyle.Light);
           const granted = await requestPermission();
           if (!granted) {
-            // Permission was denied again — open system settings
+            if (Platform.OS === "web") {
+              if (typeof window !== "undefined" && typeof window.alert === "function") {
+                window.alert(
+                  "Location is blocked for this site. Click the lock icon in the address bar, set Location to Allow, then reload.",
+                );
+              }
+              return;
+            }
             Linking.openSettings();
           }
         }}

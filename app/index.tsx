@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   LayoutChangeEvent,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -29,10 +30,15 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHeaderHeight } from "@react-navigation/elements";
+import { useIsFocused } from "@react-navigation/native";
 
 import MapView, { Marker, Polyline } from "@/components/Map";
 
 import { Avatar } from "@/components/ui/Avatar";
+import { EmergencyModal } from "@/components/ui/EmergencyModal";
+import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
@@ -92,7 +98,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <>
+    <PageTransition>
       <ScrollView
         ref={scrollViewRef}
         contentInsetAdjustmentBehavior="automatic"
@@ -120,6 +126,7 @@ export default function HomeScreen() {
             gap: 4,
           }}
         >
+          <FadeInBlock delay={40}>
           <AccordionSection
             title="Current Ride"
             active={activeTab === "current"}
@@ -236,7 +243,9 @@ export default function HomeScreen() {
               </View>
             )}
           </AccordionSection>
+          </FadeInBlock>
 
+          <FadeInBlock delay={120}>
           <AccordionSection
             title="Scheduled Rides"
             active={activeTab === "scheduled"}
@@ -370,7 +379,9 @@ export default function HomeScreen() {
               ))}
             </View>
           </AccordionSection>
+          </FadeInBlock>
 
+          <FadeInBlock delay={200}>
           <AccordionSection
             title="Past Rides"
             active={activeTab === "past"}
@@ -434,7 +445,9 @@ export default function HomeScreen() {
               ))}
             </View>
           </AccordionSection>
+          </FadeInBlock>
 
+          <FadeInBlock delay={280}>
           <AccordionSection
             title="Ride Requests"
             active={activeTab === "requests"}
@@ -534,6 +547,7 @@ export default function HomeScreen() {
               </View>
             )}
           </AccordionSection>
+          </FadeInBlock>
         </View>
       </ScrollView>
 
@@ -715,7 +729,7 @@ export default function HomeScreen() {
         </Pressable>
       </SheetModal>
 
-    </>
+    </PageTransition>
   );
 }
 
@@ -946,15 +960,23 @@ function SheetModal({
 
 function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const router = useRouter();
   const { impact, notification, selection } = useHaptics();
-  const [locationEnabled, setLocationEnabled] = useState(true);
+  // Wired to the real LocationProvider so this button stays in lockstep with
+  // the Settings toggle — flipping one affects the other.
+  const { isTracking, startTracking, stopTracking } = useLocation();
   const flipProgress = useSharedValue(0);
   const [cardFlipped, setCardFlipped] = useState(false);
+  const [emergencyOpen, setEmergencyOpen] = useState(false);
   const { height: screenHeight } = Dimensions.get("window");
 
   const collapsedHeight = 88 + bottomInset;
-  const expandedHeight = screenHeight - insets.top - 20;
+  // The sheet is rendered inside the screen content area, which already sits
+  // below the navigation header. Subtract the header height so the expanded
+  // top edge stops just below the "TrustedRiders" bar instead of being
+  // clipped behind it.
+  const expandedHeight = screenHeight - insets.top - headerHeight - 12;
   const sheetY = useSharedValue(0); // 0 = collapsed, 1 = expanded
 
   const open = useCallback(() => {
@@ -965,12 +987,20 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
     sheetY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
   }, []);
 
+  // Snapshot the sheet position when the drag starts so subsequent translations
+  // map 1:1 against finger movement instead of compounding each frame.
+  const dragStart = useSharedValue(0);
+
   const panGestureSheet = Gesture.Pan()
+    .onBegin(() => {
+      dragStart.value = sheetY.value;
+    })
     .onUpdate((e) => {
-      // Dragging up from collapsed (negative translationY) or down from expanded
-      const current = sheetY.value;
-      const delta = -e.translationY / (expandedHeight - collapsedHeight);
-      sheetY.value = Math.max(0, Math.min(1, current + delta * 0.015));
+      // Dragging up from collapsed (negative translationY) or down from expanded.
+      // One range of pixels == one full open/close sweep (no damping).
+      const range = expandedHeight - collapsedHeight;
+      const delta = -e.translationY / range;
+      sheetY.value = Math.max(0, Math.min(1, dragStart.value + delta));
     })
     .onEnd((e) => {
       const vy = -e.velocityY;
@@ -981,12 +1011,17 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
       }
     });
 
-  const tapGestureSheet = Gesture.Tap().onEnd(() => {
+  // Single tap on the HANDLE area toggles the sheet. We deliberately do NOT
+  // attach this to the whole sheet — otherwise tapping interior controls
+  // (Location toggle, Emergency, etc.) would also collapse the drawer.
+  const tapGestureHandle = Gesture.Tap().onEnd(() => {
     runOnJS(impact)(ImpactFeedbackStyle.Light);
-    runOnJS(open)();
+    if (sheetY.value > 0.5) {
+      runOnJS(close)();
+    } else {
+      runOnJS(open)();
+    }
   });
-
-  const sheetGesture = Gesture.Race(panGestureSheet, tapGestureSheet);
 
   const sheetAnimatedStyle = useAnimatedStyle(() => {
     const height = collapsedHeight + (expandedHeight - collapsedHeight) * sheetY.value;
@@ -1013,29 +1048,51 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
     opacity: interpolate(sheetY.value, [0, 0.3, 1], [0, 0, 1]),
   }));
 
+  // Slide-up entrance for the sheet itself — independent of page fade so the
+  // drawer always feels like it arrives from below, not from the side.
+  const sheetIsFocused = useIsFocused();
+  const entranceY = useSharedValue(140);
+
+  useEffect(() => {
+    entranceY.value = withTiming(sheetIsFocused ? 0 : 140, {
+      duration: sheetIsFocused ? 420 : 280,
+      easing: sheetIsFocused
+        ? Easing.bezier(0.25, 1, 0.5, 1) // ease-out-quart
+        : Easing.bezier(0.4, 0, 1, 1), // ease-in
+    });
+  }, [sheetIsFocused, entranceY]);
+
+  const entranceStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: entranceY.value }],
+  }));
+
   return (
     <GestureHandlerRootView style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
-      <GestureDetector gesture={sheetGesture}>
-        <Animated.View style={[{ backgroundColor: colors.primary, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, paddingBottom: bottomInset }, sheetAnimatedStyle]}>
-          {/* Handle */}
-          <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}>
-            <View style={{ width: 40, height: 5, borderRadius: radii.pill, backgroundColor: colors.primarySoft }} />
-          </View>
-          {/* Header */}
-          <View style={{ paddingHorizontal: spacing.lg, paddingTop: 8, paddingBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <View style={{ width: 36, height: 36, borderRadius: radii.sm, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ color: colors.slate300, fontSize: 18 }}>⛊</Text>
+      <GestureDetector gesture={panGestureSheet}>
+        <Animated.View style={[{ backgroundColor: colors.primary, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, paddingBottom: bottomInset }, sheetAnimatedStyle, entranceStyle]}>
+          {/* Handle + header are the ONLY tap-to-toggle zone so interior
+              controls (Location toggle, Emergency) don't accidentally close
+              the drawer when tapped. */}
+          <GestureDetector gesture={tapGestureHandle}>
+            <View style={Platform.OS === "web" ? ({ cursor: "pointer" } as any) : undefined}>
+              {/* Handle */}
+              <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}>
+                <View style={{ width: 40, height: 5, borderRadius: radii.pill, backgroundColor: colors.primarySoft }} />
               </View>
-              <View>
-                <Text style={operatorName}>User #Ben123</Text>
-                <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Operator ID</Text>
+              {/* Header */}
+              <View style={{ paddingHorizontal: spacing.lg, paddingTop: 8, paddingBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: radii.sm, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ color: colors.slate300, fontSize: 18 }}>⛊</Text>
+                  </View>
+                  <View>
+                    <Text style={operatorName}>User #Ben123</Text>
+                    <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Operator ID</Text>
+                  </View>
+                </View>
               </View>
             </View>
-            <Pressable onPress={() => { if (sheetY.value > 0.5) close(); else open(); }}>
-              <Text style={{ color: colors.slate300, fontSize: 14 }}>▴</Text>
-            </Pressable>
-          </View>
+          </GestureDetector>
           {/* Expandable content */}
           <Animated.View style={[{ flex: 1, overflow: "hidden" }, contentOpacity]}>
             <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
@@ -1097,20 +1154,53 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
               </View>
               </GestureDetector>
               <View style={{ flexDirection: "row", gap: 10 }}>
-                <Pressable onPress={() => setLocationEnabled((c) => !c)} accessibilityRole="button" style={{ flex: 1, borderRadius: radii.md, backgroundColor: locationEnabled ? colors.greenSoftDark : colors.errorSoftDark, paddingVertical: 14, alignItems: "center" }}>
-                  <Text style={{ color: locationEnabled ? colors.greenLight : colors.errorLight, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>{locationEnabled ? "Location On" : "Location Off"}</Text>
+                <Pressable
+                  onPress={() => {
+                    selection();
+                    if (isTracking) stopTracking();
+                    else startTracking();
+                  }}
+                  accessibilityRole="button"
+                  style={{ flex: 1, borderRadius: radii.md, backgroundColor: isTracking ? colors.greenSoftDark : colors.errorSoftDark, paddingVertical: 14, alignItems: "center" }}
+                >
+                  <Text style={{ color: isTracking ? colors.greenLight : colors.errorLight, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
+                    {isTracking ? "Location On" : "Location Off"}
+                  </Text>
                 </Pressable>
                 <Pressable onPress={() => { close(); setTimeout(() => router.push("/settings"), 350); }} accessibilityRole="button" style={{ flex: 1, borderRadius: radii.md, backgroundColor: colors.primarySoft, paddingVertical: 14, alignItems: "center" }}>
                   <Text style={{ color: colors.slate300, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>Settings</Text>
                 </Pressable>
               </View>
-              <Pressable accessibilityRole="button" style={{ borderRadius: radii.md, backgroundColor: colors.errorSoftStrong, paddingVertical: 16, alignItems: "center" }}>
+              <Pressable
+                onPress={() => {
+                  runOnJS(notification)(NotificationFeedbackType.Warning);
+                  setEmergencyOpen(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Open emergency options"
+                style={{ borderRadius: radii.md, backgroundColor: colors.errorSoftStrong, paddingVertical: 16, alignItems: "center" }}
+              >
                 <Text style={{ color: colors.errorLight, fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.5 }}>Emergency</Text>
               </Pressable>
             </ScrollView>
           </Animated.View>
         </Animated.View>
       </GestureDetector>
+
+      <EmergencyModal
+        visible={emergencyOpen}
+        onClose={() => setEmergencyOpen(false)}
+        options={[
+          { kicker: "Emergency services", title: "Call 9-1-1", number: "911", variant: "danger" },
+          {
+            kicker: "Dispatch",
+            title: "TrustedRiders",
+            number: "+15550000911",
+            hint: "+1 (555) 000-0911",
+            variant: "primary",
+          },
+        ]}
+      />
     </GestureHandlerRootView>
   );
 }

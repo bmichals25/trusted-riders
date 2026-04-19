@@ -3,6 +3,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MapView, { Marker, Polyline } from "@/components/Map";
 
+import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -88,85 +90,97 @@ export default function PastRideScreen() {
   const midLng = (ride.pickupCoords.longitude + ride.dropoffCoords.longitude) / 2;
 
   return (
+    <PageTransition>
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={{ flex: 1, backgroundColor: colors.surfaceLow }}
       contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
     >
-      <View style={{ height: 180, borderRadius: radii.md, overflow: "hidden", margin: spacing.md, borderCurve: "continuous" }}>
-        <MapView
-          style={{ flex: 1 }}
-          initialRegion={{
-            latitude: midLat,
-            longitude: midLng,
-            latitudeDelta: 0.035,
-            longitudeDelta: 0.035,
-          }}
-          scrollEnabled={false}
-          zoomEnabled={false}
-        >
-          <Marker coordinate={ride.pickupCoords} title="Pickup" pinColor={colors.blue} />
-          <Marker coordinate={ride.dropoffCoords} title="Drop-off" pinColor={colors.green} />
-          <Polyline
-            coordinates={[ride.pickupCoords, ride.dropoffCoords]}
-            strokeColor={colors.blue}
-            strokeWidth={3}
-          />
-        </MapView>
-      </View>
+      <FadeInBlock delay={40}>
+        <View style={{ height: 180, borderRadius: radii.md, overflow: "hidden", margin: spacing.md, borderCurve: "continuous" }}>
+          <MapView
+            style={{ flex: 1 }}
+            initialRegion={{
+              latitude: midLat,
+              longitude: midLng,
+              latitudeDelta: 0.035,
+              longitudeDelta: 0.035,
+            }}
+            scrollEnabled={false}
+            zoomEnabled={false}
+          >
+            <Marker coordinate={ride.pickupCoords} title="Pickup" pinColor={colors.blue} />
+            <Marker coordinate={ride.dropoffCoords} title="Drop-off" pinColor={colors.green} />
+            <Polyline
+              coordinates={[ride.pickupCoords, ride.dropoffCoords]}
+              strokeColor={colors.blue}
+              strokeWidth={3}
+            />
+          </MapView>
+        </View>
+      </FadeInBlock>
 
       <View style={{ paddingHorizontal: spacing.md, gap: spacing.md }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <View style={{ gap: 6, flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <StatusBadge status="completed" />
-              <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
-                {ride.date}
+        <FadeInBlock delay={120}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <View style={{ gap: 6, flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <StatusBadge status="completed" />
+                <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
+                  {ride.date}
+                </Text>
+              </View>
+              <Text style={{ color: colors.primary, fontSize: 28, fontWeight: "900" }}>
+                {ride.name}
+              </Text>
+              <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "500", textTransform: "uppercase" }}>
+                {ride.type}
               </Text>
             </View>
-            <Text style={{ color: colors.primary, fontSize: 28, fontWeight: "900" }}>
-              {ride.name}
-            </Text>
-            <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "500", textTransform: "uppercase" }}>
-              {ride.type}
-            </Text>
-          </View>
-          <View style={{ alignItems: "flex-end", gap: 2 }}>
-            <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
-              {ride.fare}
-            </Text>
-            <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase" }}>
-              Fare
-            </Text>
-          </View>
-        </View>
-
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <StatTile label="Duration" value={ride.duration} />
-          <StatTile label="Distance" value={ride.distance} />
-          <StatTile label="Rating" value={"★".repeat(ride.rating)} />
-        </View>
-
-        <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, borderCurve: "continuous", overflow: "hidden" }}>
-          <View style={{ padding: spacing.md, gap: 12 }}>
-            <LocationRow color={colors.blue} label="Pickup" address={ride.pickup} />
-            <View style={{ height: 1, backgroundColor: colors.slate100, marginLeft: 28 }} />
-            <LocationRow color={colors.green} label="Drop-off" address={ride.dropoff} />
-          </View>
-        </View>
-
-        <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/chat", params: { rideId: "past", riderName: ride.name } }); }} accessibilityRole="button" accessibilityLabel="View chat history">
-          <GradientCard padding={16}>
-            <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
-              <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>
-                View Chat History
+            <View style={{ alignItems: "flex-end", gap: 2 }}>
+              <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
+                {ride.fare}
               </Text>
-              <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800" }}>→</Text>
+              <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase" }}>
+                Fare
+              </Text>
             </View>
-          </GradientCard>
-        </Pressable>
+          </View>
+        </FadeInBlock>
+
+        <FadeInBlock delay={200}>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <StatTile label="Duration" value={ride.duration} />
+            <StatTile label="Distance" value={ride.distance} />
+            <StatTile label="Rating" value={"★".repeat(ride.rating)} />
+          </View>
+        </FadeInBlock>
+
+        <FadeInBlock delay={280}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, borderCurve: "continuous", overflow: "hidden" }}>
+            <View style={{ padding: spacing.md, gap: 12 }}>
+              <LocationRow color={colors.blue} label="Pickup" address={ride.pickup} />
+              <View style={{ height: 1, backgroundColor: colors.slate100, marginLeft: 28 }} />
+              <LocationRow color={colors.green} label="Drop-off" address={ride.dropoff} />
+            </View>
+          </View>
+        </FadeInBlock>
+
+        <FadeInBlock delay={360}>
+          <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/chat", params: { rideId: "past", riderName: ride.name } }); }} accessibilityRole="button" accessibilityLabel="View chat history">
+            <GradientCard padding={16}>
+              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
+                <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>
+                  View Chat History
+                </Text>
+                <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800" }}>→</Text>
+              </View>
+            </GradientCard>
+          </Pressable>
+        </FadeInBlock>
       </View>
     </ScrollView>
+    </PageTransition>
   );
 }
 

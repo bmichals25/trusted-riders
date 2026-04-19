@@ -15,6 +15,7 @@ import MapView, { Marker, Polyline } from "@/components/Map";
 import { AnimatedDriverMarker } from "@/components/ui/AnimatedDriverMarker";
 import { Avatar } from "@/components/ui/Avatar";
 import { GradientCard } from "@/components/ui/gradient-card";
+import { PageTransition } from "@/components/ui/PageTransition";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
@@ -65,6 +66,7 @@ export default function MissionScreen() {
   const stageBars = useMemo(() => new Array(totalStages).fill(0), []);
 
   return (
+    <PageTransition>
     <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
       <MissionMap missionStep={missionStep} onMapRef={(ref) => { mapRef.current = ref; }} />
 
@@ -430,6 +432,7 @@ export default function MissionScreen() {
         </Pressable>
       </Modal>
     </View>
+    </PageTransition>
   );
 }
 
