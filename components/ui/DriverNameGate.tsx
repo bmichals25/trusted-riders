@@ -136,7 +136,7 @@ export function DriverNameGate({ children }: { children: (name: string) => React
         <View style={s.hero}>
           <View style={s.heroKicker}>
             <View style={s.dot} />
-            <Text style={s.kickerText}>Driver Portal · Secure</Text>
+            <Text style={s.kickerText}>TrustedRiders Portal</Text>
           </View>
 
           <Image
