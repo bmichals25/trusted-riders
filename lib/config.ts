@@ -16,11 +16,19 @@ export const FLEET_API_URL =
 export const DISPATCH_PHONE =
   process.env.EXPO_PUBLIC_DISPATCH_PHONE ?? "+15550000911";
 
-/** "+15550000911" → "+1 (555) 000-0911" */
+/**
+ * "+15550000911" → "+1 (555) 000-0911".
+ * Falls through to the raw string on anything that isn't an 11-digit US
+ * number starting with country code 1. When real international rider
+ * contacts land, this function needs an `intl-tel-input`-style lib.
+ */
 export function formatPhone(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) {
     return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  if (__DEV__) {
+    console.warn(`[formatPhone] unrecognized number format "${raw}" — returning raw`);
   }
   return raw;
 }

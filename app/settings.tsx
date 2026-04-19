@@ -83,21 +83,47 @@ export default function SettingsScreen() {
   }, []);
 
   const editingField = editingFieldId ? OPERATOR_FIELDS[editingFieldId] : null;
-  const editingValue = editingFieldId
-    ? editingFieldId === "profile"
-      ? profileName
-      : editingFieldId === "certifications"
-        ? certifications
-        : vehicle
-    : "";
+
+  const getEditingValue = (id: EditableFieldId): string => {
+    switch (id) {
+      case "profile":
+        return profileName;
+      case "certifications":
+        return certifications;
+      case "vehicle":
+        return vehicle;
+      default: {
+        // Compile-time exhaustiveness — adding a new EditableFieldId without
+        // handling it here will fail to typecheck.
+        const _exhaustive: never = id;
+        return _exhaustive;
+      }
+    }
+  };
+
+  const editingValue = editingFieldId ? getEditingValue(editingFieldId) : "";
 
   const handleSaveField = (value: string) => {
     if (!editingFieldId) return;
+    const trimmed = value.trim();
+    if (!trimmed) return; // EditFieldModal already blocks empties, but belt-and-suspenders
     const { key } = OPERATOR_FIELDS[editingFieldId];
-    if (editingFieldId === "profile") setProfileName(value);
-    else if (editingFieldId === "certifications") setCertifications(value);
-    else if (editingFieldId === "vehicle") setVehicle(value);
-    void storage.set(key, value);
+    switch (editingFieldId) {
+      case "profile":
+        setProfileName(trimmed);
+        break;
+      case "certifications":
+        setCertifications(trimmed);
+        break;
+      case "vehicle":
+        setVehicle(trimmed);
+        break;
+      default: {
+        const _exhaustive: never = editingFieldId;
+        return _exhaustive;
+      }
+    }
+    void storage.set(key, trimmed);
   };
 
   const openEdit = (fieldId: EditableFieldId) => {

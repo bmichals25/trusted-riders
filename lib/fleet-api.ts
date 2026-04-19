@@ -57,8 +57,12 @@ export async function getActiveRideId(): Promise<number | null> {
   return Number.isFinite(n) ? n : null;
 }
 
-// Registered by lib/push.ts when push notifications are re-enabled.
-// Currently unused — see push.ts for the disabled-state rationale.
+/**
+ * Registered by `lib/push.ts` when push notifications are re-enabled.
+ * Currently unused — see `lib/push.ts` for the disabled-state rationale.
+ *
+ * @deprecated until push.ts is un-stubbed (tracked in commit history).
+ */
 export async function registerPushToken(pushToken: string): Promise<boolean> {
   if (!token) return false;
   try {

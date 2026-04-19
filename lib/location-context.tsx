@@ -90,8 +90,12 @@ try {
           ride_id: rideId,
         });
       }
-    } catch {
-      // Background task handler failure is silent by design.
+    } catch (err) {
+      // Silent in production; surface in dev so a token-rehydrate or
+      // storage failure doesn't show up as "pings just aren't arriving."
+      if (__DEV__) {
+        console.warn("[location] background task failed:", err);
+      }
     }
   });
 } catch {
