@@ -78,6 +78,17 @@ The token is persisted in `AsyncStorage` / `localStorage` so reloads stay
 authenticated for the JWT lifetime (~24h). Signing out from Settings clears
 it.
 
+### Emergency dispatch phone
+
+The in-app Emergency modals dial the TrustedRiders dispatch hotline. Set it
+via `EXPO_PUBLIC_DISPATCH_PHONE` in E.164 format (e.g. `+15551234567`). The
+default at [`lib/config.ts`](lib/config.ts) is a 555-prefix placeholder that
+won't actually route, so override before shipping to real drivers:
+
+```bash
+EXPO_PUBLIC_DISPATCH_PHONE=+15551234567 eas build --profile production --platform ios
+```
+
 ---
 
 ## Running the dispatch console

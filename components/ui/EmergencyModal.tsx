@@ -22,7 +22,8 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   title?: string;
-  description?: string;
+  /** Required — keep copy intentional at each call site instead of inheriting a default. */
+  description: string;
   options: EmergencyOption[];
 };
 
@@ -38,7 +39,7 @@ export function EmergencyModal({
   visible,
   onClose,
   title = "Who do you need?",
-  description = "Pick a line. We'll dial immediately.",
+  description,
   options,
 }: Props) {
   const { impact, notification } = useHaptics();

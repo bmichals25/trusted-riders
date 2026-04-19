@@ -52,6 +52,7 @@ import {
   routeSteps,
   scheduledRides,
 } from "@/lib/mock-data";
+import { DISPATCH_PHONE, PROTOTYPE_RIDE_ID, formatPhone } from "@/lib/config";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
 
@@ -1191,13 +1192,14 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
       <EmergencyModal
         visible={emergencyOpen}
         onClose={() => setEmergencyOpen(false)}
+        description="Pick a line. We'll dial immediately."
         options={[
           { kicker: "Emergency services", title: "Call 9-1-1", number: "911", variant: "danger" },
           {
             kicker: "Dispatch",
             title: "TrustedRiders",
-            number: "+15550000911",
-            hint: "+1 (555) 000-0911",
+            number: DISPATCH_PHONE,
+            hint: formatPhone(DISPATCH_PHONE),
             variant: "primary",
           },
         ]}

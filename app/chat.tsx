@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
+import { DISPATCH_PHONE } from "@/lib/config";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { colors, radii, spacing } from "@/lib/theme";
@@ -119,8 +120,7 @@ export default function ChatScreen() {
 
   const callAdmin = useCallback(() => {
     impact(ImpactFeedbackStyle.Medium);
-    // Placeholder dispatch line — swap for the real hotline when available.
-    Linking.openURL("tel:+15550000911").catch(() => {});
+    Linking.openURL(`tel:${DISPATCH_PHONE}`).catch(() => {});
   }, [impact]);
 
   return (

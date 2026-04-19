@@ -118,6 +118,9 @@ const CONTENT: Record<string, InfoContent> = {
 export default function InfoScreen() {
   const insets = useSafeAreaInsets();
   const { slug } = useLocalSearchParams<{ slug: string }>();
+  if (__DEV__ && slug && !CONTENT[slug]) {
+    console.warn(`[info] unknown slug "${slug}" — falling back to help content`);
+  }
   const content = CONTENT[slug] ?? CONTENT.help;
 
   return (

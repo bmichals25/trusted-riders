@@ -11,8 +11,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import { useAuth } from "@/components/ui/DriverNameGate";
 import { EditFieldModal } from "@/components/ui/EditFieldModal";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
@@ -20,7 +18,10 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
+import * as storage from "@/lib/storage";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
+
+type EditableFieldId = "profile" | "certifications" | "vehicle";
 
 type EditableField = {
   key: string;
@@ -29,7 +30,7 @@ type EditableField = {
   hint?: string;
 };
 
-const OPERATOR_FIELDS: Record<string, EditableField> = {
+const OPERATOR_FIELDS: Record<EditableFieldId, EditableField> = {
   profile: {
     key: "tr-settings-profile",
     label: "Operator Profile",
@@ -50,22 +51,6 @@ const OPERATOR_FIELDS: Record<string, EditableField> = {
   },
 };
 
-async function readStored(key: string): Promise<string | null> {
-  try {
-    if (Platform.OS === "web") return localStorage.getItem(key);
-    return await AsyncStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-async function writeStored(key: string, value: string): Promise<void> {
-  try {
-    if (Platform.OS === "web") localStorage.setItem(key, value);
-    else await AsyncStorage.setItem(key, value);
-  } catch {}
-}
-
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -82,14 +67,14 @@ export default function SettingsScreen() {
   const [profileName, setProfileName] = useState("Ben Driver");
   const [certifications, setCertifications] = useState("4 Active");
   const [vehicle, setVehicle] = useState("’19 Honda Odyssey");
-  const [editingFieldId, setEditingFieldId] = useState<keyof typeof OPERATOR_FIELDS | null>(null);
+  const [editingFieldId, setEditingFieldId] = useState<EditableFieldId | null>(null);
 
   useEffect(() => {
     (async () => {
       const [storedProfile, storedCerts, storedVehicle] = await Promise.all([
-        readStored(OPERATOR_FIELDS.profile.key),
-        readStored(OPERATOR_FIELDS.certifications.key),
-        readStored(OPERATOR_FIELDS.vehicle.key),
+        storage.get(OPERATOR_FIELDS.profile.key),
+        storage.get(OPERATOR_FIELDS.certifications.key),
+        storage.get(OPERATOR_FIELDS.vehicle.key),
       ]);
       if (storedProfile) setProfileName(storedProfile);
       if (storedCerts) setCertifications(storedCerts);
@@ -112,10 +97,10 @@ export default function SettingsScreen() {
     if (editingFieldId === "profile") setProfileName(value);
     else if (editingFieldId === "certifications") setCertifications(value);
     else if (editingFieldId === "vehicle") setVehicle(value);
-    void writeStored(key, value);
+    void storage.set(key, value);
   };
 
-  const openEdit = (fieldId: keyof typeof OPERATOR_FIELDS) => {
+  const openEdit = (fieldId: EditableFieldId) => {
     impact(ImpactFeedbackStyle.Light);
     setEditingFieldId(fieldId);
   };

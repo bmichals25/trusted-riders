@@ -10,44 +10,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, spacing, radii } from "@/lib/theme";
 import { clearToken, login, restoreToken } from "@/lib/fleet-api";
 import { registerForPushNotifications } from "@/lib/push";
+import * as storage from "@/lib/storage";
 
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
-
-async function getStored(key: string): Promise<string | null> {
-  try {
-    if (Platform.OS === "web") {
-      return localStorage.getItem(key);
-    }
-    return await AsyncStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-async function setStored(key: string, value: string): Promise<void> {
-  try {
-    if (Platform.OS === "web") {
-      localStorage.setItem(key, value);
-    } else {
-      await AsyncStorage.setItem(key, value);
-    }
-  } catch {}
-}
-
-async function removeStored(key: string): Promise<void> {
-  try {
-    if (Platform.OS === "web") {
-      localStorage.removeItem(key);
-    } else {
-      await AsyncStorage.removeItem(key);
-    }
-  } catch {}
-}
 
 type AuthContextValue = { signOut: () => Promise<void> };
 const AuthContext = createContext<AuthContextValue>({
@@ -74,8 +43,8 @@ export function DriverNameGate({ children }: { children: (name: string) => React
     // Rehydrate stored credentials on boot. If the token is still present
     // alongside the name, skip the login form and go straight into the app.
     Promise.all([
-      getStored(DRIVER_EMAIL_KEY),
-      getStored(DRIVER_NAME_KEY),
+      storage.get(DRIVER_EMAIL_KEY),
+      storage.get(DRIVER_NAME_KEY),
       restoreToken(),
     ]).then(([storedEmail, storedName, storedToken]) => {
       if (storedEmail) setEmail(storedEmail);
@@ -98,8 +67,8 @@ export function DriverNameGate({ children }: { children: (name: string) => React
     setError(null);
     try {
       const user = await login(trimmedEmail, trimmedPassword);
-      await setStored(DRIVER_NAME_KEY, user.name);
-      await setStored(DRIVER_EMAIL_KEY, trimmedEmail);
+      await storage.set(DRIVER_NAME_KEY, user.name);
+      await storage.set(DRIVER_EMAIL_KEY, trimmedEmail);
       setName(user.name);
       // Ask for notification permission + hand our push token to the backend.
       // Fire-and-forget — failures don't block entry to the app.
@@ -113,7 +82,7 @@ export function DriverNameGate({ children }: { children: (name: string) => React
 
   const signOut = useCallback(async () => {
     await clearToken();
-    await removeStored(DRIVER_NAME_KEY);
+    await storage.remove(DRIVER_NAME_KEY);
     // Intentionally leave the email cached so the login form pre-fills
     // for the next sign-in.
     setPassword("");

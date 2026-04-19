@@ -10,6 +10,7 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { DISPATCH_PHONE, formatPhone } from "@/lib/config";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
@@ -214,8 +215,8 @@ export default function RideDetailsScreen() {
           {
             kicker: "Dispatch",
             title: "TrustedRiders",
-            number: "+15550000911",
-            hint: "+1 (555) 000-0911",
+            number: DISPATCH_PHONE,
+            hint: formatPhone(DISPATCH_PHONE),
             variant: "primary",
           },
           {
@@ -230,13 +231,4 @@ export default function RideDetailsScreen() {
     </ScrollView>
     </PageTransition>
   );
-}
-
-function formatPhone(raw: string): string {
-  // "+15550000342" → "+1 (555) 000-0342"
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-  }
-  return raw;
 }

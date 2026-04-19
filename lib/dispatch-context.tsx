@@ -7,6 +7,7 @@ import {
 } from "./dispatch-channel";
 import { useLocation } from "./location-context";
 import { updateLocation } from "./fleet-api";
+import { PROTOTYPE_RIDE_ID } from "./config";
 
 // Stable per-install driver ID
 const DRIVER_ID = `driver-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
@@ -61,7 +62,7 @@ export function DispatchProvider({ driverName, children }: { driverName: string;
         speed: location.speed,
         battery: null,
         timestamp: ts,
-        ride_id: 1,
+        ride_id: PROTOTYPE_RIDE_ID,
       });
 
       // Also POST to Fleet Tracking API
@@ -69,7 +70,7 @@ export function DispatchProvider({ driverName, children }: { driverName: string;
         lat: location.latitude,
         lon: location.longitude,
         timestamp: ts,
-        ride_id: 1,
+        ride_id: PROTOTYPE_RIDE_ID,
       }).then((ok) => {
         console.log(`[fleet-api] update_location: ${ok ? "ok" : "failed"} (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`);
       });
@@ -101,14 +102,14 @@ export function DispatchProvider({ driverName, children }: { driverName: string;
         speed: loc.speed,
         battery: null,
         timestamp: ts,
-        ride_id: 1,
+        ride_id: PROTOTYPE_RIDE_ID,
       });
 
       updateLocation({
         lat: loc.latitude,
         lon: loc.longitude,
         timestamp: ts,
-        ride_id: 1,
+        ride_id: PROTOTYPE_RIDE_ID,
       }).then((ok) => {
         console.log(`[fleet-api] periodic update: ${ok ? "ok" : "failed"}`);
       });
@@ -159,14 +160,14 @@ export function DispatchProvider({ driverName, children }: { driverName: string;
         speed: locationRef.current.speed,
         battery: null,
         timestamp: ts,
-        ride_id: 1,
+        ride_id: PROTOTYPE_RIDE_ID,
       });
 
       updateLocation({
         lat: locationRef.current.latitude,
         lon: locationRef.current.longitude,
         timestamp: ts,
-        ride_id: 1,
+        ride_id: PROTOTYPE_RIDE_ID,
       });
     }
 

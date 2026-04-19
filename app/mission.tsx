@@ -17,6 +17,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { GradientCard } from "@/components/ui/gradient-card";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { PROTOTYPE_RIDE_ID } from "@/lib/config";
 import { clearActiveRideId, setActiveRideId } from "@/lib/fleet-api";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
@@ -44,8 +45,7 @@ export default function MissionScreen() {
   // (which can't read React context) can stamp each background ping with the
   // current ride id. Hardcoded to 1 until ride ids are plumbed end-to-end.
   useEffect(() => {
-    const ACTIVE_RIDE_ID = 1;
-    setActiveRideId(ACTIVE_RIDE_ID);
+    setActiveRideId(PROTOTYPE_RIDE_ID);
     startBackgroundTracking();
     return () => {
       stopBackgroundTracking();

@@ -10,7 +10,7 @@ import { AppState, Platform, type AppStateStatus } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
-import { getActiveRideId, updateLocation } from "./fleet-api";
+import { getActiveRideId, getToken, restoreToken, updateLocation } from "./fleet-api";
 
 const BACKGROUND_TASK_NAME = "trustedriders-background-location";
 
@@ -68,6 +68,11 @@ try {
       if (!data) return;
       const { locations } = data as { locations: Location.LocationObject[] };
       if (!locations?.length) return;
+
+      // When iOS wakes the app in the background to run this task, the React
+      // tree doesn't mount — so nothing else rehydrates the in-memory JWT.
+      // Without this, every updateLocation below would silently 401.
+      if (!getToken()) await restoreToken();
 
       const rideId = await getActiveRideId();
 
