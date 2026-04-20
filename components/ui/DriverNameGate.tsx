@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { colors, spacing, radii } from "@/lib/theme";
-import { clearToken, login, restoreToken } from "@/lib/fleet-api";
+import { clearToken, login, onAuthLost, restoreToken } from "@/lib/fleet-api";
 import { registerForPushNotifications } from "@/lib/push";
 import * as storage from "@/lib/storage";
 
@@ -55,6 +55,19 @@ export function DriverNameGate({ children }: { children: (name: string) => React
         void registerForPushNotifications();
       }
       setLoading(false);
+    });
+  }, []);
+
+  // Silent re-auth in fleet-api covers expired sessions invisibly. If that
+  // also fails (credentials rotated, account disabled), fleet-api emits
+  // auth-lost — we drop the driver name state so the login screen renders
+  // instead of an authenticated screen that silently can't make API calls.
+  useEffect(() => {
+    return onAuthLost(() => {
+      void storage.remove(DRIVER_NAME_KEY);
+      setName(null);
+      setPassword("");
+      setError("Session expired. Please sign in again.");
     });
   }, []);
 

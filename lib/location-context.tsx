@@ -14,6 +14,17 @@ import { getActiveRideId, getToken, restoreToken, updateLocation } from "./fleet
 
 const BACKGROUND_TASK_NAME = "trustedriders-background-location";
 
+// Dispatch expects a ping every ~10 seconds regardless of movement. Core
+// Location on iOS has no time-based trigger (only distance/events), so we
+// configure the native task to sample GPS continuously and throttle POSTs in
+// userland. Android honors `timeInterval` directly so the throttle there is
+// belt-and-suspenders.
+const HEARTBEAT_INTERVAL_MS = 10_000;
+
+// Module-scope so the throttle survives across task handler invocations
+// (the handler is called fresh each time Core Location delivers a fix).
+let lastPostedAt: number | null = null;
+
 export type DriverLocation = {
   latitude: number;
   longitude: number;
@@ -75,21 +86,31 @@ try {
       if (!getToken()) await restoreToken();
 
       const rideId = await getActiveRideId();
+      const latest = locations[locations.length - 1];
 
-      for (const loc of locations) {
-        backgroundQueue.push({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          heading: loc.coords.heading ?? null,
-          speed: loc.coords.speed ?? null,
-        });
-        void updateLocation({
-          lat: loc.coords.latitude,
-          lon: loc.coords.longitude,
-          timestamp: new Date(loc.timestamp).toISOString(),
-          ride_id: rideId,
-        });
+      // Always stash the freshest fix for the UI to flush when it resumes.
+      backgroundQueue.push({
+        latitude: latest.coords.latitude,
+        longitude: latest.coords.longitude,
+        heading: latest.coords.heading ?? null,
+        speed: latest.coords.speed ?? null,
+      });
+
+      // Rate-limit POSTs to one per HEARTBEAT_INTERVAL_MS. On iOS the handler
+      // may fire at ~1 Hz (BestForNavigation); on Android it's already capped
+      // by timeInterval but the guard makes both platforms behave the same.
+      const now = Date.now();
+      if (lastPostedAt !== null && now - lastPostedAt < HEARTBEAT_INTERVAL_MS) {
+        return;
       }
+      lastPostedAt = now;
+
+      void updateLocation({
+        lat: latest.coords.latitude,
+        lon: latest.coords.longitude,
+        timestamp: new Date(latest.timestamp).toISOString(),
+        ride_id: rideId,
+      });
     } catch (err) {
       // Silent in production; surface in dev so a token-rehydrate or
       // storage failure doesn't show up as "pings just aren't arriving."
@@ -233,14 +254,25 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       const isRunning = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME);
       if (isRunning) return;
 
+      // Continuous-sampling profile for reliable 10s heartbeats even when
+      // the driver is parked. `pausesUpdatesAutomatically: false` keeps iOS
+      // from suspending GPS when it thinks the device is stationary — that's
+      // what gives us ping-while-parked. Dropped from BestForNavigation to
+      // `High` accuracy to keep drain in the ~8–12%/hr range instead of the
+      // ~15–25%/hr BestForNavigation would cost; High still gives street-
+      // level accuracy (~10m), which is what dispatch needs. The handler
+      // throttles POSTs to HEARTBEAT_INTERVAL_MS regardless of sample rate.
+      // On Android, `timeInterval` produces the same cadence natively.
       await Location.startLocationUpdatesAsync(BACKGROUND_TASK_NAME, {
-        accuracy: Location.Accuracy.Balanced,
-        distanceInterval: 25,
-        deferredUpdatesInterval: 10000,
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 0,
+        timeInterval: HEARTBEAT_INTERVAL_MS,
+        pausesUpdatesAutomatically: false,
+        activityType: Location.ActivityType.AutomotiveNavigation,
         showsBackgroundLocationIndicator: true,
         foregroundService: {
           notificationTitle: "TrustedRiders",
-          notificationBody: "Tracking your location during active mission",
+          notificationBody: "Sending your location to dispatch",
           notificationColor: "#2563EB",
         },
       });
@@ -287,7 +319,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
 
     await startWatcher();
-  }, [requestPermission, startWatcher]);
+
+    // Kick the native background task on too. Without this, iOS suspends the
+    // JS runtime ~30–60s after the app backgrounds, killing the 10s interval
+    // in dispatch-context and the watchPositionAsync callbacks — pings just
+    // stop. The TaskManager handler at module-scope runs outside JS and keeps
+    // dispatch fed while the phone is locked. No-op on web.
+    if (Platform.OS !== "web") {
+      await startBackgroundTracking();
+    }
+  }, [requestPermission, startWatcher, startBackgroundTracking]);
 
   const stopTracking = useCallback(() => {
     shouldTrackRef.current = false;

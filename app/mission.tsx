@@ -34,21 +34,25 @@ export default function MissionScreen() {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const mapRef = useRef<MapView | null>(null);
   const followMode = useRef(true);
-  const { location, startBackgroundTracking, stopBackgroundTracking } = useLocation();
+  const { location, startBackgroundTracking } = useLocation();
   const { impact, notification } = useHaptics();
   const snapPoints = useMemo(() => [380, "85%"], []);
   const [missionStep, setMissionStep] = useState(1);
   const [riderProfileOpen, setRiderProfileOpen] = useState(false);
 
-  // While on the mission screen, keep dispatch informed even if the phone is
-  // locked. `setActiveRideId` writes to AsyncStorage so the TaskManager task
-  // (which can't read React context) can stamp each background ping with the
-  // current ride id. Hardcoded to 1 until ride ids are plumbed end-to-end.
+  // While on the mission screen, stamp the active ride id onto each background
+  // ping. `setActiveRideId` writes to AsyncStorage so the TaskManager task
+  // (which can't read React context) can read it. Hardcoded to 1 until ride
+  // ids are plumbed end-to-end.
+  //
+  // Background tracking itself is kicked off globally in startTracking() so
+  // pings keep flowing on every screen, not just this one. We don't stop it
+  // on unmount — that would kill tracking the moment the driver navigates
+  // away from the mission screen.
   useEffect(() => {
     setActiveRideId(PROTOTYPE_RIDE_ID);
-    startBackgroundTracking();
+    void startBackgroundTracking();
     return () => {
-      stopBackgroundTracking();
       clearActiveRideId();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

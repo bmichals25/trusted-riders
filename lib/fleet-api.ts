@@ -7,8 +7,40 @@ import * as storage from "./storage";
 
 const TOKEN_KEY = "trustedriders-auth-token";
 const ACTIVE_RIDE_KEY = "trustedriders-active-ride";
+// Stored in Keychain/Keystore (not AsyncStorage) so the on-disk value is
+// encrypted at rest. Used by the silent re-auth path below.
+const CREDENTIALS_EMAIL_KEY = "trustedriders-auth-email";
+const CREDENTIALS_PASSWORD_KEY = "trustedriders-auth-password";
 
 let token: string | null = null;
+
+// In-flight re-auth promise — prevents a thundering-herd of parallel login
+// calls when multiple requests 401 at the same time (e.g. a location ping and
+// a push-token register fire together while the server is rotating tokens).
+let reauthInFlight: Promise<boolean> | null = null;
+
+// Listeners fired when re-auth fails and the user must log in again. The
+// DriverNameGate subscribes to this so the UI drops back to the login screen
+// instead of silently staying on an "authenticated" screen with no token.
+type AuthLostListener = () => void;
+const authLostListeners = new Set<AuthLostListener>();
+
+export function onAuthLost(listener: AuthLostListener): () => void {
+  authLostListeners.add(listener);
+  return () => {
+    authLostListeners.delete(listener);
+  };
+}
+
+function emitAuthLost() {
+  for (const l of authLostListeners) {
+    try {
+      l();
+    } catch {
+      // Listener errors shouldn't break the auth flow
+    }
+  }
+}
 
 export async function login(email: string, password: string): Promise<{ id: number; name: string; email: string }> {
   const res = await fetch(`${FLEET_API_URL}/api/login`, {
@@ -20,6 +52,11 @@ export async function login(email: string, password: string): Promise<{ id: numb
   const data = await res.json();
   token = data.token;
   await storage.set(TOKEN_KEY, data.token);
+  // Persist credentials for silent re-auth when the backend expires our
+  // session. Without this, a 401 mid-shift drops the driver silently and
+  // dispatch stops getting pings until the driver notices and re-logs in.
+  await storage.secureSet(CREDENTIALS_EMAIL_KEY, email);
+  await storage.secureSet(CREDENTIALS_PASSWORD_KEY, password);
   return data.user;
 }
 
@@ -30,6 +67,8 @@ export function getToken(): string | null {
 export async function clearToken(): Promise<void> {
   token = null;
   await storage.remove(TOKEN_KEY);
+  await storage.secureRemove(CREDENTIALS_EMAIL_KEY);
+  await storage.secureRemove(CREDENTIALS_PASSWORD_KEY);
 }
 
 // Rehydrate the in-memory token from persistent storage on app boot.
@@ -38,6 +77,72 @@ export async function restoreToken(): Promise<string | null> {
   const stored = await storage.get(TOKEN_KEY);
   if (stored) token = stored;
   return stored;
+}
+
+// Attempt a silent re-login using the Keychain-stored credentials. Returns
+// true on success (in-memory + on-disk token refreshed) and false if no creds
+// are cached or the login call itself fails. Single-flight: concurrent calls
+// share the same promise so we only hit /api/login once per 401 storm.
+async function attemptReauth(): Promise<boolean> {
+  if (reauthInFlight) return reauthInFlight;
+  reauthInFlight = (async () => {
+    try {
+      const email = await storage.secureGet(CREDENTIALS_EMAIL_KEY);
+      const password = await storage.secureGet(CREDENTIALS_PASSWORD_KEY);
+      if (!email || !password) return false;
+      const res = await fetch(`${FLEET_API_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      token = data.token;
+      await storage.set(TOKEN_KEY, data.token);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      reauthInFlight = null;
+    }
+  })();
+  return reauthInFlight;
+}
+
+// Wraps fetch with the Authorization header and a one-shot silent re-auth on
+// 401. If the retry still 401s (or re-auth itself fails), clears all auth
+// state and fires onAuthLost so the UI can redirect to the login screen.
+async function authedFetch(path: string, init: RequestInit): Promise<Response | null> {
+  if (!token) return null;
+  const doFetch = (tkn: string) =>
+    fetch(`${FLEET_API_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init.headers ?? {}),
+        Authorization: `Bearer ${tkn}`,
+      },
+    });
+
+  const res = await doFetch(token);
+  if (res.status !== 401) return res;
+
+  // Session expired or invalidated — try a silent re-login once.
+  const ok = await attemptReauth();
+  if (!ok || !token) {
+    await clearToken();
+    emitAuthLost();
+    return null;
+  }
+  const retry = await doFetch(token);
+  if (retry.status === 401) {
+    // Fresh token still unauthorized — credentials rotated server-side or
+    // account disabled. Give up and kick to login.
+    await clearToken();
+    emitAuthLost();
+    return null;
+  }
+  return retry;
 }
 
 // Active ride tracking — written by MissionScreen so the background location
@@ -64,17 +169,12 @@ export async function getActiveRideId(): Promise<number | null> {
  * @deprecated until push.ts is un-stubbed (tracked in commit history).
  */
 export async function registerPushToken(pushToken: string): Promise<boolean> {
-  if (!token) return false;
   try {
-    const res = await fetch(`${FLEET_API_URL}/api/register-push-token`, {
+    const res = await authedFetch("/api/register-push-token", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify({ push_token: pushToken, platform: Platform.OS }),
     });
-    return res.ok;
+    return res?.ok ?? false;
   } catch {
     return false;
   }
@@ -86,21 +186,12 @@ export async function updateLocation(loc: {
   timestamp: string;
   ride_id: number | null;
 }): Promise<boolean> {
-  if (!token) return false;
   try {
-    const res = await fetch(`${FLEET_API_URL}/api/update_location`, {
+    const res = await authedFetch("/api/update_location", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify(loc),
     });
-    if (res.status === 401) {
-      await clearToken();
-      return false;
-    }
-    return res.ok;
+    return res?.ok ?? false;
   } catch {
     // Network error — don't crash, just skip this update
     return false;
