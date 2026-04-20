@@ -46,8 +46,7 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
-      ],
-      "expo-secure-store"
+      ]
     ],
     "extra": {
       "router": {},

@@ -7,7 +7,6 @@
 
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as SecureStore from "expo-secure-store";
 
 export async function get(key: string): Promise<string | null> {
   try {
@@ -32,38 +31,33 @@ export async function remove(key: string): Promise<void> {
   } catch {}
 }
 
-// Secure variants — backed by iOS Keychain / Android Keystore on native.
-// Used for secrets we need to keep off disk in plaintext (currently the cached
-// password used for silent re-auth on 401). On web there's no equivalent, so
-// we fall through to localStorage with the same API — the web build is dev
-// only, so the downgrade is acceptable there.
+// "Secure" variants — TEMPORARILY BACKED BY AsyncStorage, not Keychain/Keystore.
 //
-// AFTER_FIRST_UNLOCK is required so the background location TaskManager can
-// read the password after the device has been unlocked once since boot; the
-// default WHEN_UNLOCKED would block re-auth the moment the phone is locked.
-const SECURE_OPTS: SecureStore.SecureStoreOptions = {
-  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK,
-};
-
+// Why: adding `expo-secure-store` to the iOS binary reproduces the same
+// iOS 26.3.1 / Expo SDK 55 startup crash we hit with `expo-notifications`
+// (see lib/push.ts and TestFlight crash log for build 0.1.0 (8) —
+// ObjCTurboModule::performVoidMethodInvocation → objc_exception_rethrow →
+// abort on a dispatch worker before any JS runs).
+//
+// Storing cached credentials in AsyncStorage is a security downgrade
+// (plaintext in the app sandbox vs. Keychain encryption), but it's the same
+// risk profile as the JWT we already cache there, and the alternative —
+// dropping silent re-auth entirely — forces drivers back to the login screen
+// every time the backend rotates a session mid-shift.
+//
+// Restore the Keychain-backed variants once either:
+//   1. Expo SDK bumps to a version whose expo-secure-store turbo module
+//      survives iOS 26.3.1 init, OR
+//   2. We ship a direct Keychain wrapper that doesn't route through an
+//      Expo TurboModule.
 export async function secureGet(key: string): Promise<string | null> {
-  try {
-    if (Platform.OS === "web") return localStorage.getItem(key);
-    return await SecureStore.getItemAsync(key, SECURE_OPTS);
-  } catch {
-    return null;
-  }
+  return get(key);
 }
 
 export async function secureSet(key: string, value: string): Promise<void> {
-  try {
-    if (Platform.OS === "web") localStorage.setItem(key, value);
-    else await SecureStore.setItemAsync(key, value, SECURE_OPTS);
-  } catch {}
+  return set(key, value);
 }
 
 export async function secureRemove(key: string): Promise<void> {
-  try {
-    if (Platform.OS === "web") localStorage.removeItem(key);
-    else await SecureStore.deleteItemAsync(key, SECURE_OPTS);
-  } catch {}
+  return remove(key);
 }
