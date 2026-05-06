@@ -55,7 +55,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { isTracking, startTracking, stopTracking } = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
 
   const [notifications, setNotifications] = useState(true);
   const [autoAccept, setAutoAccept] = useState(false);
@@ -64,9 +64,9 @@ export default function SettingsScreen() {
 
   // Editable operator profile fields — rehydrated from storage on mount and
   // persisted on every edit so changes survive reloads and sessions.
-  const [profileName, setProfileName] = useState("Ben Driver");
-  const [certifications, setCertifications] = useState("4 Active");
-  const [vehicle, setVehicle] = useState("’19 Honda Odyssey");
+  const [profileName, setProfileName] = useState(session?.name ?? "Driver");
+  const [certifications, setCertifications] = useState("Pending backend");
+  const [vehicle, setVehicle] = useState("Pending backend");
   const [editingFieldId, setEditingFieldId] = useState<EditableFieldId | null>(null);
 
   useEffect(() => {
@@ -77,10 +77,11 @@ export default function SettingsScreen() {
         storage.get(OPERATOR_FIELDS.vehicle.key),
       ]);
       if (storedProfile) setProfileName(storedProfile);
+      else if (session?.name) setProfileName(session.name);
       if (storedCerts) setCertifications(storedCerts);
       if (storedVehicle) setVehicle(storedVehicle);
     })();
-  }, []);
+  }, [session?.name]);
 
   const editingField = editingFieldId ? OPERATOR_FIELDS[editingFieldId] : null;
 
@@ -147,7 +148,12 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
       >
         <FadeInBlock delay={40}>
-          <OperatorSummary />
+          <OperatorSummary
+            name={profileName}
+            backendId={session?.id ?? null}
+            certifications={certifications}
+            vehicle={vehicle}
+          />
         </FadeInBlock>
 
         <FadeInBlock delay={140}>
@@ -198,6 +204,15 @@ export default function SettingsScreen() {
           <ReadoutRow label="Profile" value={profileName} onPress={() => openEdit("profile")} editable />
           <ReadoutRow label="Certifications" value={certifications} onPress={() => openEdit("certifications")} editable />
           <ReadoutRow label="Vehicle" value={vehicle} onPress={() => openEdit("vehicle")} editable />
+          <ReadoutRow
+            label="Scan QR Code"
+            value="Verify Driver"
+            chevron
+            onPress={() => {
+              impact(ImpactFeedbackStyle.Light);
+              router.push("/scan-qr");
+            }}
+          />
           <ReadoutRow
             label="Earnings"
             value="View"
@@ -270,7 +285,19 @@ export default function SettingsScreen() {
 /* ─────────────────────────────────────── */
 /*   Operator Summary (dispatch readout)   */
 /* ─────────────────────────────────────── */
-function OperatorSummary() {
+function OperatorSummary({
+  name,
+  backendId,
+  certifications,
+  vehicle,
+}: {
+  name: string;
+  backendId: number | null;
+  certifications: string;
+  vehicle: string;
+}) {
+  const backendIdLabel = backendId !== null ? `Backend ID ${backendId}` : "Backend ID pending";
+
   return (
     <View
       style={{
@@ -297,7 +324,7 @@ function OperatorSummary() {
             letterSpacing: 2.4,
           }}
         >
-          Operator · 099-242
+          Operator · {backendIdLabel}
         </Text>
         <View
           style={{
@@ -335,16 +362,16 @@ function OperatorSummary() {
           lineHeight: 36,
         }}
       >
-        Ben Driver
+        {name}
       </Text>
 
       {/* Meta line */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <Meta label="Certified" value="Mar 2024" />
+        <Meta label="Certs" value={certifications} />
         <Divider dim />
-        <Meta label="Vehicle" value="Odyssey" />
+        <Meta label="Vehicle" value={vehicle} />
         <Divider dim />
-        <Meta label="Shift" value="03:42" />
+        <Meta label="Auth" value="Active" />
       </View>
     </View>
   );

@@ -6,13 +6,16 @@ export {
 } from "expo-haptics";
 
 import * as Haptics from "expo-haptics";
-import { haptic as webHaptic } from "ios-haptics";
+
+type WebHaptic = (() => void) & { confirm: () => void; error: () => void };
+const webHaptic: WebHaptic | null =
+  Platform.OS === "web" ? require("ios-haptics").haptic : null;
 
 export const impact = (
   style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Medium,
 ) => {
   if (Platform.OS === "web") {
-    webHaptic();
+    webHaptic?.();
   } else {
     Haptics.impactAsync(style);
   }
@@ -21,11 +24,11 @@ export const impact = (
 export const notification = (type: Haptics.NotificationFeedbackType) => {
   if (Platform.OS === "web") {
     if (type === Haptics.NotificationFeedbackType.Error) {
-      webHaptic.error();
+      webHaptic?.error();
     } else if (type === Haptics.NotificationFeedbackType.Success) {
-      webHaptic.confirm();
+      webHaptic?.confirm();
     } else {
-      webHaptic();
+      webHaptic?.();
     }
   } else {
     Haptics.notificationAsync(type);
@@ -34,7 +37,7 @@ export const notification = (type: Haptics.NotificationFeedbackType) => {
 
 export const selection = () => {
   if (Platform.OS === "web") {
-    webHaptic();
+    webHaptic?.();
   } else {
     Haptics.selectionAsync();
   }

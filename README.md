@@ -4,8 +4,8 @@ Operator-facing mobile app for the TrustedRiders non-emergency medical transport
 dispatch platform. Expo / React Native; iOS-first with a working web preview for
 development.
 
-A sibling Vite app under `dispatch/` provides a minimal dispatch console + a
-WebSocket relay so you can drive end-to-end flows locally.
+All production backend data is expected to come from Suresh's Fleet Tracking
+API at `https://pretyphoid-electrovalently-zena.ngrok-free.dev`.
 
 ---
 
@@ -27,10 +27,8 @@ WebSocket relay so you can drive end-to-end flows locally.
 # From the repo root
 npm install
 
-# Dispatch console + WebSocket relay (optional but recommended)
-cd dispatch
-npm install
-cd ..
+# Legacy dispatch console only, if you are intentionally testing old relay flows
+cd dispatch && npm install && cd ..
 ```
 
 ---
@@ -58,20 +56,12 @@ Expo serves the bundle at **http://localhost:8081** by default (or 8083 if a
 
 ### Sign in
 
-The sign-in form authenticates against the Fleet Tracking Flask backend. By
-default the app points at the ngrok URL defined in
+The sign-in form authenticates against Suresh's Fleet Tracking Flask backend.
+The app points at the canonical ngrok URL defined in
 [`lib/config.ts`](lib/config.ts):
 
 ```ts
-export const FLEET_API_URL =
-  process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://…ngrok-free.dev";
-```
-
-To point at a different backend, set `EXPO_PUBLIC_FLEET_API_URL` before
-starting Metro:
-
-```bash
-EXPO_PUBLIC_FLEET_API_URL=https://api.example.com npm run web
+export const FLEET_API_URL = "https://pretyphoid-electrovalently-zena.ngrok-free.dev";
 ```
 
 The token is persisted in `AsyncStorage` / `localStorage` so reloads stay
@@ -91,14 +81,17 @@ EXPO_PUBLIC_DISPATCH_PHONE=+15551234567 eas build --profile production --platfor
 
 ---
 
-## Running the dispatch console
+## Legacy Dispatch Console
+
+The `dispatch/` app is retained for historical/local experiments. The mobile
+app no longer depends on its WebSocket relay.
 
 From the repo root:
 
 ```bash
 cd dispatch
 
-# Both the Vite console and the WebSocket relay
+# Both the Vite console and the old WebSocket relay
 npm run dev
 
 # Or run them separately
@@ -151,7 +144,7 @@ through creating the App Store Connect record (bundle id
 | `lib/`                                     | Contexts (auth, dispatch, haptics, location), API client |
 | `lib/theme.ts`                             | Design-system tokens — source of truth for DESIGN.md     |
 | `assets/`                                  | Brand logo + icon                                        |
-| `dispatch/`                                | Vite console + WebSocket relay                           |
+| `dispatch/`                                | Legacy Vite console + WebSocket relay                    |
 | `DESIGN.md`                                | "Vigilant Command Center" design language                |
 
 ---
@@ -171,7 +164,7 @@ The app requests:
 
 - **Location when-in-use + always** — shown to the user via
   [`LocationSetupGate`](components/ui/LocationSetupGate.tsx) after sign-in;
-  required for the map, pickup navigation, and live dispatch updates.
+  required for the map, pickup navigation, and live Fleet API updates.
 - **Background location** (iOS `UIBackgroundModes: location`, Android
   `FOREGROUND_SERVICE_LOCATION`) — used during an active mission to keep
-  dispatch informed while the app is in the background.
+  the Fleet API updated while the app is in the background.

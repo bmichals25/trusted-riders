@@ -663,7 +663,7 @@ function Field({ label, required, full, children }: { label: string; required?: 
 }
 
 // ================================================================
-// Live Map (Leaflet) — repurposed from TR_GPS MapComponent
+// Live Map (Leaflet) — legacy dispatch-console tracker view
 // ================================================================
 
 function LiveMap({

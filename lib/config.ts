@@ -5,9 +5,8 @@
 export const GOOGLE_DIRECTIONS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_KEY ?? "";
 
-// Fleet Tracking API (Flask backend)
-export const FLEET_API_URL =
-  process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://pretyphoid-electrovalently-zena.ngrok-free.dev";
+// Fleet Tracking API (Flask backend) — the single source for backend data.
+export const FLEET_API_URL = "https://pretyphoid-electrovalently-zena.ngrok-free.dev";
 
 // TrustedRiders emergency dispatch line used by the in-app Emergency modals.
 // The 555-prefix default is a placeholder — set EXPO_PUBLIC_DISPATCH_PHONE to
@@ -32,8 +31,3 @@ export function formatPhone(raw: string): string {
   }
   return raw;
 }
-
-// TODO(backend): remove once ride assignments plumb real ride ids through
-// dispatch. Until then every location ping stamps with this single id so the
-// Flask backend can still associate pings with a ride.
-export const PROTOTYPE_RIDE_ID = 1;

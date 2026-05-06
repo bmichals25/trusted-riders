@@ -1,206 +1,169 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { ScrollView, Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MapView, { Marker, Polyline } from "@/components/Map";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
-import { GradientCard } from "@/components/ui/gradient-card";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { useHaptics } from "@/lib/haptics-context";
-import { ImpactFeedbackStyle } from "@/lib/haptics";
+import { useDispatch } from "@/lib/dispatch-context";
+import type { DispatchedRide } from "@/lib/rides";
 import { colors, radii, spacing } from "@/lib/theme";
-
-const pastRideData: Record<string, {
-  name: string;
-  type: string;
-  date: string;
-  duration: string;
-  distance: string;
-  rating: number;
-  pickup: string;
-  dropoff: string;
-  fare: string;
-  pickupCoords: { latitude: number; longitude: number };
-  dropoffCoords: { latitude: number; longitude: number };
-}> = {
-  "William Chen": {
-    name: "William Chen",
-    type: "Dialysis Transfer",
-    date: "Oct 24, 2023",
-    duration: "34 min",
-    distance: "8.2 mi",
-    rating: 5,
-    pickup: "88 Willow Court",
-    dropoff: "Renal Care Center",
-    fare: "$42.50",
-    pickupCoords: { latitude: 37.788, longitude: -122.408 },
-    dropoffCoords: { latitude: 37.772, longitude: -122.418 },
-  },
-  "Andrea Torres": {
-    name: "Andrea Torres",
-    type: "Physical Therapy",
-    date: "Oct 22, 2023",
-    duration: "22 min",
-    distance: "5.1 mi",
-    rating: 5,
-    pickup: "14 Cypress Lane",
-    dropoff: "PT Solutions",
-    fare: "$28.00",
-    pickupCoords: { latitude: 37.792, longitude: -122.402 },
-    dropoffCoords: { latitude: 37.78, longitude: -122.412 },
-  },
-  "Maya Thompson": {
-    name: "Maya Thompson",
-    type: "Oncology Appointment",
-    date: "Oct 20, 2023",
-    duration: "41 min",
-    distance: "12.3 mi",
-    rating: 4,
-    pickup: "302 Magnolia Drive",
-    dropoff: "City Medical Center — Oncology",
-    fare: "$56.75",
-    pickupCoords: { latitude: 37.795, longitude: -122.4 },
-    dropoffCoords: { latitude: 37.77, longitude: -122.42 },
-  },
-  "Jerome Patel": {
-    name: "Jerome Patel",
-    type: "Cardiology Follow-Up",
-    date: "Oct 18, 2023",
-    duration: "28 min",
-    distance: "6.8 mi",
-    rating: 5,
-    pickup: "67 Elm Street",
-    dropoff: "Heart & Vascular Institute",
-    fare: "$35.25",
-    pickupCoords: { latitude: 37.785, longitude: -122.405 },
-    dropoffCoords: { latitude: 37.775, longitude: -122.415 },
-  },
-};
 
 export default function PastRideScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { riderName } = useLocalSearchParams<{ riderName: string }>();
-  const { impact } = useHaptics();
-  const ride = pastRideData[riderName] ?? pastRideData["William Chen"];
+  const { rideId } = useLocalSearchParams<{ rideId: string }>();
+  const { rides } = useDispatch();
+  const ride = rides.find((item) => item.id === rideId);
 
-  const midLat = (ride.pickupCoords.latitude + ride.dropoffCoords.latitude) / 2;
-  const midLng = (ride.pickupCoords.longitude + ride.dropoffCoords.longitude) / 2;
+  if (!ride) {
+    return (
+      <PageTransition>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.surfaceLow,
+            padding: spacing.md,
+            justifyContent: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: radii.md,
+              borderCurve: "continuous",
+              padding: spacing.xl,
+              gap: spacing.sm,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "900", textAlign: "center" }}>
+              Ride unavailable
+            </Text>
+            <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", textAlign: "center", lineHeight: 20 }}>
+              This ride is not present in the latest backend response.
+            </Text>
+          </View>
+        </View>
+      </PageTransition>
+    );
+  }
+
+  const hasRouteMap = !!ride.pickupCoords && !!ride.dropoffCoords;
+  const routeCoords =
+    ride.routeCoords.length > 1
+      ? ride.routeCoords
+      : [ride.pickupCoords, ride.dropoffCoords].filter((coord): coord is NonNullable<typeof coord> => !!coord);
+  const midLat = routeCoords.length > 0 ? routeCoords.reduce((sum, c) => sum + c.latitude, 0) / routeCoords.length : 0;
+  const midLng = routeCoords.length > 0 ? routeCoords.reduce((sum, c) => sum + c.longitude, 0) / routeCoords.length : 0;
 
   return (
     <PageTransition>
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      style={{ flex: 1, backgroundColor: colors.surfaceLow }}
-      contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
-    >
-      <FadeInBlock delay={40}>
-        <View style={{ height: 180, borderRadius: radii.md, overflow: "hidden", margin: spacing.md, borderCurve: "continuous" }}>
-          <MapView
-            style={{ flex: 1 }}
-            initialRegion={{
-              latitude: midLat,
-              longitude: midLng,
-              latitudeDelta: 0.035,
-              longitudeDelta: 0.035,
-            }}
-            scrollEnabled={false}
-            zoomEnabled={false}
-          >
-            <Marker coordinate={ride.pickupCoords} title="Pickup" pinColor={colors.blue} />
-            <Marker coordinate={ride.dropoffCoords} title="Drop-off" pinColor={colors.green} />
-            <Polyline
-              coordinates={[ride.pickupCoords, ride.dropoffCoords]}
-              strokeColor={colors.blue}
-              strokeWidth={3}
-            />
-          </MapView>
-        </View>
-      </FadeInBlock>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={{ flex: 1, backgroundColor: colors.surfaceLow }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+      >
+        <FadeInBlock delay={40}>
+          {hasRouteMap ? (
+            <View style={{ height: 180, borderRadius: radii.md, overflow: "hidden", margin: spacing.md, borderCurve: "continuous" }}>
+              <MapView
+                style={{ flex: 1 }}
+                initialRegion={{
+                  latitude: midLat,
+                  longitude: midLng,
+                  latitudeDelta: 0.035,
+                  longitudeDelta: 0.035,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+              >
+                <Marker coordinate={ride.pickupCoords!} title="Pickup" pinColor={colors.blue} />
+                <Marker coordinate={ride.dropoffCoords!} title="Drop-off" pinColor={colors.green} />
+                <Polyline
+                  coordinates={routeCoords}
+                  strokeColor={colors.blue}
+                  strokeWidth={3}
+                />
+              </MapView>
+            </View>
+          ) : (
+            <View
+              style={{
+                height: 180,
+                margin: spacing.md,
+                borderRadius: radii.md,
+                borderCurve: "continuous",
+                backgroundColor: colors.surface,
+                alignItems: "center",
+                justifyContent: "center",
+                padding: spacing.lg,
+                gap: spacing.sm,
+              }}
+            >
+              <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>Route map unavailable</Text>
+              <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18 }}>
+                The backend did not provide pickup and drop-off coordinates for this ride.
+              </Text>
+            </View>
+          )}
+        </FadeInBlock>
 
-      <View style={{ paddingHorizontal: spacing.md, gap: spacing.md }}>
-        <FadeInBlock delay={120}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <View style={{ gap: 6, flex: 1 }}>
+        <View style={{ paddingHorizontal: spacing.md, gap: spacing.md }}>
+          <FadeInBlock delay={120}>
+            <View style={{ gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <StatusBadge status="completed" />
+                <StatusBadge status={getPastRideBadgeStatus(ride.status)} />
                 <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>
-                  {ride.date}
+                  {ride.scheduledDate} {ride.scheduledTime}
                 </Text>
               </View>
               <Text style={{ color: colors.primary, fontSize: 28, fontWeight: "900" }}>
-                {ride.name}
+                {ride.passengerName}
               </Text>
               <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "500", textTransform: "uppercase" }}>
-                {ride.type}
+                {ride.transitType} — {ride.tripType}
               </Text>
             </View>
-            <View style={{ alignItems: "flex-end", gap: 2 }}>
-              <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
-                {ride.fare}
-              </Text>
-              <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase" }}>
-                Fare
-              </Text>
-            </View>
-          </View>
-        </FadeInBlock>
+          </FadeInBlock>
 
-        <FadeInBlock delay={200}>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <StatTile label="Duration" value={ride.duration} />
-            <StatTile label="Distance" value={ride.distance} />
-            <StatTile label="Rating" value={"★".repeat(ride.rating)} />
-          </View>
-        </FadeInBlock>
-
-        <FadeInBlock delay={280}>
-          <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, borderCurve: "continuous", overflow: "hidden" }}>
-            <View style={{ padding: spacing.md, gap: 12 }}>
-              <LocationRow color={colors.blue} label="Pickup" address={ride.pickup} />
-              <View style={{ height: 1, backgroundColor: colors.slate100, marginLeft: 28 }} />
-              <LocationRow color={colors.green} label="Drop-off" address={ride.dropoff} />
-            </View>
-          </View>
-        </FadeInBlock>
-
-        <FadeInBlock delay={360}>
-          <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/chat", params: { rideId: "past", riderName: ride.name } }); }} accessibilityRole="button" accessibilityLabel="View chat history">
-            <GradientCard padding={16}>
-              <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
-                <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>
-                  View Chat History
-                </Text>
-                <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800" }}>→</Text>
+          <FadeInBlock delay={200}>
+            <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, borderCurve: "continuous", overflow: "hidden" }}>
+              <View style={{ padding: spacing.md, gap: 12 }}>
+                <LocationRow color={colors.blue} label="Pickup" address={ride.pickupAddress} />
+                <View style={{ height: 1, backgroundColor: colors.slate100, marginLeft: 28 }} />
+                <LocationRow color={colors.green} label="Drop-off" address={ride.dropoffAddress} />
               </View>
-            </GradientCard>
-          </Pressable>
-        </FadeInBlock>
-      </View>
-    </ScrollView>
+            </View>
+          </FadeInBlock>
+
+          {ride.notes ? (
+            <FadeInBlock delay={280}>
+              <View
+                style={{
+                  backgroundColor: colors.surface,
+                  borderRadius: radii.md,
+                  borderCurve: "continuous",
+                  padding: spacing.md,
+                  gap: 8,
+                }}
+              >
+                <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.3 }}>
+                  Backend Notes
+                </Text>
+                <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "600", lineHeight: 20 }}>
+                  {ride.notes}
+                </Text>
+              </View>
+            </FadeInBlock>
+          ) : null}
+        </View>
+      </ScrollView>
     </PageTransition>
   );
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={{
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: radii.md,
-      borderCurve: "continuous",
-      padding: spacing.md,
-      alignItems: "center",
-      gap: 4,
-    }}>
-      <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "700" }}>
-        {value}
-      </Text>
-      <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>
-        {label}
-      </Text>
-    </View>
-  );
+function getPastRideBadgeStatus(status: DispatchedRide["status"]) {
+  return status === "cancelled" ? "cancelled" : "completed";
 }

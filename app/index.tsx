@@ -15,7 +15,6 @@ import {
   RefreshControl,
   ScrollView,
   Text,
-  TextStyle,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -31,7 +30,6 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useIsFocused } from "@react-navigation/native";
 
 import MapView, { Marker, Polyline } from "@/components/Map";
@@ -39,21 +37,19 @@ import MapView, { Marker, Polyline } from "@/components/Map";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmergencyModal } from "@/components/ui/EmergencyModal";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { useAuth } from "@/components/ui/DriverNameGate";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { GradientCard } from "@/components/ui/gradient-card";
+import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
 import { useDispatch } from "@/lib/dispatch-context";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
-import {
-  pastRides,
-  routeSteps,
-  scheduledRides,
-} from "@/lib/mock-data";
-import { DISPATCH_PHONE, PROTOTYPE_RIDE_ID, formatPhone } from "@/lib/config";
-import { colors, radii, shadows, spacing } from "@/lib/theme";
+import { useDirections } from "@/lib/use-directions";
+import { DISPATCH_PHONE, formatPhone } from "@/lib/config";
+import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
 
 
 type TabKey = "current" | "scheduled" | "past" | "requests";
@@ -62,11 +58,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabKey | null>("current");
-  const [directionsOpen, setDirectionsOpen] = useState(false);
   const [riderProfileOpen, setRiderProfileOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { pendingRides, scheduledRides: dispatchedScheduled, activeRide, acceptRide, declineRide } = useDispatch();
+  const { rides, pendingRides, scheduledRides, activeRide, refreshRides, acceptRide, declineRide } = useDispatch();
   const { impact, notification, selection } = useHaptics();
+  const pastRides = rides.filter((ride) => ride.status === "completed" || ride.status === "cancelled");
 
   const protocolBars = useMemo(() => new Array(5).fill(0), []);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -103,17 +99,18 @@ export default function HomeScreen() {
     <PageTransition>
       <ScrollView
         ref={scrollViewRef}
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         style={{ flex: 1, backgroundColor: colors.surfaceLow }}
         contentContainerStyle={{
-          paddingBottom: 100,
+          paddingBottom: 172 + insets.bottom,
         }}
+        scrollIndicatorInsets={{ bottom: 132 + insets.bottom }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              setTimeout(() => setRefreshing(false), 1500);
+              refreshRides().finally(() => setRefreshing(false));
             }}
             tintColor={colors.blue}
             colors={[colors.blue]}
@@ -136,72 +133,90 @@ export default function HomeScreen() {
             onPress={() => toggleSection("current")}
           >
             {activeRide ? (
-              <View style={{ gap: spacing.md }}>
-                <Pressable
-                  onPress={() => { impact(ImpactFeedbackStyle.Light); setRiderProfileOpen(true); }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View rider profile for ${activeRide.passengerName}`}
-                  style={({ pressed }) => ({
-                    backgroundColor: colors.surfaceLowest,
-                    borderRadius: radii.md,
-                    borderCurve: "continuous",
-                    padding: spacing.md,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 14,
-                    opacity: pressed ? 0.96 : 1,
-                    transform: [{ scale: pressed ? 0.99 : 1 }],
-                  })}
-                >
-                  <Avatar initials={activeRide.passengerName.split(" ").map(n => n[0]).join("")} size={48} />
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                      <Text style={eyebrow}>
-                        Active Mission
-                      </Text>
-                      <StatusBadge status="enRoute" />
-                    </View>
-                    <Text selectable style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>
-                      {activeRide.passengerName}
-                    </Text>
-                    <Text selectable style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8 }}>
-                      {activeRide.transitType} {activeRide.tripType}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end", gap: 2 }}>
-                    <Text selectable style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>TIME</Text>
-                    <Text selectable style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>{activeRide.scheduledTime}</Text>
-                  </View>
-                </Pressable>
-
+              <View style={{ gap: spacing.sm }}>
                 <Pressable
                   onPress={() => { impact(ImpactFeedbackStyle.Light); router.push("/mission"); }}
                   accessibilityRole="button"
                   accessibilityLabel="Open live mission map"
                   style={({ pressed }) => ({
-                    height: 140,
-                    backgroundColor: colors.mapPlaceholder,
-                    borderRadius: radii.md,
-                    overflow: "hidden",
-                    borderCurve: "continuous",
+                    ...currentMapHero,
                     transform: [{ scale: pressed ? 0.995 : 1 }],
                   })}
                 >
                   <MiniMap />
-                  <View style={{ position: "absolute", left: 12, bottom: 12, flexDirection: "row", gap: 8 }}>
-                    <View style={{ backgroundColor: colors.surfaceFrosted, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: colors.blue }} />
-                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>{activeRide.pickupAddress}</Text>
-                    </View>
-                    <View style={{ backgroundColor: colors.surfaceFrosted, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <View style={{ width: 7, height: 7, borderRadius: radii.pill, backgroundColor: colors.green }} />
-                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>{activeRide.dropoffAddress}</Text>
-                    </View>
+                  <View style={currentMapTopBar}>
+                    <StatusBadge status={getRideBadgeStatus(activeRide.status)} />
                   </View>
-                  <View style={{ position: "absolute", right: 12, top: 12, backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: radii.xs }}>
-                    <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "800", letterSpacing: 0.8 }}>Live GPS</Text>
-                  </View>
+                  <Pressable
+                    onPress={() => { impact(ImpactFeedbackStyle.Light); setRiderProfileOpen(true); }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View rider profile for ${activeRide.passengerName}`}
+                    style={({ pressed }) => [
+                      currentMapRiderCard,
+                      pressed ? { opacity: 0.9 } : null,
+                    ]}
+                  >
+                    <Avatar initials={activeRide.passengerName.split(" ").map(n => n[0]).join("")} size={44} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={compactOverlayLabel}>Rider</Text>
+                      <Text selectable style={currentMapRiderName} numberOfLines={1}>
+                        {activeRide.passengerName}
+                      </Text>
+                      <Text selectable style={currentMapRiderMeta} numberOfLines={1}>
+                        {activeRide.transitType} {activeRide.tripType} · ID {activeRide.id}
+                      </Text>
+                    </View>
+                    <View style={currentMapTimeCard}>
+                      <Text style={currentMapTimeLabel}>Pickup</Text>
+                      <Text selectable style={currentMapTime} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
+                        {activeRide.scheduledTime}
+                      </Text>
+                      <Text selectable style={currentMapDate} numberOfLines={1}>
+                        {activeRide.scheduledDate}
+                      </Text>
+                    </View>
+                  </Pressable>
                 </Pressable>
+
+                <View style={currentRouteOverlayCard}>
+                  <View style={currentRouteRow}>
+                    <View style={routeDotBlue} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={compactOverlayLabel}>Pickup</Text>
+                      <Text selectable style={currentRouteAddress} numberOfLines={2}>
+                        {activeRide.pickupAddress}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: colors.slate100, marginLeft: 19 }} />
+                  <View style={currentRouteRow}>
+                    <View style={routeDotGreen} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={compactOverlayLabel}>Drop-off</Text>
+                      <Text selectable style={currentRouteAddress} numberOfLines={2}>
+                        {activeRide.dropoffAddress}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {activeRide.notes ? (
+                  <View style={currentRideDetailCard}>
+                    <Text style={microLabel}>Care notes</Text>
+                    <Text selectable style={currentRideBodyText}>
+                      {activeRide.notes}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {activeRide.emergencyContact ? (
+                  <View style={currentRideDetailCard}>
+                    <Text style={microLabel}>Emergency contact</Text>
+                    <Text selectable style={currentRideBodyText}>
+                      {formatPhone(activeRide.emergencyContact)}
+                    </Text>
+                  </View>
+                ) : null}
 
                 <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); router.push("/mission"); }} accessibilityRole="button" accessibilityLabel="Track live mission">
                   <GradientCard padding={16}>
@@ -251,12 +266,12 @@ export default function HomeScreen() {
           <AccordionSection
             title="Scheduled Rides"
             active={activeTab === "scheduled"}
-            badge={dispatchedScheduled.length > 0 ? String(dispatchedScheduled.length + scheduledRides.length) : undefined}
+            badge={scheduledRides.length > 0 ? String(scheduledRides.length) : undefined}
             onLayout={handleSectionLayout("scheduled")}
             onPress={() => toggleSection("scheduled")}
           >
             <View style={{ gap: spacing.md }}>
-              {dispatchedScheduled.length === 0 && scheduledRides.length === 0 ? (
+              {scheduledRides.length === 0 ? (
                 <View
                   style={{
                     backgroundColor: colors.surface,
@@ -277,7 +292,7 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               ) : null}
-              {dispatchedScheduled.map((ride) => (
+              {scheduledRides.map((ride) => (
                 <Pressable
                   key={ride.id}
                   onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/ride-details", params: { rideId: ride.id } }); }}
@@ -324,61 +339,6 @@ export default function HomeScreen() {
                   </Text>
                 </Pressable>
               ))}
-              {scheduledRides.map((ride) => (
-                <Pressable
-                  key={ride.id}
-                  onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/ride-details", params: { rideId: ride.id } }); }}
-                  style={({ pressed }) => ({
-                    backgroundColor: colors.surface,
-                    borderRadius: radii.md,
-                    borderCurve: "continuous",
-                    padding: 20,
-                    flexDirection: "row",
-                    gap: 16,
-                    opacity: pressed ? 0.92 : 1,
-                    transform: [{ scale: pressed ? 0.99 : 1 }],
-                    ...shadows.soft,
-                  })}
-                >
-                  <View style={{ flex: 1, gap: 10 }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text selectable style={timeBadge}>
-                        {ride.time}
-                      </Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <StatusBadge status="scheduled" />
-                        <Text selectable style={microLabel}>
-                          {ride.id}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text selectable style={cardTitle}>
-                      {ride.name}
-                    </Text>
-                    <Text selectable style={cardMeta}>
-                      {ride.type} — {ride.vehicle}
-                    </Text>
-                  </View>
-                    <View
-                      style={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: radii.md,
-                        overflow: "hidden",
-                        borderCurve: "continuous",
-                        backgroundColor: colors.mapPlaceholder,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                  >
-                    <View style={{ gap: 6, alignItems: "center" }}>
-                      <View style={{ width: 8, height: 8, borderRadius: radii.pill, backgroundColor: colors.blue, opacity: 0.6 }} />
-                      <View style={{ width: 1, height: 20, backgroundColor: colors.slate300 }} />
-                      <View style={{ width: 8, height: 8, borderRadius: radii.pill, backgroundColor: colors.green, opacity: 0.6 }} />
-                    </View>
-                  </View>
-                </Pressable>
-              ))}
             </View>
           </AccordionSection>
           </FadeInBlock>
@@ -390,7 +350,7 @@ export default function HomeScreen() {
             onLayout={handleSectionLayout("past")}
             onPress={() => toggleSection("past")}
           >
-            <View style={{ gap: 4 }}>
+            <View style={{ gap: spacing.sm }}>
               {pastRides.length === 0 ? (
                 <View
                   style={{
@@ -412,36 +372,77 @@ export default function HomeScreen() {
                   </Text>
                 </View>
               ) : null}
-              {pastRides.map((ride, index) => (
+              {pastRides.length > 0 ? (
+                <View style={pastSummaryCard}>
+                  <View style={{ gap: 2 }}>
+                    <Text style={microLabel}>Ride history</Text>
+                    <Text style={pastSummaryValue}>{pastRides.length} past trips</Text>
+                  </View>
+                  <View style={pastLatestPill}>
+                    <Text style={pastLatestText}>{pastRides[0]?.scheduledDate ?? "Latest"}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {pastRides.map((ride) => (
                 <Pressable
-                  key={ride.name}
-                  onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/past-ride", params: { riderName: ride.name } }); }}
+                  key={ride.id}
+                  onPress={() => { impact(ImpactFeedbackStyle.Light); router.push({ pathname: "/past-ride", params: { rideId: ride.id } }); }}
                   accessibilityRole="button"
-                  accessibilityLabel={`View past ride with ${ride.name}`}
+                  accessibilityLabel={`View past ride with ${ride.passengerName}`}
                   style={({ pressed }) => ({
-                    backgroundColor: colors.surface,
-                    borderRadius: radii.md,
-                    borderCurve: "continuous",
-                    paddingHorizontal: spacing.lg,
-                    paddingVertical: 18,
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    ...pastRideCard,
+                    borderColor: pressed ? colors.blue : colors.slate100,
                     opacity: pressed ? 0.92 : 1,
                     transform: [{ scale: pressed ? 0.99 : 1 }],
                   })}
                 >
-                  <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
-                    <Text selectable style={pastRideName} numberOfLines={1}>
-                      {ride.name}
-                    </Text>
-                    <Text style={microLabel} numberOfLines={1}>
-                      {ride.date} · {ride.type}
-                    </Text>
+                  <View style={pastDateRail}>
+                    <Text style={pastDateText}>{ride.scheduledDate}</Text>
+                    <Text style={pastTimeText}>{ride.scheduledTime}</Text>
                   </View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
-                    <StatusBadge status="completed" />
-                    <Text style={{ color: colors.slate300, fontSize: 16 }}>▸</Text>
+                  <View style={{ flex: 1, gap: 8, minWidth: 0 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: spacing.sm,
+                      }}
+                    >
+                      <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
+                        <Text selectable style={pastRideName} numberOfLines={1}>
+                          {ride.passengerName}
+                        </Text>
+                        <Text style={microLabel} numberOfLines={1}>
+                          {ride.transitType} {ride.tripType}
+                        </Text>
+                      </View>
+                      <StatusBadge status={ride.status === "cancelled" ? "cancelled" : "completed"} />
+                    </View>
+                    <View style={{ gap: 5 }}>
+                      <View style={rowCenter}>
+                        <View style={routeDotBlue} />
+                        <Text style={pastRouteText} numberOfLines={1}>{ride.pickupAddress}</Text>
+                      </View>
+                      <View style={rowCenter}>
+                        <View style={routeDotGreen} />
+                        <Text style={pastRouteText} numberOfLines={1}>{ride.dropoffAddress}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: radii.pill,
+                      backgroundColor: colors.surfaceLow,
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Text style={{ color: colors.slate400, fontSize: 15, fontWeight: "900" }}>›</Text>
                   </View>
                 </Pressable>
               ))}
@@ -458,7 +459,7 @@ export default function HomeScreen() {
             onPress={() => toggleSection("requests")}
           >
             {pendingRides.length > 0 ? (
-              <View style={{ gap: spacing.md }}>
+              <View style={{ gap: spacing.sm }}>
                 {pendingRides.map((ride) => (
                   <View
                     key={ride.id}
@@ -467,51 +468,79 @@ export default function HomeScreen() {
                     <View
                       style={requestTopBar}
                     />
-                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <View>
-                        <Text selectable style={requestTimeBadge}>
-                          {ride.scheduledTime}
-                        </Text>
-                      </View>
-                      <View
-                        style={requestIdBadge}
+                    <View style={{ flexDirection: "row", gap: 12, alignItems: "stretch" }}>
+                      <Pressable
+                        onPress={() => {
+                          impact(ImpactFeedbackStyle.Light);
+                          router.push({ pathname: "/ride-details", params: { rideId: ride.id } });
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`View details for ride ${ride.id}`}
+                        style={({ pressed }) => ({
+                          flex: 1,
+                          minWidth: 0,
+                          gap: 7,
+                          opacity: pressed ? 0.72 : 1,
+                        })}
                       >
-                        <Text selectable style={requestIdText}>
-                          {ride.id}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          <Text selectable style={requestDateBadge}>
+                            {ride.scheduledDate}
+                          </Text>
+                          <Text selectable style={requestTimeBadge}>
+                            {ride.scheduledTime}
+                          </Text>
+                          <View
+                            style={requestIdBadge}
+                          >
+                            <Text selectable style={requestIdText}>
+                              {ride.id}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={{ gap: 2 }}>
+                          <Text selectable style={requestCompactTitle} numberOfLines={1}>
+                            {ride.passengerName}
+                          </Text>
+                          <Text selectable style={requestCompactMeta} numberOfLines={1}>
+                            {ride.transitType} {ride.tripType}
+                          </Text>
+                        </View>
+                        <View style={{ gap: 3 }}>
+                          <View style={requestRouteRow}>
+                            <View style={routeDotBlue} />
+                            <Text selectable style={routeAddressText} numberOfLines={1}>{ride.pickupAddress}</Text>
+                          </View>
+                          <View style={requestRouteRow}>
+                            <View style={routeDotGreen} />
+                            <Text selectable style={routeAddressText} numberOfLines={1}>{ride.dropoffAddress}</Text>
+                          </View>
+                        </View>
+                        {ride.notes ? (
+                          <Text selectable numberOfLines={1} style={requestNotesText}>
+                            {ride.notes}
+                          </Text>
+                        ) : null}
+                      </Pressable>
+                      <View style={requestActions}>
+                        <Pressable
+                          onPress={() => { notification(NotificationFeedbackType.Success); acceptRide(ride.id); }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Accept ride ${ride.id}`}
+                          style={({ pressed }) => [requestAcceptButton, pressed ? { opacity: 0.82 } : null]}
+                        >
+                          <Text style={requestAcceptText}>Accept</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => { notification(NotificationFeedbackType.Warning); declineRide(ride.id); }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Decline ride ${ride.id}`}
+                          style={({ pressed }) => [requestDeclineButton, pressed ? { opacity: 0.72 } : null]}
+                        >
+                          <Text style={requestDeclineText}>Decline</Text>
+                        </Pressable>
                       </View>
                     </View>
-                    <View style={{ gap: 4 }}>
-                      <Text selectable style={cardTitle}>
-                        {ride.passengerName}
-                      </Text>
-                      <Text selectable style={cardMeta}>
-                        {ride.transitType} {ride.tripType}
-                      </Text>
-                    </View>
-                    <View style={{ gap: 6 }}>
-                      <View style={rowCenter}>
-                        <View style={routeDotBlue} />
-                        <Text selectable style={routeAddressText}>{ride.pickupAddress}</Text>
-                      </View>
-                      <View style={rowCenter}>
-                        <View style={routeDotGreen} />
-                        <Text selectable style={routeAddressText}>{ride.dropoffAddress}</Text>
-                      </View>
-                    </View>
-                    {ride.notes ? (
-                      <Text selectable style={{ color: colors.slate400, fontSize: 12, fontWeight: "500", fontStyle: "italic" }}>
-                        {ride.notes}
-                      </Text>
-                    ) : null}
-                    <Pressable onPress={() => { notification(NotificationFeedbackType.Success); acceptRide(ride.id); }} accessibilityRole="button" accessibilityLabel={`Accept ride ${ride.id}`}>
-                      <GradientCard padding={18}>
-                        <Text style={primaryActionText}>Accept Mission</Text>
-                      </GradientCard>
-                    </Pressable>
-                    <Pressable onPress={() => { notification(NotificationFeedbackType.Warning); declineRide(ride.id); }} accessibilityRole="button" accessibilityLabel={`Decline ride ${ride.id}`} style={{ minHeight: 44, justifyContent: "center" }}>
-                      <Text style={declineText}>Decline</Text>
-                    </Pressable>
                   </View>
                 ))}
               </View>
@@ -638,99 +667,6 @@ export default function HomeScreen() {
         </Pressable>
       </SheetModal>
 
-      <SheetModal
-        visible={directionsOpen}
-        onClose={() => setDirectionsOpen(false)}
-        snapPoints={["58%", "90%"]}
-      >
-        <View style={{ gap: 18, paddingBottom: spacing.md }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text selectable style={modalSectionTitle}>
-              Route Protocol
-            </Text>
-            <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setDirectionsOpen(false); }} accessibilityRole="button" accessibilityLabel="Dismiss directions" style={{ minHeight: 44, justifyContent: "center" }}>
-              <Text style={microLabel}>
-                Dismiss
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={{ flex: 1 }}
-          contentContainerStyle={{ gap: 10, paddingBottom: spacing.xl }}
-          showsVerticalScrollIndicator={false}
-        >
-          {routeSteps.map((step, index) => (
-            <View
-              key={step.title}
-              style={{
-                backgroundColor:
-                  step.accent === "next" ? colors.surfaceLow : colors.surface,
-                borderRadius: radii.md,
-                borderCurve: "continuous",
-                padding: spacing.lg,
-                gap: 14,
-              }}
-            >
-              {index === 0 ? (
-                <Text selectable style={nextActionLabel}>
-                  Next Action
-                </Text>
-              ) : null}
-              <View style={{ flexDirection: "row", gap: 14 }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: radii.pill,
-                    backgroundColor:
-                      index === 0 ? colors.blue : colors.surfaceHigh,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: index === 0 ? colors.surface : colors.primary,
-                      fontSize: 18,
-                      fontWeight: "800",
-                    }}
-                  >
-                    {index === 0 ? "↑" : index === 1 ? "→" : "↱"}
-                  </Text>
-                </View>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text selectable style={index === 0 ? routePrimaryTitle : routeSecondaryTitle}>
-                    {step.title}
-                  </Text>
-                  <Text selectable style={routeSubtitle}>
-                    {step.subtitle}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          ))}
-
-          <View style={destinationCard}>
-            <View style={destinationPin}>
-              <Text style={{ color: colors.green, fontSize: 20 }}>⌖</Text>
-            </View>
-            <Text selectable style={destinationLabel}>
-              Final Destination
-            </Text>
-            <Text selectable style={destinationTitle}>
-              {activeRide?.dropoffAddress ?? "—"}
-            </Text>
-          </View>
-        </ScrollView>
-        <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setDirectionsOpen(false); }} accessibilityRole="button" accessibilityLabel="Return to map">
-          <GradientCard padding={18}>
-            <Text style={primaryActionText}>Return to Map</Text>
-          </GradientCard>
-        </Pressable>
-      </SheetModal>
-
     </PageTransition>
   );
 }
@@ -750,37 +686,6 @@ function AccordionSection({
   onPress: () => void;
   children: React.ReactNode;
 }) {
-  const contentHeight = useSharedValue(0);
-  const measuredHeight = useRef(0);
-  const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      contentHeight.value = active ? measuredHeight.current : 0;
-      return;
-    }
-    contentHeight.value = withTiming(active ? measuredHeight.current : 0, {
-      duration: 300,
-      easing: Easing.out(Easing.quad),
-    });
-  }, [active]);
-
-  const animatedContentStyle = useAnimatedStyle(() => ({
-    height: contentHeight.value,
-    overflow: "hidden" as const,
-  }));
-
-  const onContentLayout = useCallback((event: LayoutChangeEvent) => {
-    const h = event.nativeEvent.layout.height;
-    if (h > 0 && h !== measuredHeight.current) {
-      measuredHeight.current = h;
-      if (active) {
-        contentHeight.value = withTiming(h, { duration: 200, easing: Easing.out(Easing.quad) });
-      }
-    }
-  }, [active]);
-
   return (
     <View onLayout={onLayout} style={{ marginBottom: 4 }}>
       <Pressable
@@ -824,9 +729,8 @@ function AccordionSection({
           {active ? "▾" : "▸"}
         </Text>
       </Pressable>
-      <Animated.View style={animatedContentStyle}>
+      {active ? (
         <View
-          onLayout={onContentLayout}
           style={{
             backgroundColor: colors.surface,
             paddingHorizontal: spacing.sm,
@@ -838,7 +742,7 @@ function AccordionSection({
         >
           {children}
         </View>
-      </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -874,7 +778,7 @@ function SheetModal({
           <Pressable
             onPress={(e) => e.stopPropagation()}
             style={{
-              height: snapPoints[0] ?? "56%",
+              height: typeof snapPoints[0] === "number" ? snapPoints[0] : (snapPoints[0] ?? "56%") as `${number}%`,
               backgroundColor: colors.surface,
               borderTopLeftRadius: radii.lg,
               borderTopRightRadius: radii.lg,
@@ -962,8 +866,8 @@ function SheetModal({
 
 function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const router = useRouter();
+  const { session } = useAuth();
   const { impact, notification, selection } = useHaptics();
   // Wired to the real LocationProvider so this button stays in lockstep with
   // the Settings toggle — flipping one affects the other.
@@ -972,13 +876,24 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   const [cardFlipped, setCardFlipped] = useState(false);
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const { height: screenHeight } = Dimensions.get("window");
+  const operatorDisplayName = session?.name ?? "Driver";
+  const operatorBackendId = session ? String(session.id) : "Pending";
+  const operatorInitials = getInitials(operatorDisplayName);
+  const pendingProfileFields = useMemo(
+    () => [
+      { label: "Operator credential ID", value: "Needs API", icon: "!" },
+      { label: "Certifications", value: "Needs API", icon: "+" },
+      { label: "Certified since", value: "Needs API", icon: "+" },
+      { label: "QR verification", value: "Needs API", icon: "+" },
+    ],
+    [],
+  );
 
   const collapsedHeight = 88 + bottomInset;
-  // The sheet is rendered inside the screen content area, which already sits
-  // below the navigation header. Subtract the header height so the expanded
-  // top edge stops just below the "TrustedRiders" bar instead of being
-  // clipped behind it.
-  const expandedHeight = screenHeight - insets.top - headerHeight - 12;
+  // Keep the expanded drawer under the custom brand header. The route content
+  // area and native safe-area math differ slightly on iOS, so this guard gives
+  // the header a stable visual lane while still letting the drawer feel tall.
+  const expandedHeight = screenHeight - insets.top - 64;
   const sheetY = useSharedValue(0); // 0 = collapsed, 1 = expanded
 
   const open = useCallback(() => {
@@ -994,6 +909,8 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   const dragStart = useSharedValue(0);
 
   const panGestureSheet = Gesture.Pan()
+    .activeOffsetY([-10, 10])
+    .failOffsetX([-20, 20])
     .onBegin(() => {
       dragStart.value = sheetY.value;
     })
@@ -1069,7 +986,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   }));
 
   return (
-    <GestureHandlerRootView style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
+    <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, elevation: 20 }}>
       <GestureDetector gesture={panGestureSheet}>
         <Animated.View style={[{ backgroundColor: colors.primary, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, paddingBottom: bottomInset }, sheetAnimatedStyle, entranceStyle]}>
           {/* Handle + header are the ONLY tap-to-toggle zone so interior
@@ -1088,8 +1005,8 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                     <Text style={{ color: colors.slate300, fontSize: 18 }}>⛊</Text>
                   </View>
                   <View>
-                    <Text style={operatorName}>User #Ben123</Text>
-                    <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Operator ID</Text>
+                    <Text style={operatorName}>{operatorDisplayName}</Text>
+                    <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Backend ID #{operatorBackendId}</Text>
                   </View>
                 </View>
               </View>
@@ -1105,51 +1022,50 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                   <View style={{ padding: 20, gap: 18, flex: 1 }}>
                     <View style={{ flexDirection: "row", gap: 16 }}>
                       <View style={{ width: 80, height: 96, borderRadius: radii.sm, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ color: colors.surface, fontSize: 28, fontWeight: "900" }}>BD</Text>
+                        <Text style={{ color: colors.surface, fontSize: 28, fontWeight: "900" }}>{operatorInitials}</Text>
                       </View>
                       <View style={{ flex: 1, gap: 4, justifyContent: "center" }}>
-                        <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>Ben Driver</Text>
+                        <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>{operatorDisplayName}</Text>
                         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>ID: 099-242</Text>
+                          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>Backend ID: {operatorBackendId}</Text>
                           <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.slate300 }} />
                           <Text style={{ color: colors.green, fontSize: 13, fontWeight: "800", textTransform: "uppercase" }}>Active</Text>
                         </View>
-                        <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600" }}>Certified since March 2024</Text>
+                        <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600" }}>Profile fields pending backend</Text>
                       </View>
                     </View>
                     <View style={{ height: 1, backgroundColor: colors.slate100 }} />
                     <View style={{ gap: 10 }}>
                       <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1.5 }}>Certifications</Text>
-                      {[{ label: "TrustedRiders Certified", date: "Mar 2024", icon: "◆" }, { label: "ADA Compliance", date: "Jun 2024", icon: "◆" }, { label: "Wheelchair Assist", date: "Mar 2024", icon: "◆" }, { label: "First Aid / CPR", date: "Jan 2025", icon: "+" }].map((cert) => (
-                        <View key={cert.label} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      {pendingProfileFields.map((field) => (
+                        <View key={field.label} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                             <View style={{ width: 20, height: 20, borderRadius: radii.xs, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }}>
-                              <Text style={{ color: colors.green, fontSize: 8, fontWeight: "900" }}>{cert.icon}</Text>
+                              <Text style={{ color: colors.green, fontSize: 8, fontWeight: "900" }}>{field.icon}</Text>
                             </View>
-                            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>{cert.label}</Text>
+                            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600" }}>{field.label}</Text>
                           </View>
-                          <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "500" }}>{cert.date}</Text>
+                          <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "500" }}>{field.value}</Text>
                         </View>
                       ))}
                     </View>
                     <View style={{ flex: 1 }} />
                     <View style={{ alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "700" }}>Tap or swipe to show QR</Text>
+                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "700" }}>QR verification pending backend</Text>
                       <Text style={{ color: colors.slate300, fontSize: 12 }}>↻</Text>
                     </View>
                   </View>
                 </Animated.View>
                 <Animated.View style={[{ backgroundColor: colors.surface, borderRadius: 12, borderCurve: "continuous", overflow: "hidden", height: cardHeight }, backStyle]}>
                   <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 24 }}>
-                    <View style={{ width: 180, height: 180, backgroundColor: colors.surfaceLow, borderRadius: radii.md, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.slate100 }}>
-                      <View style={{ gap: 3, alignItems: "center" }}>
-                        {[0,1,2,3,4,5,6].map((row) => (<View key={row} style={{ flexDirection: "row", gap: 3 }}>{[0,1,2,3,4,5,6].map((col) => (<View key={col} style={{ width: 18, height: 18, borderRadius: 2, backgroundColor: (row<3&&col<3)||(row<3&&col>3)||(row>3&&col<3) ? (row+col)%2===0?colors.primary:colors.surface : (row*col+row)%3===0?colors.primary:colors.slate200 }} />))}</View>))}
-                      </View>
+                    <View style={{ width: 180, height: 180, backgroundColor: colors.surfaceLow, borderRadius: radii.md, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.slate100, gap: 8 }}>
+                      <Text style={{ color: colors.primary, fontSize: 34, fontWeight: "900", letterSpacing: -1 }}>QR</Text>
+                      <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.4 }}>Pending backend</Text>
                     </View>
                     <View style={{ alignItems: "center", gap: 6 }}>
-                      <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>Ben Driver</Text>
-                      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>ID: 099-242</Text>
-                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18, paddingHorizontal: 20 }}>Scan to verify operator identity</Text>
+                      <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>{operatorDisplayName}</Text>
+                      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>Backend ID: {operatorBackendId}</Text>
+                      <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18, paddingHorizontal: 20 }}>Backend needs to provide a QR verification payload</Text>
                     </View>
                   </View>
                 </Animated.View>
@@ -1204,55 +1120,6 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
           },
         ]}
       />
-    </GestureHandlerRootView>
-  );
-}
-
-function PulsingDot() {
-  const pulse = useSharedValue(0);
-
-  useEffect(() => {
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 1500, easing: Easing.out(Easing.ease) }),
-      -1,
-      false,
-    );
-  }, [pulse]);
-
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: 1 - pulse.value,
-    transform: [{ scale: 1 + pulse.value * 2 }],
-  }));
-
-  return (
-    <View style={{ width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
-      <Animated.View
-        style={[
-          {
-            position: "absolute",
-            width: 14,
-            height: 14,
-            borderRadius: 7,
-            backgroundColor: "rgba(37, 99, 235, 0.3)",
-          },
-          ringStyle,
-        ]}
-      />
-      <View
-        style={{
-          width: 14,
-          height: 14,
-          borderRadius: 7,
-          backgroundColor: colors.blue,
-          borderWidth: 2.5,
-          borderColor: "#fff",
-          shadowColor: colors.blue,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.6,
-          shadowRadius: 6,
-          elevation: 6,
-        }}
-      />
     </View>
   );
 }
@@ -1306,28 +1173,91 @@ function LiveTrackingBadge() {
   );
 }
 
+function getRideBadgeStatus(status: string): StatusKey {
+  switch (status) {
+    case "pending":
+      return "pending";
+    case "accepted":
+      return "scheduled";
+    case "en_route":
+      return "enRoute";
+    case "picked_up":
+      return "arrived";
+    case "in_transit":
+      return "inTransit";
+    case "completed":
+      return "completed";
+    case "cancelled":
+      return "cancelled";
+    default:
+      return "scheduled";
+  }
+}
+
+function getInitials(name: string): string {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return initials || "TR";
+}
+
 function MiniMap() {
-  const { location, isTracking } = useLocation();
+  const { isTracking } = useLocation();
   const { activeRide } = useDispatch();
+  const mapRef = useRef<MapView | null>(null);
 
-  const pickup = activeRide?.pickupCoords ?? { latitude: 37.788, longitude: -122.408 };
-  const dropoff = activeRide?.dropoffCoords ?? { latitude: 37.775, longitude: -122.42 };
+  const pickup = activeRide?.pickupCoords ?? null;
+  const dropoff = activeRide?.dropoffCoords ?? null;
+  const directions = useDirections(pickup, dropoff);
 
-  const center = location
-    ? { latitude: location.latitude, longitude: location.longitude }
-    : pickup;
+  const routeCoords =
+    activeRide?.routeCoords && activeRide.routeCoords.length > 1
+      ? activeRide.routeCoords
+      : directions.routeCoords && directions.routeCoords.length > 1
+      ? directions.routeCoords
+      : [pickup, dropoff].filter((coord): coord is NonNullable<typeof coord> => !!coord);
+
+  const center = routeCoords.length > 0
+    ? {
+        latitude: routeCoords.reduce((sum, coord) => sum + coord.latitude, 0) / routeCoords.length,
+        longitude: routeCoords.reduce((sum, coord) => sum + coord.longitude, 0) / routeCoords.length,
+      }
+    : null;
+
+  useEffect(() => {
+    if (routeCoords.length < 2) return;
+    mapRef.current?.fitToCoordinates(routeCoords, {
+      edgePadding: { top: 36, right: 36, bottom: 36, left: 36 },
+      animated: false,
+    });
+  }, [routeCoords]);
+
+  if (!center) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.mapPlaceholder }}>
+        <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>
+          Map unavailable
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1 }}>
       {isTracking && <LiveTrackingBadge />}
       <MapView
+        ref={mapRef}
         style={{ flex: 1 }}
         initialRegion={{
           ...center,
           latitudeDelta: 0.025,
           longitudeDelta: 0.025,
         }}
-        region={location ? { ...center, latitudeDelta: 0.025, longitudeDelta: 0.025 } : undefined}
         scrollEnabled={false}
         zoomEnabled={false}
         pitchEnabled={false}
@@ -1335,30 +1265,27 @@ function MiniMap() {
         pointerEvents="none"
         showsMyLocationButton={false}
       >
-        {location && (
+        {pickup ? (
           <Marker
-            coordinate={{ latitude: location.latitude, longitude: location.longitude }}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges
-          >
-            <PulsingDot />
-          </Marker>
-        )}
-        <Marker
-          coordinate={pickup}
-          title="Pickup"
-          pinColor={colors.blue}
-        />
-        <Marker
-          coordinate={dropoff}
-          title="Drop-off"
-          pinColor={colors.green}
-        />
-        <Polyline
-          coordinates={[pickup, dropoff]}
-          strokeColor={colors.blue}
-          strokeWidth={3}
-        />
+            coordinate={pickup}
+            title="Pickup"
+            pinColor={colors.blue}
+          />
+        ) : null}
+        {dropoff ? (
+          <Marker
+            coordinate={dropoff}
+            title="Drop-off"
+            pinColor={colors.green}
+          />
+        ) : null}
+        {routeCoords.length > 1 ? (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor={colors.blue}
+            strokeWidth={3}
+          />
+        ) : null}
       </MapView>
     </View>
   );
@@ -1444,26 +1371,236 @@ const cardMeta = {
   textTransform: "uppercase" as const,
 };
 
-const pastRideName = {
+const currentMapHero = {
+  height: 300,
+  backgroundColor: colors.mapPlaceholder,
+  borderRadius: radii.md,
+  borderCurve: "continuous" as const,
+  overflow: "hidden" as const,
+};
+
+const currentMapTopBar = {
+  position: "absolute" as const,
+  top: spacing.sm,
+  left: spacing.sm,
+  right: spacing.sm,
+  flexDirection: "row" as const,
+  justifyContent: "flex-end" as const,
+  alignItems: "center" as const,
+};
+
+const currentMapStatusPill = {
+  backgroundColor: colors.surfaceFrosted,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: 7,
+};
+
+const currentMapStatusText = {
   color: colors.primary,
-  fontSize: 18,
+  fontSize: 11,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1.4,
+};
+
+const currentMapRiderCard = {
+  position: "absolute" as const,
+  left: spacing.sm,
+  right: spacing.sm,
+  bottom: spacing.sm,
+  backgroundColor: colors.surfaceFrosted,
+  borderRadius: radii.sm,
+  padding: spacing.sm,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: spacing.sm,
+};
+
+const compactOverlayLabel = {
+  color: colors.slate500,
+  fontSize: 11,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1.1,
+};
+
+const currentMapRiderName = {
+  color: colors.primary,
+  fontSize: 20,
+  fontWeight: "900" as const,
+  lineHeight: 24,
+};
+
+const currentMapRiderMeta = {
+  color: colors.slate500,
+  fontSize: 12,
+  fontWeight: "800" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 0.8,
+};
+
+const currentMapTimeCard = {
+  width: 122,
+  backgroundColor: colors.primary,
+  borderRadius: radii.sm,
+  paddingHorizontal: 8,
+  paddingVertical: 8,
+  alignItems: "flex-end" as const,
+};
+
+const currentMapTimeLabel = {
+  color: colors.surfaceScrim80,
+  fontSize: 10,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1,
+};
+
+const currentMapTime = {
+  color: colors.accent,
+  fontSize: 20,
+  fontWeight: "900" as const,
+  lineHeight: 24,
+};
+
+const currentMapDate = {
+  color: colors.surface,
+  fontSize: 11,
   fontWeight: "800" as const,
 };
 
-const requestMinutes = {
-  color: colors.primary,
-  fontSize: 48,
-  fontWeight: "900" as const,
-  fontVariant: ["tabular-nums"] as TextStyle["fontVariant"],
+const currentRouteOverlayCard = {
+  backgroundColor: colors.surfaceLowest,
+  borderRadius: radii.md,
+  borderCurve: "continuous" as const,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.sm,
+  gap: 8,
 };
 
-const declineText = {
-  color: colors.error,
+const currentRouteRow = {
+  flexDirection: "row" as const,
+  alignItems: "flex-start" as const,
+  gap: spacing.sm,
+};
+
+const currentRouteAddress = {
+  color: colors.primary,
+  fontSize: 14,
+  fontWeight: "800" as const,
+  lineHeight: 18,
+};
+
+const currentRideHero = {
+  backgroundColor: colors.surfaceLowest,
+  borderRadius: radii.md,
+  borderCurve: "continuous" as const,
+  padding: spacing.md,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 14,
+};
+
+const currentRideDetailCard = {
+  backgroundColor: colors.surfaceLowest,
+  borderRadius: radii.md,
+  borderCurve: "continuous" as const,
+  padding: spacing.md,
+  gap: spacing.sm,
+};
+
+const currentRideBodyText = {
+  color: colors.primary,
+  fontSize: 15,
+  fontWeight: "600" as const,
+  lineHeight: 20,
+};
+
+const pastRideName = {
+  color: colors.primary,
+  fontSize: 19,
+  fontWeight: "900" as const,
+};
+
+const pastSummaryCard = {
+  backgroundColor: colors.surfaceLow,
+  borderRadius: radii.md,
+  borderCurve: "continuous" as const,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.sm,
+  flexDirection: "row" as const,
+  justifyContent: "space-between" as const,
+  alignItems: "center" as const,
+};
+
+const pastSummaryValue = {
+  color: colors.primary,
+  fontSize: 16,
+  fontWeight: "900" as const,
+};
+
+const pastLatestPill = {
+  backgroundColor: colors.surface,
+  borderRadius: radii.pill,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: 6,
+};
+
+const pastLatestText = {
+  color: colors.slate500,
   fontSize: 12,
-  fontWeight: "700" as const,
-  textAlign: "center" as const,
+  fontWeight: "800" as const,
   textTransform: "uppercase" as const,
-  letterSpacing: 1.5,
+  letterSpacing: 1,
+};
+
+const pastRideCard = {
+  backgroundColor: colors.surface,
+  borderRadius: radii.md,
+  borderCurve: "continuous" as const,
+  borderWidth: 1,
+  padding: spacing.md,
+  flexDirection: "row" as const,
+  gap: spacing.sm,
+  alignItems: "center" as const,
+  ...shadows.soft,
+};
+
+const pastDateRail = {
+  width: 72,
+  minHeight: 74,
+  borderRadius: radii.sm,
+  backgroundColor: colors.surfaceLow,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  paddingHorizontal: 4,
+  gap: 4,
+};
+
+const pastDateText = {
+  color: colors.primary,
+  fontSize: 13,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 0.4,
+  textAlign: "center" as const,
+};
+
+const pastTimeText = {
+  color: colors.slate400,
+  fontSize: 11,
+  fontWeight: "800" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 0.2,
+  textAlign: "center" as const,
+};
+
+const pastRouteText = {
+  color: colors.slate500,
+  fontSize: 13,
+  fontWeight: "600" as const,
+  flex: 1,
 };
 
 const emptyStateHeading = {
@@ -1490,12 +1627,6 @@ const modalTitle = {
   fontSize: 32,
   fontWeight: "900" as const,
   textAlign: "center" as const,
-};
-
-const modalSectionTitle = {
-  color: colors.primary,
-  fontSize: 28,
-  fontWeight: "900" as const,
 };
 
 const alertCardStyle = {
@@ -1551,69 +1682,6 @@ const protocolCaption = {
   textTransform: "uppercase" as const,
 };
 
-const nextActionLabel = {
-  color: colors.blue,
-  fontSize: 12,
-  fontWeight: "900" as const,
-  textTransform: "uppercase" as const,
-  letterSpacing: 1.4,
-};
-
-const routePrimaryTitle = {
-  color: colors.primary,
-  fontSize: 24,
-  fontWeight: "900" as const,
-  lineHeight: 30,
-};
-
-const routeSecondaryTitle = {
-  color: colors.primary,
-  fontSize: 20,
-  fontWeight: "800" as const,
-  lineHeight: 26,
-};
-
-const routeSubtitle = {
-  color: colors.slate500,
-  fontSize: 16,
-  fontWeight: "500" as const,
-};
-
-const destinationCard = {
-  marginTop: spacing.md,
-  backgroundColor: colors.surfaceLow,
-  borderRadius: radii.md,
-  borderCurve: "continuous" as const,
-  padding: spacing.xl,
-  alignItems: "flex-start" as const,
-  gap: 8,
-};
-
-const destinationPin = {
-  width: 48,
-  height: 48,
-  borderRadius: radii.xs,
-  backgroundColor: colors.greenSoft,
-  justifyContent: "center" as const,
-  alignItems: "center" as const,
-  marginBottom: 8,
-};
-
-const destinationLabel = {
-  color: colors.primary,
-  fontSize: 13,
-  fontWeight: "900" as const,
-  textTransform: "uppercase" as const,
-  letterSpacing: 1.5,
-};
-
-const destinationTitle = {
-  color: colors.primary,
-  fontSize: 24,
-  fontWeight: "900" as const,
-  textAlign: "left" as const,
-};
-
 // ── Extracted from loops (M4 perf) ──────────────────────────
 
 const rowCenter = {
@@ -1645,8 +1713,8 @@ const routeAddressText = {
 const requestCard = {
   backgroundColor: colors.surface,
   borderRadius: radii.md,
-  padding: spacing.lg,
-  gap: spacing.md,
+  paddingHorizontal: spacing.md,
+  paddingVertical: 14,
   overflow: "hidden" as const,
   borderCurve: "continuous" as const,
   ...shadows.soft,
@@ -1663,11 +1731,22 @@ const requestTopBar = {
 
 const requestTimeBadge = {
   color: colors.blue,
-  fontSize: 14,
+  fontSize: 12,
   fontWeight: "700" as const,
   backgroundColor: colors.blueSoft,
-  paddingHorizontal: 8,
-  paddingVertical: 4,
+  paddingHorizontal: 7,
+  paddingVertical: 3,
+  borderRadius: radii.xs,
+  overflow: "hidden" as const,
+};
+
+const requestDateBadge = {
+  color: colors.primary,
+  fontSize: 12,
+  fontWeight: "800" as const,
+  backgroundColor: colors.surfaceLow,
+  paddingHorizontal: 7,
+  paddingVertical: 3,
   borderRadius: radii.xs,
   overflow: "hidden" as const,
 };
@@ -1675,16 +1754,86 @@ const requestTimeBadge = {
 const requestIdBadge = {
   alignSelf: "flex-start" as const,
   backgroundColor: colors.primary,
-  paddingHorizontal: 10,
-  paddingVertical: 6,
+  paddingHorizontal: 8,
+  paddingVertical: 4,
   borderRadius: radii.xs,
 };
 
 const requestIdText = {
   color: colors.accent,
-  fontSize: 13,
+  fontSize: 11,
   fontWeight: "600" as const,
   letterSpacing: 1,
+};
+
+const requestCompactTitle = {
+  color: colors.primary,
+  fontSize: 17,
+  fontWeight: "900" as const,
+  letterSpacing: -0.2,
+};
+
+const requestCompactMeta = {
+  color: colors.slate400,
+  fontSize: 12,
+  fontWeight: "700" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 0.8,
+};
+
+const requestRouteRow = {
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 7,
+  minWidth: 0,
+};
+
+const requestNotesText = {
+  color: colors.slate400,
+  fontSize: 12,
+  fontWeight: "500" as const,
+  fontStyle: "italic" as const,
+};
+
+const requestActions = {
+  width: 82,
+  gap: 7,
+  justifyContent: "center" as const,
+  flexShrink: 0,
+};
+
+const requestAcceptButton = {
+  minHeight: 36,
+  borderRadius: radii.xs,
+  backgroundColor: colors.primary,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  paddingHorizontal: 8,
+};
+
+const requestDeclineButton = {
+  minHeight: 34,
+  borderRadius: radii.xs,
+  backgroundColor: colors.errorSoft,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  paddingHorizontal: 8,
+};
+
+const requestAcceptText = {
+  color: colors.surface,
+  fontSize: 11,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1,
+};
+
+const requestDeclineText = {
+  color: colors.error,
+  fontSize: 11,
+  fontWeight: "800" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 0.8,
 };
 
 const dispatcherHint = {

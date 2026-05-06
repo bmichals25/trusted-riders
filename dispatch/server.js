@@ -33,7 +33,7 @@ const wss = new WebSocketServer({ server: httpServer });
 
 const clients = new Set();
 
-// ---- GPS Tracking (repurposed from TR_GPS) ----
+// ---- Legacy GPS tracking for local dispatch-console experiments ----
 const trackers = new Map();
 
 function broadcastTrackerList() {

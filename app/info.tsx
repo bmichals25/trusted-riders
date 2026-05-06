@@ -35,7 +35,7 @@ const CONTENT: Record<string, InfoContent> = {
       {
         heading: "Off-shift questions",
         body:
-          "Reach support@trustedriders.org with your operator ID (099-242) and a short description. We reply within one business day.",
+          "Reach support@trustedriders.org with your operator or backend ID and a short description. We reply within one business day.",
       },
       {
         heading: "Lost access?",

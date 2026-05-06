@@ -5,7 +5,6 @@
     "scheme": "trustedriders",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "icon": "./assets/TR_favicon.png",
     "web": {
       "favicon": "./assets/TR_favicon.png"
     },
@@ -19,10 +18,10 @@
           "location"
         ],
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "F2UK2BP6A8"
     },
     "android": {
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -39,6 +38,14 @@
     "plugins": [
       "expo-router",
       "expo-task-manager",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "TrustedRiders uses the camera to scan another driver's verification QR code.",
+          "barcodeScannerEnabled": true,
+          "recordAudioAndroid": false
+        }
+      ],
       [
         "expo-location",
         {

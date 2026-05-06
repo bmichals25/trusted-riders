@@ -1,4 +1,4 @@
-// Dispatch channel — communicates with the driver app via WebSocket relay
+// Legacy dispatch channel for local-only relay experiments.
 
 export type RideStatus = "pending" | "accepted" | "en_route" | "picked_up" | "in_transit" | "completed" | "cancelled";
 export type TransitType = "Sedan" | "Wheelchair" | "Stretcher" | "Ambulatory";
@@ -44,8 +44,12 @@ export type DispatchMessage =
   | { type: "driver_ack"; rideId: string; status: RideStatus }
   | { type: "tracker_list"; trackers: TrackedDriver[] };
 
-// Public relay — works from phone, web, or local dev
-const WS_URL = import.meta.env.VITE_DISPATCH_RELAY_URL || "wss://tr-gps.onrender.com";
+// Legacy dispatch console channel. The mobile app no longer depends on this;
+// ride data is owned by Suresh's Fleet API. Set this explicitly only when
+// intentionally running the old relay console.
+const WS_URL =
+  (globalThis as { __TRUSTEDRIDERS_DISPATCH_RELAY_URL__?: string })
+    .__TRUSTEDRIDERS_DISPATCH_RELAY_URL__ || "";
 const STORAGE_KEY = "trustedriders-dispatch-rides";
 
 export function saveRides(rides: DispatchedRide[]) {
@@ -69,6 +73,11 @@ export function createChannel(onMessage: (msg: DispatchMessage) => void): {
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   function connect() {
+    if (!WS_URL) {
+      console.warn("[dispatch] legacy relay disabled; no relay URL configured");
+      return;
+    }
+
     ws = new WebSocket(WS_URL);
     ws.onopen = () => console.log("[dispatch] relay connected");
     ws.onmessage = (e) => {

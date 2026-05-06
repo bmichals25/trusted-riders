@@ -27,19 +27,13 @@ type Message = {
   timestamp: string;
 };
 
-const initialMessages: Message[] = [
-  { id: "1", text: "Hi, I'm reviewing the upcoming ride for Sarah Jenkins. Any special notes?", sender: "operator", timestamp: "2:32 PM" },
-  { id: "2", text: "Yes — she has a new wheelchair model. Make sure to confirm the ramp fit before departure.", sender: "admin", timestamp: "2:33 PM" },
-  { id: "3", text: "Got it. Is the facility entrance still on the north side?", sender: "operator", timestamp: "2:34 PM" },
-  { id: "4", text: "Correct. Use the patient drop-off loop, not the ER entrance. Security will wave you through.", sender: "admin", timestamp: "2:35 PM" },
-  { id: "5", text: "Perfect, thanks for the heads up.", sender: "operator", timestamp: "2:35 PM" },
-];
-
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { rideId, riderName } = useLocalSearchParams<{ rideId: string; riderName: string }>();
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const chatTitle = rideId ? `Ride ${rideId} Dispatch` : "Dispatch Messages";
+  const contextLabel = riderName ? `${riderName} · ${rideId ? `Ride ${rideId}` : "Mission"}` : "Mission dispatch";
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const { impact } = useHaptics();
   const flatListRef = useRef<FlatList>(null);
@@ -56,19 +50,6 @@ export default function ChatScreen() {
 
     setMessages((prev) => [...prev, newMessage]);
     setInputText("");
-
-    // Simulate admin reply
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: String(Date.now() + 1),
-          text: "Acknowledged. I'll update the ride notes.",
-          sender: "admin",
-          timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-        },
-      ]);
-    }, 1500);
   }, [inputText]);
 
   const renderMessage = useCallback(({ item }: { item: Message }) => {
@@ -127,6 +108,7 @@ export default function ChatScreen() {
     <PageTransition>
     <Stack.Screen
       options={{
+        title: chatTitle,
         headerRight: () => (
           <Pressable
             onPress={callAdmin}
@@ -169,8 +151,8 @@ export default function ChatScreen() {
           borderRadius: 4,
           backgroundColor: colors.green,
         }} />
-        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>
-          Dispatch Admin — Online
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>
+          {contextLabel}
         </Text>
       </View>
       </FadeInBlock>
@@ -181,6 +163,25 @@ export default function ChatScreen() {
         data={messages}
         renderItem={renderMessage}
         keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <View
+            style={{
+              backgroundColor: colors.surfaceLow,
+              borderRadius: radii.md,
+              borderCurve: "continuous",
+              padding: spacing.lg,
+              gap: 6,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", textAlign: "center" }}>
+              No backend chat history loaded
+            </Text>
+            <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18 }}>
+              Messages will appear here when they are provided by the backend.
+            </Text>
+          </View>
+        }
         contentContainerStyle={{
           paddingHorizontal: spacing.md,
           paddingTop: spacing.md,

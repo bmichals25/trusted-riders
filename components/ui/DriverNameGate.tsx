@@ -11,16 +11,22 @@ import {
   View,
 } from "react-native";
 import { colors, spacing, radii } from "@/lib/theme";
-import { clearToken, login, restoreToken } from "@/lib/fleet-api";
+import { clearToken, getDriverId, login, restoreToken } from "@/lib/fleet-api";
 import { registerForPushNotifications } from "@/lib/push";
 import * as storage from "@/lib/storage";
+
+export type DriverSession = {
+  id: number;
+  name: string;
+};
 
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
 
-type AuthContextValue = { signOut: () => Promise<void> };
+type AuthContextValue = { signOut: () => Promise<void>; session: DriverSession | null };
 const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
+  session: null,
 });
 
 export function useAuth(): AuthContextValue {
@@ -31,8 +37,8 @@ export function useAuth(): AuthContextValue {
  * Gates the app behind driver login.
  * Authenticates against the Fleet Tracking API, then renders children with the driver name.
  */
-export function DriverNameGate({ children }: { children: (name: string) => React.ReactNode }) {
-  const [name, setName] = useState<string | null>(null);
+export function DriverNameGate({ children }: { children: (session: DriverSession) => React.ReactNode }) {
+  const [session, setSession] = useState<DriverSession | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -48,8 +54,9 @@ export function DriverNameGate({ children }: { children: (name: string) => React
       restoreToken(),
     ]).then(([storedEmail, storedName, storedToken]) => {
       if (storedEmail) setEmail(storedEmail);
-      if (storedName && storedToken) {
-        setName(storedName);
+      const storedDriverId = getDriverId();
+      if (storedName && storedToken && storedDriverId) {
+        setSession({ id: storedDriverId, name: storedName });
         // Re-register the push token on every cold boot so dispatch always
         // has the current one (tokens can rotate on reinstall or OS restore).
         void registerForPushNotifications();
@@ -69,7 +76,7 @@ export function DriverNameGate({ children }: { children: (name: string) => React
       const user = await login(trimmedEmail, trimmedPassword);
       await storage.set(DRIVER_NAME_KEY, user.name);
       await storage.set(DRIVER_EMAIL_KEY, trimmedEmail);
-      setName(user.name);
+      setSession({ id: user.id, name: user.name });
       // Ask for notification permission + hand our push token to the backend.
       // Fire-and-forget — failures don't block entry to the app.
       void registerForPushNotifications();
@@ -87,10 +94,10 @@ export function DriverNameGate({ children }: { children: (name: string) => React
     // for the next sign-in.
     setPassword("");
     setError(null);
-    setName(null);
+    setSession(null);
   }, []);
 
-  const authValue = useMemo<AuthContextValue>(() => ({ signOut }), [signOut]);
+  const authValue = useMemo<AuthContextValue>(() => ({ signOut, session }), [signOut, session]);
 
   if (loading) {
     return (
@@ -100,7 +107,7 @@ export function DriverNameGate({ children }: { children: (name: string) => React
     );
   }
 
-  if (!name) {
+  if (!session) {
     const canSubmit = !!email.trim() && !!password.trim() && !submitting;
     const webInputStyle =
       Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null;
@@ -195,7 +202,7 @@ export function DriverNameGate({ children }: { children: (name: string) => React
     );
   }
 
-  return <AuthContext.Provider value={authValue}>{children(name)}</AuthContext.Provider>;
+  return <AuthContext.Provider value={authValue}>{children(session)}</AuthContext.Provider>;
 }
 
 const s = StyleSheet.create({
