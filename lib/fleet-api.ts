@@ -2,6 +2,10 @@
 
 import { Platform } from "react-native";
 
+import {
+  ApiRequestThrottle,
+  type ApiRequestResult,
+} from "./api-request-throttle";
 import { FLEET_API_URL } from "./config";
 import {
   getRideBackendId,
@@ -19,6 +23,24 @@ let token: string | null = null;
 let driverId: number | null = null;
 
 export type FleetUser = { id: number; name: string; email: string };
+export type LocationUpdateResult = ApiRequestResult;
+
+const FLEET_UPSTREAM_UNAVAILABLE_BACKOFF_MS = 5 * 60 * 1000;
+const RIDE_DETAIL_CACHE_MS = 60 * 1000;
+
+const requestThrottles = new Map<string, ApiRequestThrottle>();
+const rideDetailCache = new Map<string, { expiresAt: number; data: Record<string, unknown> | null }>();
+let fleetPausedUntil = 0;
+
+type FleetFetchResult =
+  | { result: "sent" | "failed"; res: Response }
+  | { result: "failed" | "skipped" | "paused"; res: null };
+
+type FleetFetchOptions = {
+  minIntervalMs?: number;
+  failureBackoffMs?: number;
+  throttleKey?: string;
+};
 
 // One log line per outbound API call. Prints to Metro so the backend team can
 // correlate with their server logs. Failures include the response body so 4xx
@@ -48,19 +70,95 @@ async function logApi(
   console.log(`[api] ${ts} ${method} ${path} → ${res.status} ${tag}${bodyNote}`);
 }
 
-export async function login(email: string, password: string): Promise<FleetUser> {
-  let res: Response;
+async function isNgrokUnavailable(res: Response): Promise<boolean> {
+  if (res.status !== 403) return false;
+  if (res.headers.get("ngrok-error-code") === "ERR_NGROK_725") return true;
+
   try {
-    res = await fetch(`${FLEET_API_URL}/api/login`, {
+    const text = await res.clone().text();
+    return text.includes("ERR_NGROK_725") || text.includes("network bandwidth limit");
+  } catch {
+    return false;
+  }
+}
+
+function pauseFleetApi(reason: string): void {
+  fleetPausedUntil = Math.max(fleetPausedUntil, Date.now() + FLEET_UPSTREAM_UNAVAILABLE_BACKOFF_MS);
+  console.log(
+    `[api] ${new Date().toISOString()} Fleet API → PAUSED for ${Math.round(
+      FLEET_UPSTREAM_UNAVAILABLE_BACKOFF_MS / 1000,
+    )}s (${reason})`,
+  );
+}
+
+function getRequestThrottle(
+  key: string,
+  minIntervalMs: number,
+  failureBackoffMs: number,
+): ApiRequestThrottle {
+  const existing = requestThrottles.get(key);
+  if (existing) return existing;
+
+  const next = new ApiRequestThrottle(minIntervalMs, failureBackoffMs);
+  requestThrottles.set(key, next);
+  return next;
+}
+
+async function fleetFetch(
+  method: string,
+  path: string,
+  init: RequestInit,
+  options: FleetFetchOptions = {},
+): Promise<FleetFetchResult> {
+  const now = Date.now();
+  if (now < fleetPausedUntil) {
+    console.log(`[api] ${new Date().toISOString()} ${method} ${path} → SKIPPED (Fleet API paused)`);
+    return { result: "paused", res: null };
+  }
+
+  const throttle = getRequestThrottle(
+    options.throttleKey ?? `${method} ${path}`,
+    options.minIntervalMs ?? 1000,
+    options.failureBackoffMs ?? 30000,
+  );
+  if (!throttle.begin()) {
+    console.log(`[api] ${new Date().toISOString()} ${method} ${path} → SKIPPED (rate limited)`);
+    return { result: "skipped", res: null };
+  }
+
+  let result: Exclude<ApiRequestResult, "skipped"> = "failed";
+  try {
+    const res = await fetch(`${FLEET_API_URL}${path}`, init);
+    if (await isNgrokUnavailable(res)) {
+      pauseFleetApi("ngrok bandwidth limit");
+      result = "paused";
+      return { result, res: null };
+    }
+
+    await logApi(method, path, res);
+    result = res.ok ? "sent" : "failed";
+    return { result, res };
+  } catch (err) {
+    await logApi(method, path, null, err);
+    result = "failed";
+    return { result, res: null };
+  } finally {
+    throttle.finish(result);
+  }
+}
+
+export async function login(email: string, password: string): Promise<FleetUser> {
+  const { res } = await fleetFetch(
+    "POST",
+    "/api/login",
+    {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
-    });
-  } catch (err) {
-    await logApi("POST", "/api/login", null, err);
-    throw err;
-  }
-  await logApi("POST", "/api/login", res);
+    },
+    { minIntervalMs: 2000, throttleKey: "POST /api/login" },
+  );
+  if (!res) throw new Error("Fleet API unavailable");
   if (!res.ok) throw new Error("Invalid credentials");
   const data = await res.json();
   token = data.token;
@@ -131,18 +229,17 @@ export async function getActiveRideId(): Promise<number | null> {
  */
 export async function registerPushToken(pushToken: string): Promise<boolean> {
   if (!token) return false;
-  try {
-    const res = await fetch(`${FLEET_API_URL}/api/register-push-token`, {
+  const { res } = await fleetFetch(
+    "POST",
+    "/api/register-push-token",
+    {
       method: "POST",
       headers: authHeaders() ?? undefined,
       body: JSON.stringify({ push_token: pushToken, platform: Platform.OS }),
-    });
-    await logApi("POST", "/api/register-push-token", res);
-    return res.ok;
-  } catch (err) {
-    await logApi("POST", "/api/register-push-token", null, err);
-    return false;
-  }
+    },
+    { minIntervalMs: 60000, throttleKey: "POST /api/register-push-token" },
+  );
+  return !!res?.ok;
 }
 
 export async function updateLocation(loc: {
@@ -150,30 +247,34 @@ export async function updateLocation(loc: {
   lon: number;
   timestamp: string;
   ride_id: number | null;
-}): Promise<boolean> {
-  if (!token) return false;
-  try {
-    const res = await fetch(`${FLEET_API_URL}/api/update_location`, {
+}): Promise<LocationUpdateResult> {
+  if (!token) return "skipped";
+
+  const { result, res } = await fleetFetch(
+    "POST",
+    "/api/update_location",
+    {
       method: "POST",
       headers: authHeaders() ?? undefined,
       body: JSON.stringify(loc),
-    });
-    await logApi("POST", "/api/update_location", res);
-    // 401 is the standard "token missing/invalid" response.
-    // 422 with a JWT-shaped message is Flask-JWT-Extended's way of saying the
-    // signature doesn't verify — happens when the backend rotates its
-    // JWT_SECRET_KEY. Same remedy either way: drop the dead token so the
-    // auth gate forces a fresh login.
-    if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
-      await clearToken();
-      return false;
-    }
-    return res.ok;
-  } catch (err) {
-    // Network error — don't crash, just skip this update
-    await logApi("POST", "/api/update_location", null, err);
-    return false;
+    },
+    {
+      minIntervalMs: 10000,
+      failureBackoffMs: 30000,
+      throttleKey: "POST /api/update_location",
+    },
+  );
+
+  // 401 is the standard "token missing/invalid" response.
+  // 422 with a JWT-shaped message is Flask-JWT-Extended's way of saying the
+  // signature doesn't verify — happens when the backend rotates its
+  // JWT_SECRET_KEY. Same remedy either way: drop the dead token so the
+  // auth gate forces a fresh login.
+  if (res && (res.status === 401 || (res.status === 422 && (await isAuthFailure(res))))) {
+    await clearToken();
+    return "failed";
   }
+  return result;
 }
 
 export async function fetchRides(driverIdOverride?: number): Promise<DispatchedRide[]> {
@@ -184,15 +285,18 @@ export async function fetchRides(driverIdOverride?: number): Promise<DispatchedR
   if (!idForPoll) return [];
   const path = `/api/drivers/${encodeURIComponent(String(idForPoll))}/rides`;
 
-  let res: Response;
-  try {
-    res = await fetch(`${FLEET_API_URL}${path}`, { headers });
-  } catch (err) {
-    await logApi("GET", path, null, err);
-    return [];
-  }
+  const { res } = await fleetFetch(
+    "GET",
+    path,
+    { headers },
+    {
+      minIntervalMs: 15000,
+      failureBackoffMs: 30000,
+      throttleKey: `GET /api/drivers/${idForPoll}/rides`,
+    },
+  );
 
-  await logApi("GET", path, res);
+  if (!res) return [];
   if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
     await clearToken();
     return [];
@@ -214,14 +318,13 @@ export async function fetchRides(driverIdOverride?: number): Promise<DispatchedR
           ? body.data
           : [];
 
-    const detailedRides = await Promise.all(
-      rawRides.map(async (ride) => {
-        const summary = ride as Record<string, unknown>;
-        const rideId = pickString(summary, ["id", "ride_id", "rideId", "uuid"]);
-        const detail = rideId ? await fetchRideDetail(rideId, headers) : null;
-        return normalizeRide({ ...summary, ...(detail ?? {}) });
-      }),
-    );
+    const detailedRides: Array<DispatchedRide | null> = [];
+    for (const ride of rawRides) {
+      const summary = ride as Record<string, unknown>;
+      const rideId = pickString(summary, ["id", "ride_id", "rideId", "uuid"]);
+      const detail = rideId ? await fetchRideDetail(rideId, headers) : null;
+      detailedRides.push(normalizeRide({ ...summary, ...(detail ?? {}) }));
+    }
 
     return detailedRides.filter((ride): ride is DispatchedRide => !!ride);
   } catch (err) {
@@ -234,15 +337,35 @@ async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Re
   const backendId = getRideBackendId(rideId);
   const id = encodeURIComponent(String(backendId ?? rideId));
   const path = `/api/rides/${id}`;
+  const cacheKey = String(backendId ?? rideId);
+  const cached = rideDetailCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
+  const { res } = await fleetFetch(
+    "GET",
+    path,
+    { headers },
+    {
+      minIntervalMs: 1000,
+      failureBackoffMs: 30000,
+      throttleKey: `GET /api/rides/${cacheKey}`,
+    },
+  );
+
+  if (!res?.ok) {
+    rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data: null });
+    return null;
+  }
 
   try {
-    const res = await fetch(`${FLEET_API_URL}${path}`, { headers });
-    await logApi("GET", path, res);
-    if (!res.ok) return null;
     const body = await res.json();
-    return body && typeof body === "object" ? body : null;
-  } catch (err) {
-    await logApi("GET", path, null, err);
+    const data = body && typeof body === "object" ? body as Record<string, unknown> : null;
+    rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data });
+    return data;
+  } catch {
+    rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data: null });
     return null;
   }
 }
@@ -253,22 +376,28 @@ export async function updateRideStatus(rideId: string, status: RideStatus): Prom
 
   const backendId = getRideBackendId(rideId);
   const id = encodeURIComponent(String(backendId ?? rideId));
-  try {
-    const res = await fetch(`${FLEET_API_URL}/api/rides/${id}/status`, {
+  const path = `/api/rides/${id}/status`;
+  const { res } = await fleetFetch(
+    "PATCH",
+    path,
+    {
       method: "PATCH",
       headers,
       body: JSON.stringify({ status: toBackendStatus(status) }),
-    });
-    await logApi("PATCH", `/api/rides/${id}/status`, res);
-    if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
-      await clearToken();
-      return false;
-    }
-    return res.ok;
-  } catch (err) {
-    await logApi("PATCH", `/api/rides/${id}/status`, null, err);
+    },
+    {
+      minIntervalMs: 2000,
+      failureBackoffMs: 30000,
+      throttleKey: `PATCH /api/rides/${id}/status`,
+    },
+  );
+
+  if (!res) return false;
+  if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
+    await clearToken();
     return false;
   }
+  return res.ok;
 }
 
 async function isAuthFailure(res: Response): Promise<boolean> {

@@ -144,13 +144,13 @@ export function DispatchProvider({
         lon: location.longitude,
         timestamp: ts,
         ride_id: activeRideIdRef.current,
-      }).then((ok) => {
-        console.log(`[fleet-api] update_location: ${ok ? "ok" : "failed"} (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`);
+      }).then((result) => {
+        console.log(`[fleet-api] update_location: ${result} (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`);
       });
     }
 
     isTrackingRef.current = isTracking;
-  }, [location, isTracking, rides]);
+  }, [location, isTracking]);
 
   // Periodic re-send: on web, location only fires on change — re-send every 10s
   useEffect(() => {
@@ -165,8 +165,8 @@ export function DispatchProvider({
         lon: loc.longitude,
         timestamp: ts,
         ride_id: activeRideIdRef.current,
-      }).then((ok) => {
-        console.log(`[fleet-api] periodic update: ${ok ? "ok" : "failed"}`);
+      }).then((result) => {
+        console.log(`[fleet-api] periodic update: ${result}`);
       });
     }, 10000);
 
