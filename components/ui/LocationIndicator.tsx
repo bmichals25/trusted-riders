@@ -10,11 +10,12 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 
-import MapView, { Marker } from "@/components/Map";
+import MapView from "@/components/Map";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { colors, radii, spacing } from "@/lib/theme";
+import { LocationDotMarker } from "./LocationDotMarker";
 
 export function LocationIndicator() {
   const { location, isTracking } = useLocation();
@@ -246,14 +247,13 @@ function LocationMapModal({ visible, onClose }: { visible: boolean; onClose: () 
               longitudeDelta: 0.01,
             }}
             region={location ? { ...center, latitudeDelta: 0.01, longitudeDelta: 0.01 } : undefined}
-            showsUserLocation
-            showsMyLocationButton
+            showsUserLocation={false}
+            showsMyLocationButton={false}
           >
             {location && (
-              <Marker
-                coordinate={{ latitude: location.latitude, longitude: location.longitude }}
-                title="You"
-                pinColor={colors.blue}
+              <LocationDotMarker
+                latitude={location.latitude}
+                longitude={location.longitude}
               />
             )}
           </MapView>

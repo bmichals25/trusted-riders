@@ -6,7 +6,10 @@ export const GOOGLE_DIRECTIONS_API_KEY =
   process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_KEY ?? "";
 
 // Fleet Tracking API (Flask backend) — the single source for backend data.
-export const FLEET_API_URL = "https://pretyphoid-electrovalently-zena.ngrok-free.dev";
+// Set EXPO_PUBLIC_FLEET_API_URL when the backend URL rotates.
+export const FLEET_API_URL = (
+  process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://trdev.tailff74b1.ts.net"
+).replace(/\/+$/, "");
 
 // TrustedRiders emergency dispatch line used by the in-app Emergency modals.
 // The 555-prefix default is a placeholder — set EXPO_PUBLIC_DISPATCH_PHONE to

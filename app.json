@@ -10,10 +10,16 @@
     },
     "ios": {
       "bundleIdentifier": "com.trustedriders.prototype",
+      "buildNumber": "22",
       "supportsTablet": false,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "TrustedRiders needs your location to show your position on the map and calculate routes to pickups.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "TrustedRiders needs background location access to track your position during active missions and share it with dispatch.",
+        "NSLocationAlwaysUsageDescription": "TrustedRiders needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "TrustedRiders needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
+        "LSApplicationQueriesSchemes": [
+          "comgooglemaps",
+          "waze"
+        ],
         "UIBackgroundModes": [
           "location"
         ],
@@ -22,6 +28,7 @@
       "appleTeamId": "F2UK2BP6A8"
     },
     "android": {
+      "package": "com.trustedriders.prototype",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -49,7 +56,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "TrustedRiders needs your location to navigate to pickups and share your position with dispatch during active missions.",
+          "locationAlwaysAndWhenInUsePermission": "TrustedRiders needs always-on location access to navigate to pickups and share your position with dispatch during active rides, even when the app is not open.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }

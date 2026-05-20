@@ -1,0 +1,679 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/4egcd0",
+    "id": "4egcd0",
+    "slide": 4,
+    "layoutId": "bfdb3ba8-b854-4430-8a65-5a3031038c6c",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "f8c21233-d3c4-4077-a6ea-dfbd218ad674",
+    "masterLayoutName": "Master",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "Aptos",
+      "Aptos Display"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "bfdb3ba8-b854-4430-8a65-5a3031038c6c",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "f8c21233-d3c4-4077-a6ea-dfbd218ad674",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "f8c21233-d3c4-4077-a6ea-dfbd218ad674",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5sneloj2",
+      "id": "1",
+      "bbox": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "geometry": "rect",
+      "fillColor": "#F2F5F9",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/u54zidon",
+      "id": "2",
+      "bbox": [
+        72,
+        59,
+        11,
+        11
+      ],
+      "geometry": "rect",
+      "fillColor": "#2F66F2",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nqxs72x4",
+      "id": "3",
+      "bbox": [
+        96,
+        52,
+        480,
+        26
+      ],
+      "geometry": "rect",
+      "text": "RIDE REQUEST",
+      "textPreview": "RIDE REQUEST",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "RIDE REQUEST"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "RIDE REQUEST",
+          "runs": [
+            {
+              "index": 1,
+              "text": "RIDE REQUEST",
+              "fontSize": 13,
+              "typeface": "Aptos",
+              "color": "#64748B",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/czed8v6p",
+      "id": "4",
+      "bbox": [
+        72,
+        92,
+        760,
+        112
+      ],
+      "geometry": "rect",
+      "text": "Pending rides are reviewable, actionable, and map-backed.",
+      "textPreview": "Pending rides are reviewable, actionable, and map-backed.",
+      "resolvedFontSize": 46,
+      "resolvedTextStyle": {
+        "fontSize": 46,
+        "typeface": "Aptos Display",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Pending rides are reviewable,"
+          },
+          {
+            "index": 2,
+            "text": "actionable, and map-backed."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Pending rides are reviewable, actionable, and map-backed.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Pending rides are reviewable, actionable, and map-backed.",
+              "fontSize": 46,
+              "typeface": "Aptos Display",
+              "color": "#0F172A",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5kb6xkf6",
+      "id": "5",
+      "bbox": [
+        72,
+        210,
+        555,
+        92
+      ],
+      "geometry": "rect",
+      "text": "This is the handoff point between dispatch assignment and driver acceptance. It is ready for a demo of intended workflow, while the accept/decline backend contract still needs production hardening.",
+      "textPreview": "This is the handoff point between dispatch assignment and driver acceptance. It is ready for a demo of intended workflow, while the accep...",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "fontSize": 19,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 4,
+        "lines": [
+          {
+            "index": 1,
+            "text": "This is the handoff point between dispatch assignment and driver"
+          },
+          {
+            "index": 2,
+            "text": "acceptance. It is ready for a demo of intended workflow, while"
+          },
+          {
+            "index": 3,
+            "text": "the accept/decline backend contract still needs production"
+          },
+          {
+            "index": 4,
+            "text": "hardening."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "This is the handoff point between dispatch assignment and driver acceptance. It is ready for a demo of intended workflow, while the accept/decline backend contract still needs production hardening.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "This is the handoff point between dispatch assignment and driver acceptance. It is ready for a demo of intended workflow, while the accept/decline backend contract still needs production hardening.",
+              "fontSize": 19,
+              "typeface": "Aptos",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ytsvu9kn",
+      "id": "6",
+      "bbox": [
+        72,
+        343,
+        10,
+        10
+      ],
+      "geometry": "rect",
+      "fillColor": "#16A34A",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/neloj2t8",
+      "id": "7",
+      "bbox": [
+        96,
+        336,
+        496,
+        26
+      ],
+      "geometry": "rect",
+      "text": "Done",
+      "textPreview": "Done",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Done"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Done",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Done",
+              "fontSize": 20,
+              "typeface": "Aptos",
+              "color": "#0F172A",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gn29gr2p",
+      "id": "8",
+      "bbox": [
+        96,
+        364,
+        496,
+        46
+      ],
+      "geometry": "rect",
+      "text": "Route preview, rider details, pickup/drop-off, care notes, and decision controls render cleanly.",
+      "textPreview": "Route preview, rider details, pickup/drop-off, care notes, and decision controls render cleanly.",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Route preview, rider details, pickup/drop-off, care notes, and decision controls"
+          },
+          {
+            "index": 2,
+            "text": "render cleanly."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Route preview, rider details, pickup/drop-off, care notes, and decision controls render cleanly.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Route preview, rider details, pickup/drop-off, care notes, and decision controls render cleanly.",
+              "fontSize": 14,
+              "typeface": "Aptos",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/58z25kb6",
+      "id": "9",
+      "bbox": [
+        72,
+        455,
+        10,
+        10
+      ],
+      "geometry": "rect",
+      "fillColor": "#DC2626",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/d8bat47y",
+      "id": "10",
+      "bbox": [
+        96,
+        448,
+        496,
+        26
+      ],
+      "geometry": "rect",
+      "text": "Still needed",
+      "textPreview": "Still needed",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "fontSize": 20,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Still needed"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Still needed",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Still needed",
+              "fontSize": 20,
+              "typeface": "Aptos",
+              "color": "#0F172A",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/knih4byh",
+      "id": "11",
+      "bbox": [
+        96,
+        476,
+        496,
+        46
+      ],
+      "geometry": "rect",
+      "text": "Backend-owned accept/decline endpoint behavior and status reconciliation need to be completed and verified against live data.",
+      "textPreview": "Backend-owned accept/decline endpoint behavior and status reconciliation need to be completed and verified against live data.",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "fontSize": 14,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Backend-owned accept/decline endpoint behavior and status reconciliation"
+          },
+          {
+            "index": 2,
+            "text": "need to be completed and verified against live data."
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Backend-owned accept/decline endpoint behavior and status reconciliation need to be completed and verified against live data.",
+          "runs": [
+            {
+              "index": 1,
+              "text": "Backend-owned accept/decline endpoint behavior and status reconciliation need to be completed and verified against live data.",
+              "fontSize": 14,
+              "typeface": "Aptos",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/v6psfil0",
+      "id": "12",
+      "bbox": [
+        736,
+        44,
+        295.4,
+        616
+      ],
+      "geometry": "rect",
+      "fillColor": "#D7DEE8",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2lszqtcj",
+      "id": "13",
+      "bbox": [
+        742,
+        50,
+        283.4,
+        604
+      ],
+      "geometry": "rect",
+      "fillColor": "#0B1220",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/ih4byhgn",
+      "id": "14",
+      "bbox": [
+        746,
+        54,
+        275.4,
+        596
+      ],
+      "alt": "mobile-ride-details-pending.png",
+      "contentType": "image/png",
+      "asset": {
+        "assetId": "37da37a2-aeee-4f77-976d-b743eb26bda8",
+        "contentType": "image/png",
+        "byteLength": 305084
+      }
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kf6dcbul",
+      "id": "15",
+      "bbox": [
+        72,
+        676,
+        1136,
+        1
+      ],
+      "geometry": "rect",
+      "fillColor": "#E2E8F0",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/vu9knih4",
+      "id": "16",
+      "bbox": [
+        72,
+        688,
+        880,
+        18
+      ],
+      "geometry": "rect",
+      "text": "TrustedRiders mobile Expo app demo | screenshots captured from local demo API, May 17 2026",
+      "textPreview": "TrustedRiders mobile Expo app demo | screenshots captured from local demo API, May 17 2026",
+      "resolvedFontSize": 10,
+      "resolvedTextStyle": {
+        "fontSize": 10,
+        "typeface": "Aptos",
+        "alignment": "left"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "TrustedRiders mobile Expo app demo | screenshots captured from local demo API, May 17 2026"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "TrustedRiders mobile Expo app demo | screenshots captured from local demo API, May 17 2026",
+          "runs": [
+            {
+              "index": 1,
+              "text": "TrustedRiders mobile Expo app demo | screenshots captured from local demo API, May 17 2026",
+              "fontSize": 10,
+              "typeface": "Aptos",
+              "color": "#64748B"
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/29gr2p8n",
+      "id": "17",
+      "bbox": [
+        1160,
+        684,
+        48,
+        24
+      ],
+      "geometry": "rect",
+      "text": "04",
+      "textPreview": "04",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "fontSize": 13,
+        "typeface": "Aptos",
+        "bold": true,
+        "alignment": "right"
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "04"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "04",
+          "runs": [
+            {
+              "index": 1,
+              "text": "04",
+              "fontSize": 13,
+              "typeface": "Aptos",
+              "color": "#64748B",
+              "bold": true
+            }
+          ]
+        }
+      ],
+      "fillColor": "rgba(0, 0, 0, 0)",
+      "lineColor": "rgba(0, 0, 0, 0)",
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

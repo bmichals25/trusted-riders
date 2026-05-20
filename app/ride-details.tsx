@@ -15,7 +15,7 @@ import { useDispatch } from "@/lib/dispatch-context";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useDirections } from "@/lib/use-directions";
-import type { DispatchedRide } from "@/lib/rides";
+import { hasDetailedRoute, hasDrawableRoute, type DispatchedRide } from "@/lib/rides";
 import { colors, radii, spacing } from "@/lib/theme";
 
 export default function RideDetailsScreen() {
@@ -32,9 +32,9 @@ export default function RideDetailsScreen() {
   const directions = useDirections(ride.pickupCoords, ride.dropoffCoords);
 
   const routeCoords =
-    ride.routeCoords.length > 1
+    hasDrawableRoute(ride.routeCoords)
       ? ride.routeCoords
-      : directions.routeCoords && directions.routeCoords.length > 1
+      : hasDetailedRoute(directions.routeCoords)
       ? directions.routeCoords
       : [ride.pickupCoords, ride.dropoffCoords].filter((coord): coord is NonNullable<typeof coord> => !!coord);
 
@@ -89,7 +89,7 @@ export default function RideDetailsScreen() {
             title="Drop-off"
             pinColor={colors.green}
           />
-          {routeCoords.length > 1 ? (
+          {hasDrawableRoute(routeCoords) ? (
             <Polyline
               coordinates={routeCoords}
               strokeColor={colors.blue}
@@ -170,6 +170,23 @@ export default function RideDetailsScreen() {
         {isPendingRide ? (
           <FadeInBlock delay={360}>
           <View style={{ gap: spacing.sm }}>
+            <Pressable
+              onPress={() => {
+                impact(ImpactFeedbackStyle.Light);
+                router.push({ pathname: "/chat", params: { rideId, riderName: ride.passengerName } });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Open admin chat"
+            >
+              <GradientCard padding={16}>
+                <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 }}>
+                  <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.5 }}>
+                    Admin Chat
+                  </Text>
+                  <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "800" }}>→</Text>
+                </View>
+              </GradientCard>
+            </Pressable>
             <Pressable
               onPress={() => {
                 notification(NotificationFeedbackType.Success);

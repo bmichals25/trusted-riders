@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { useDispatch } from "@/lib/dispatch-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
+import { hasDrawableRoute } from "@/lib/rides";
 import { colors, radii, spacing } from "@/lib/theme";
 
 export function RideAssignmentAlert() {
@@ -81,7 +82,9 @@ export function RideAssignmentAlert() {
               >
                 {ride.pickupCoords ? <Marker coordinate={ride.pickupCoords} title="Pickup" pinColor={colors.blue} /> : null}
                 {ride.dropoffCoords ? <Marker coordinate={ride.dropoffCoords} title="Drop-off" pinColor={colors.green} /> : null}
-                <Polyline coordinates={routeCoords} strokeColor={colors.blue} strokeWidth={4} />
+                {hasDrawableRoute(routeCoords) ? (
+                  <Polyline coordinates={routeCoords} strokeColor={colors.blue} strokeWidth={4} />
+                ) : null}
               </MapView>
             ) : (
               <View style={unavailableCard}>
@@ -168,8 +171,8 @@ export function RideAssignmentAlert() {
                 accessibilityRole="button"
                 accessibilityLabel="Review new ride"
                 onPress={() => {
-                  dismissAssignmentNotice();
                   router.push({ pathname: "/ride-details", params: { rideId: ride.id } });
+                  setTimeout(dismissAssignmentNotice, 0);
                 }}
                 style={({ pressed }) => ({
                   flex: 1.4,

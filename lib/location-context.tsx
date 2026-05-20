@@ -10,7 +10,7 @@ import { AppState, Platform, type AppStateStatus } from "react-native";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
-import { getActiveRideId, getToken, restoreToken, updateLocation } from "./fleet-api";
+import { clearActiveRideId, getActiveRideId, getToken, restoreToken, updateLocation } from "./fleet-api";
 
 const BACKGROUND_TASK_NAME = "trustedriders-background-location";
 
@@ -25,6 +25,8 @@ type LocationContextValue = {
   location: DriverLocation | null;
   isTracking: boolean;
   permissionStatus: Location.PermissionStatus | null;
+  backgroundPermissionStatus: Location.PermissionStatus | null;
+  hasAlwaysLocationAccess: boolean;
   error: string | null;
   startTracking: () => Promise<void>;
   stopTracking: () => void;
@@ -37,6 +39,8 @@ const LocationContext = createContext<LocationContextValue>({
   location: null,
   isTracking: false,
   permissionStatus: null,
+  backgroundPermissionStatus: null,
+  hasAlwaysLocationAccess: false,
   error: null,
   startTracking: async () => {},
   stopTracking: () => {},
@@ -88,7 +92,7 @@ try {
           lon: loc.coords.longitude,
           timestamp: new Date(loc.timestamp).toISOString(),
           ride_id: rideId,
-        });
+        }, "background");
       }
     } catch (err) {
       // Silent in production; surface in dev so a token-rehydrate or
@@ -108,6 +112,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [isTracking, setIsTracking] = useState(false);
   const [permissionStatus, setPermissionStatus] =
     useState<Location.PermissionStatus | null>(null);
+  const [backgroundPermissionStatus, setBackgroundPermissionStatus] =
+    useState<Location.PermissionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
@@ -118,9 +124,22 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
   const requestPermission = useCallback(async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setPermissionStatus(status);
-      return status === Location.PermissionStatus.GRANTED;
+      const foreground = await Location.requestForegroundPermissionsAsync();
+      setPermissionStatus(foreground.status);
+      if (foreground.status !== Location.PermissionStatus.GRANTED) {
+        setError("Location permission denied");
+        return false;
+      }
+
+      if (Platform.OS === "web") {
+        setBackgroundPermissionStatus(Location.PermissionStatus.GRANTED);
+      } else {
+        const background = await Location.getBackgroundPermissionsAsync();
+        setBackgroundPermissionStatus(background.status);
+      }
+
+      setError(null);
+      return true;
     } catch {
       setError("Failed to request location permission");
       return false;
@@ -224,8 +243,13 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
   const startBackgroundTracking = useCallback(async () => {
     try {
-      const { status } = await Location.requestBackgroundPermissionsAsync();
-      if (status !== Location.PermissionStatus.GRANTED) {
+      const current = await Location.getBackgroundPermissionsAsync();
+      const permission = current.status === Location.PermissionStatus.GRANTED
+        ? current
+        : await Location.requestBackgroundPermissionsAsync();
+
+      setBackgroundPermissionStatus(permission.status);
+      if (permission.status !== Location.PermissionStatus.GRANTED) {
         setError("Background location permission denied");
         return;
       }
@@ -263,7 +287,17 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startTracking = useCallback(async () => {
-    const granted = await requestPermission();
+    const foreground = await Location.getForegroundPermissionsAsync();
+    const background = Platform.OS === "web"
+      ? { status: Location.PermissionStatus.GRANTED }
+      : await Location.getBackgroundPermissionsAsync();
+    setPermissionStatus(foreground.status);
+    setBackgroundPermissionStatus(background.status);
+
+    const granted = foreground.status === Location.PermissionStatus.GRANTED
+      ? true
+      : await requestPermission();
+
     if (!granted) {
       setError("Location permission denied");
       return;
@@ -330,13 +364,45 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   // granted (e.g. a returning user), start tracking silently. Otherwise the
   // LocationSetupGate will ask the user to grant permission explicitly.
   useEffect(() => {
-    Location.getForegroundPermissionsAsync().then(({ status }) => {
-      setPermissionStatus(status);
-      if (status === Location.PermissionStatus.GRANTED) {
-        startTracking();
+    let mounted = true;
+
+    async function restoreLocationState() {
+      try {
+        const [foreground, background] = await Promise.all([
+          Location.getForegroundPermissionsAsync(),
+          Platform.OS === "web"
+            ? Promise.resolve({ status: Location.PermissionStatus.GRANTED })
+            : Location.getBackgroundPermissionsAsync(),
+        ]);
+
+        if (!mounted) return;
+        setPermissionStatus(foreground.status);
+        setBackgroundPermissionStatus(background.status);
+
+        if (Platform.OS !== "web") {
+          const isBackgroundRunning =
+            await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME);
+          if (!mounted) return;
+          if (isBackgroundRunning) {
+            await Location.stopLocationUpdatesAsync(BACKGROUND_TASK_NAME);
+            await clearActiveRideId();
+          }
+        }
+
+        if (foreground.status === Location.PermissionStatus.GRANTED) {
+          await startTracking();
+        }
+      } catch {
+        if (mounted) {
+          setPermissionStatus(Location.PermissionStatus.UNDETERMINED);
+          setError("Failed to restore location permissions");
+        }
       }
-    });
+    }
+
+    void restoreLocationState();
     return () => {
+      mounted = false;
       stopWatcher();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -348,6 +414,10 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         location,
         isTracking,
         permissionStatus,
+        backgroundPermissionStatus,
+        hasAlwaysLocationAccess:
+          permissionStatus === Location.PermissionStatus.GRANTED &&
+          backgroundPermissionStatus === Location.PermissionStatus.GRANTED,
         error,
         startTracking,
         stopTracking,

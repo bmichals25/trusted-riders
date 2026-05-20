@@ -1,0 +1,97 @@
+{
+  "output": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/output/trustedriders-mobile-demo-status.pptx",
+  "outputBytes": 1822395,
+  "slideCount": 8,
+  "slideSize": {
+    "width": 1280,
+    "height": 720
+  },
+  "previewDir": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview",
+  "previewPaths": [
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-01.png",
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-02.png",
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-03.png",
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-04.png",
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-05.png",
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-06.png",
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-07.png",
+    "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/preview/slide-08.png"
+  ],
+  "layoutDir": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout",
+  "layoutResults": [
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-01.layout.json"
+    },
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-02.layout.json"
+    },
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-03.layout.json"
+    },
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-04.layout.json"
+    },
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-05.layout.json"
+    },
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-06.layout.json"
+    },
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-07.layout.json"
+    },
+    {
+      "layoutPath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/layout/slide-08.layout.json"
+    }
+  ],
+  "slides": [
+    {
+      "index": 1,
+      "requestedSlideNumber": 1,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-01.mjs",
+      "exportName": "addSlide"
+    },
+    {
+      "index": 2,
+      "requestedSlideNumber": 2,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-02.mjs",
+      "exportName": "addSlide"
+    },
+    {
+      "index": 3,
+      "requestedSlideNumber": 3,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-03.mjs",
+      "exportName": "addSlide"
+    },
+    {
+      "index": 4,
+      "requestedSlideNumber": 4,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-04.mjs",
+      "exportName": "addSlide"
+    },
+    {
+      "index": 5,
+      "requestedSlideNumber": 5,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-05.mjs",
+      "exportName": "addSlide"
+    },
+    {
+      "index": 6,
+      "requestedSlideNumber": 6,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-06.mjs",
+      "exportName": "addSlide"
+    },
+    {
+      "index": 7,
+      "requestedSlideNumber": 7,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-07.mjs",
+      "exportName": "addSlide"
+    },
+    {
+      "index": 8,
+      "requestedSlideNumber": 8,
+      "modulePath": "/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/outputs/manual-20260517/presentations/trustedriders-demo/slides/slide-08.mjs",
+      "exportName": "addSlide"
+    }
+  ]
+}

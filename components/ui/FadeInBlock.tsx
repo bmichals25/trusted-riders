@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import Animated, {
   Easing,
@@ -73,7 +73,7 @@ export function FadeInBlock({
     transform: [{ translateY: (1 - progress.value) * distance }],
   }));
 
-  if (reduced) {
+  if (Platform.OS !== "web" || reduced) {
     return <View style={style}>{children}</View>;
   }
 

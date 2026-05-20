@@ -3,6 +3,7 @@ import "react-native-reanimated";
 
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Stack, useRouter } from "expo-router";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Image, Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -24,12 +25,15 @@ import { colors, radii, shadows } from "@/lib/theme";
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppErrorBoundary>
       <BottomSheetModalProvider>
         <DriverNameGate>
           {(driverSession) => (
             <LocationProvider>
             <HapticsProvider>
-            <DispatchProvider driverName={driverSession.name} driverId={driverSession.id}>
+            <DispatchProvider
+              driverName={driverSession.name}
+            >
             <StatusBar style="dark" />
             <LocationSetupGate>
             <Stack
@@ -102,9 +106,10 @@ export default function RootLayout() {
                 name="chat"
                 options={{
                   title: "Admin Chat",
-                  animation: "slide_from_bottom",
+                  animation: "slide_from_right",
                   animationDuration: 400,
-                  gestureDirection: "vertical",
+                  gestureEnabled: true,
+                  gestureDirection: "horizontal",
                 }}
               />
               <Stack.Screen
@@ -141,8 +146,53 @@ export default function RootLayout() {
           )}
         </DriverNameGate>
       </BottomSheetModalProvider>
+      </AppErrorBoundary>
     </GestureHandlerRootView>
   );
+}
+
+class AppErrorBoundary extends Component<
+  { children: ReactNode },
+  { message: string | null }
+> {
+  state = { message: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return {
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    console.log("[app] render error", error, info.componentStack);
+  }
+
+  render() {
+    if (!this.state.message) return this.props.children;
+
+    return (
+      <View
+        accessibilityRole="alert"
+        style={{
+          flex: 1,
+          backgroundColor: colors.surfaceLow,
+          padding: 24,
+          justifyContent: "center",
+          gap: 14,
+        }}
+      >
+        <Text style={{ color: colors.error, fontSize: 13, fontWeight: "900", textTransform: "uppercase" }}>
+          App render error
+        </Text>
+        <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900", lineHeight: 30 }}>
+          Something prevented the app from rendering.
+        </Text>
+        <Text selectable style={{ color: colors.slate500, fontSize: 15, fontWeight: "700", lineHeight: 22 }}>
+          {this.state.message}
+        </Text>
+      </View>
+    );
+  }
 }
 
 function MissionMessageButton() {

@@ -22,7 +22,13 @@ import { colors, radii, spacing } from "@/lib/theme";
  * transparently after a brief permission check.
  */
 export function LocationSetupGate({ children }: { children: React.ReactNode }) {
-  const { permissionStatus, requestPermission, startTracking } = useLocation();
+  const {
+    backgroundPermissionStatus,
+    permissionStatus,
+    requestPermission,
+    startBackgroundTracking,
+    startTracking,
+  } = useLocation();
   const { impact } = useHaptics();
   const [requesting, setRequesting] = useState(false);
 
@@ -35,6 +41,13 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
       startTracking();
     }
   }, [impact, requestPermission, startTracking]);
+
+  const onEnableAlways = useCallback(async () => {
+    impact(ImpactFeedbackStyle.Light);
+    setRequesting(true);
+    await startBackgroundTracking();
+    setRequesting(false);
+  }, [impact, startBackgroundTracking]);
 
   const onOpenSettings = useCallback(() => {
     impact(ImpactFeedbackStyle.Light);
@@ -70,9 +83,11 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
           <Text style={s.icon}>◎</Text>
         </View>
 
-        <Text style={s.title}>Turn on location</Text>
+        <Text style={s.title}>
+          Turn on location
+        </Text>
         <Text style={s.subtitle}>
-          TrustedRiders needs your location to show your position on the map,
+          TrustedRiders needs location access to show your position on the map,
           navigate to pickups, and share live updates with dispatch during
           active rides.
         </Text>
@@ -106,6 +121,19 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
             )}
           </Pressable>
         )}
+
+        {Platform.OS !== "web" &&
+        backgroundPermissionStatus !== null &&
+        backgroundPermissionStatus !== Location.PermissionStatus.GRANTED &&
+        !blocked ? (
+          <Pressable
+            style={[s.secondaryButton, requesting && s.buttonDisabled]}
+            onPress={onEnableAlways}
+            disabled={requesting}
+          >
+            <Text style={s.secondaryButtonText}>Allow Always Later</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -181,6 +209,24 @@ const s = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  secondaryButton: {
+    width: "100%",
+    borderRadius: radii.sm,
+    padding: spacing.md,
+    alignItems: "center",
+    minHeight: 48,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    backgroundColor: colors.surface,
+  },
+  secondaryButtonText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 1.4,
   },
   buttonText: {
     color: "#fff",

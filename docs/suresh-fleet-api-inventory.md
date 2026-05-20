@@ -5,7 +5,7 @@ Date checked: 2026-05-06
 Base URL:
 
 ```text
-https://pretyphoid-electrovalently-zena.ngrok-free.dev
+https://trdev.tailff74b1.ts.net
 ```
 
 This is the canonical backend for TrustedRiders mobile app data.
@@ -60,37 +60,34 @@ Request the mobile app sends:
 {
   "lat": 37.788,
   "lon": -122.408,
-  "timestamp": "2026-05-06T19:33:50.000Z",
-  "ride_id": 123
+  "timestamp": "2026-05-06T19:33:50.000Z"
 }
 ```
 
 Notes:
 
-- `ride_id` can be `null` when the driver is online but idle.
+- The backend should infer the driver/account from the JWT returned by
+  `/api/login`.
+- The app no longer sends `user_id`, `driver_id`, or `ride_id` in location
+  updates.
 - Foreground and background GPS both use this endpoint.
 - Without auth, backend returns `401` and `{"msg":"Missing Authorization Header"}`.
 
-### `GET /api/drivers/<driver_id>/rides`
+### `GET /api/rides`
 
-Status: deployed and documented in `/Users/benmichals/Downloads/openapi (1).yaml`.
+Status: canonical mobile ride list endpoint as of 2026-05-11 backend contract update.
 
-Auth: should require `Authorization: Bearer <JWT>`.
+Auth: requires `Authorization: Bearer <JWT>`.
 
-Observed response shape:
+Expected response shape: one summary row per ride. Each row must include
+`ride_id`; the mobile app hydrates each row with `GET /api/rides/<ride_id>`.
 
 ```json
 {
-  "count": 6,
-  "driver_id": 1,
   "rides": [
     {
-      "ride_id": 28,
-      "status": "in_progress",
-      "start_time": "2026-04-20T00:00:24.467187",
-      "end_time": null,
-      "distance_km": 44.90040582225884,
-      "duration_minutes": null
+      "ride_id": 47,
+      "status": "in_progress"
     }
   ]
 }
@@ -98,9 +95,12 @@ Observed response shape:
 
 Notes:
 
-- This is the correct polling endpoint for new rides assigned/requested for a specific driver.
-- The mobile app uses the authenticated `user.id` from `/api/login` as `driver_id`.
-- The summary response does not include pickup/dropoff addresses, so the mobile app enriches each summary with `GET /api/rides/<ride_id>`.
+- The backend should infer the logged-in driver/account from the JWT returned
+  by `/api/login`.
+- The summary response can include extra fields; the mobile app merges them
+  with the detail payload.
+- If the summary response does not include pickup/dropoff addresses, the app
+  expects `GET /api/rides/<ride_id>` to provide them.
 
 ### `GET /api/rides/<ride_id>`
 
@@ -291,7 +291,6 @@ These doc/schema routes were checked and currently return `404`:
 
 ## Questions For Suresh
 
-- Should `GET /api/drivers/<driver_id>/rides` require the driver JWT? It currently returned data without auth during probing.
 - Can ride detail include passenger/rider name, transit type, trip type, care notes, and emergency contact?
 - What statuses does the backend use for requested, scheduled, released, active, completed, and cancelled rides?
 - What driver-facing endpoint should the app call to accept, decline, start, complete, or cancel rides?

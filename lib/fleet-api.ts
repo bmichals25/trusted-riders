@@ -7,23 +7,53 @@ import {
   type ApiRequestResult,
 } from "./api-request-throttle";
 import { FLEET_API_URL } from "./config";
+import { shouldSuppressRideFetchError } from "./fleet-fetch-result";
 import {
   getRideBackendId,
+  mergeRideSummaryAndDetail,
+  normalizeRouteGeometry,
   type DispatchedRide,
+  type RideCoordinate,
   type RideStatus,
   type TransitType,
 } from "./rides";
 import * as storage from "./storage";
 
 const TOKEN_KEY = "trustedriders-auth-token";
-const DRIVER_ID_KEY = "trustedriders-driver-id";
 const ACTIVE_RIDE_KEY = "trustedriders-active-ride";
 
 let token: string | null = null;
-let driverId: number | null = null;
 
-export type FleetUser = { id: number; name: string; email: string };
+export type FleetUser = { name: string; email: string };
 export type LocationUpdateResult = ApiRequestResult;
+
+export class FleetApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly path: string,
+  ) {
+    super(message);
+    this.name = "FleetApiError";
+  }
+}
+
+export class FleetApiRefreshSkippedError extends Error {
+  constructor(
+    public readonly path: string,
+  ) {
+    super("Ride refresh skipped.");
+    this.name = "FleetApiRefreshSkippedError";
+  }
+}
+
+export function isFleetApiError(error: unknown): error is FleetApiError {
+  return error instanceof FleetApiError;
+}
+
+export function isFleetApiRefreshSkippedError(error: unknown): error is FleetApiRefreshSkippedError {
+  return error instanceof FleetApiRefreshSkippedError;
+}
 
 const FLEET_UPSTREAM_UNAVAILABLE_BACKOFF_MS = 5 * 60 * 1000;
 const RIDE_DETAIL_CACHE_MS = 60 * 1000;
@@ -48,12 +78,13 @@ type FleetFetchOptions = {
 async function logApi(
   method: string,
   path: string,
+  url: string,
   res: Response | null,
   error?: unknown,
 ): Promise<void> {
   const ts = new Date().toISOString();
   if (!res) {
-    console.log(`[api] ${ts} ${method} ${path} → FAIL (network) ${String(error ?? "")}`);
+    console.log(`[api] ${ts} ${method} ${url} → FAIL (network) ${String(error ?? "")}`);
     return;
   }
   const tag = res.ok ? "OK" : "FAIL";
@@ -67,7 +98,7 @@ async function logApi(
       // ignore — logging must never throw
     }
   }
-  console.log(`[api] ${ts} ${method} ${path} → ${res.status} ${tag}${bodyNote}`);
+  console.log(`[api] ${ts} ${method} ${url} → ${res.status} ${tag}${bodyNote}`);
 }
 
 async function isNgrokUnavailable(res: Response): Promise<boolean> {
@@ -79,6 +110,23 @@ async function isNgrokUnavailable(res: Response): Promise<boolean> {
     return text.includes("ERR_NGROK_725") || text.includes("network bandwidth limit");
   } catch {
     return false;
+  }
+}
+
+async function readApiErrorMessage(res: Response): Promise<string | null> {
+  try {
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const body = await res.clone().json();
+      const message = body?.error ?? body?.msg ?? body?.message;
+      return typeof message === "string" && message.trim() ? message.trim() : null;
+    }
+
+    const text = await res.clone().text();
+    const clean = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    return clean ? clean.slice(0, 180) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -127,19 +175,20 @@ async function fleetFetch(
   }
 
   let result: Exclude<ApiRequestResult, "skipped"> = "failed";
+  const url = `${FLEET_API_URL}${path}`;
   try {
-    const res = await fetch(`${FLEET_API_URL}${path}`, init);
+    const res = await fetch(url, init);
     if (await isNgrokUnavailable(res)) {
       pauseFleetApi("ngrok bandwidth limit");
       result = "paused";
       return { result, res: null };
     }
 
-    await logApi(method, path, res);
+    await logApi(method, path, url, res);
     result = res.ok ? "sent" : "failed";
     return { result, res };
   } catch (err) {
-    await logApi(method, path, null, err);
+    await logApi(method, path, url, null, err);
     result = "failed";
     return { result, res: null };
   } finally {
@@ -163,18 +212,13 @@ export async function login(email: string, password: string): Promise<FleetUser>
   const data = await res.json();
   token = data.token;
   const user = normalizeUser(data.user);
-  driverId = user.id;
+  console.log(`[auth] login ok user=${user.email || user.name}`);
   await storage.set(TOKEN_KEY, data.token);
-  await storage.set(DRIVER_ID_KEY, String(user.id));
   return user;
 }
 
 export function getToken(): string | null {
   return token;
-}
-
-export function getDriverId(): number | null {
-  return driverId;
 }
 
 function authHeaders(): HeadersInit | null {
@@ -187,20 +231,14 @@ function authHeaders(): HeadersInit | null {
 
 export async function clearToken(): Promise<void> {
   token = null;
-  driverId = null;
   await storage.remove(TOKEN_KEY);
-  await storage.remove(DRIVER_ID_KEY);
 }
 
 // Rehydrate the in-memory token from persistent storage on app boot.
 // Call this once before rendering any authenticated UI.
 export async function restoreToken(): Promise<string | null> {
-  const [stored, storedDriverId] = await Promise.all([
-    storage.get(TOKEN_KEY),
-    storage.get(DRIVER_ID_KEY),
-  ]);
+  const stored = await storage.get(TOKEN_KEY);
   if (stored) token = stored;
-  driverId = parseDriverId(storedDriverId);
   return stored;
 }
 
@@ -247,16 +285,34 @@ export async function updateLocation(loc: {
   lon: number;
   timestamp: string;
   ride_id: number | null;
-}): Promise<LocationUpdateResult> {
-  if (!token) return "skipped";
+}, source: "foreground" | "periodic" | "background" = "foreground"): Promise<LocationUpdateResult> {
+  if (!token) {
+    console.log(`[fleet-api] update_location ${source}: skipped (missing auth token)`);
+    return "skipped";
+  }
+
+  const payload = makeLocationPayload(loc);
+  const requestId = makeClientRequestId("loc");
+
+  console.log(
+    `[fleet-api] update_location ${source} payload=${JSON.stringify(payload)} context=${JSON.stringify({
+      request_id: requestId,
+      token: tokenFingerprint(token),
+      platform: Platform.OS,
+    })}`,
+  );
 
   const { result, res } = await fleetFetch(
     "POST",
     "/api/update_location",
     {
       method: "POST",
-      headers: authHeaders() ?? undefined,
-      body: JSON.stringify(loc),
+      headers: {
+        ...(authHeaders() ?? {}),
+        Accept: "application/json",
+        "X-Client-Request-Id": requestId,
+      },
+      body: JSON.stringify(payload),
     },
     {
       minIntervalMs: 10000,
@@ -264,6 +320,16 @@ export async function updateLocation(loc: {
       throttleKey: "POST /api/update_location",
     },
   );
+
+  if (res && !res.ok) {
+    console.log(
+      `[fleet-api] update_location ${source} failed status=${res.status} payload=${JSON.stringify(payload)} context=${JSON.stringify({
+        request_id: requestId,
+        token: tokenFingerprint(token),
+        platform: Platform.OS,
+      })}`,
+    );
+  }
 
   // 401 is the standard "token missing/invalid" response.
   // 422 with a JWT-shaped message is Flask-JWT-Extended's way of saying the
@@ -277,35 +343,75 @@ export async function updateLocation(loc: {
   return result;
 }
 
-export async function fetchRides(driverIdOverride?: number): Promise<DispatchedRide[]> {
+function makeLocationPayload(loc: {
+  lat: number;
+  lon: number;
+  timestamp: string;
+  ride_id: number | null;
+}): {
+  lat: number;
+  lon: number;
+  timestamp: string;
+} {
+  return {
+    lat: loc.lat,
+    lon: loc.lon,
+    timestamp: loc.timestamp,
+  };
+}
+
+function makeClientRequestId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function tokenFingerprint(value: string | null): string | null {
+  if (!value) return null;
+  return `${value.slice(0, 8)}...${value.slice(-6)}`;
+}
+
+export async function fetchRides(): Promise<DispatchedRide[]> {
   const headers = authHeaders();
-  if (!headers) return [];
+  if (!headers) {
+    throw new FleetApiError(401, "Missing auth token for rides request.", "/api/rides");
+  }
 
-  const idForPoll = driverIdOverride ?? driverId;
-  if (!idForPoll) return [];
-  const path = `/api/drivers/${encodeURIComponent(String(idForPoll))}/rides`;
+  const path = "/api/rides";
 
-  const { res } = await fleetFetch(
+  const { result, res } = await fleetFetch(
     "GET",
     path,
     { headers },
     {
       minIntervalMs: 15000,
       failureBackoffMs: 30000,
-      throttleKey: `GET /api/drivers/${idForPoll}/rides`,
+      throttleKey: "GET /api/rides",
     },
   );
 
-  if (!res) return [];
+  if (!res) {
+    if (shouldSuppressRideFetchError(result)) {
+      throw new FleetApiRefreshSkippedError(path);
+    }
+    throw new FleetApiError(0, "Fleet API unavailable while loading rides.", path);
+  }
   if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
     await clearToken();
-    return [];
+    throw new FleetApiError(res.status, "Session expired while loading rides.", path);
   }
   if (res.status === 404) {
-    return [];
+    throw new FleetApiError(res.status, "Ride list endpoint not found.", path);
+  }
+  if (res.status === 403) {
+    const message = await readApiErrorMessage(res);
+    throw new FleetApiError(
+      res.status,
+      message ?? "This account is not allowed to view rides.",
+      path,
+    );
   }
   if (!res.ok) {
-    return [];
+    const message = await readApiErrorMessage(res);
+    throw new FleetApiError(res.status, message ?? "Unable to load rides.", path);
   }
 
   try {
@@ -317,19 +423,35 @@ export async function fetchRides(driverIdOverride?: number): Promise<DispatchedR
         : Array.isArray(body?.data)
           ? body.data
           : [];
+    console.log(
+      `[api] ${path} raw rides (${rawRides.length}): ${rawRides
+        .map((ride) => {
+          const summary = ride && typeof ride === "object" ? ride as Record<string, unknown> : {};
+          const id = pickString(summary, ["id", "ride_id", "rideId", "uuid"]) ?? "?";
+          const status = pickString(summary, ["status", "ride_status"]) ?? "?";
+          return `${id}:${status} ${describeRoutePayload(summary, { includeKeys: false })}`;
+        })
+        .join(", ") || "none"}`,
+    );
 
     const detailedRides: Array<DispatchedRide | null> = [];
     for (const ride of rawRides) {
       const summary = ride as Record<string, unknown>;
       const rideId = pickString(summary, ["id", "ride_id", "rideId", "uuid"]);
       const detail = rideId ? await fetchRideDetail(rideId, headers) : null;
-      detailedRides.push(normalizeRide({ ...summary, ...(detail ?? {}) }));
+      detailedRides.push(normalizeRide(mergeRideSummaryAndDetail(summary, detail)));
     }
 
-    return detailedRides.filter((ride): ride is DispatchedRide => !!ride);
+    const normalizedRides = detailedRides.filter((ride): ride is DispatchedRide => !!ride);
+    console.log(
+      `[api] ${path} normalized rides (${normalizedRides.length}): ${normalizedRides
+        .map((ride) => `${ride.id}:${ride.status}`)
+        .join(", ") || "none"}`,
+    );
+    return normalizedRides;
   } catch (err) {
     console.log(`[api] failed to parse ${path} response ${String(err)}`);
-    return [];
+    throw new FleetApiError(0, "Unable to parse rides response.", path);
   }
 }
 
@@ -361,13 +483,28 @@ async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Re
 
   try {
     const body = await res.json();
-    const data = body && typeof body === "object" ? body as Record<string, unknown> : null;
+    const data = extractRideDetail(body);
+    console.log(`[api] ${path} route detail ${describeRoutePayload(data)}`);
     rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data });
     return data;
   } catch {
     rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data: null });
     return null;
   }
+}
+
+function extractRideDetail(body: unknown): Record<string, unknown> | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+
+  const record = body as Record<string, unknown>;
+  for (const key of ["ride", "data", "result"]) {
+    const nested = record[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      return nested as Record<string, unknown>;
+    }
+  }
+
+  return record;
 }
 
 export async function updateRideStatus(rideId: string, status: RideStatus): Promise<boolean> {
@@ -416,19 +553,10 @@ async function isAuthFailure(res: Response): Promise<boolean> {
 
 function normalizeUser(raw: unknown): FleetUser {
   const user = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
-  const id = parseDriverId(user.id);
-  if (!id) throw new Error("Login response missing driver id");
-
   return {
-    id,
-    name: pickString(user, ["name", "driver_name", "driverName", "email"]) ?? `Driver #${id}`,
+    name: pickString(user, ["name", "driver_name", "driverName", "email"]) ?? "Driver",
     email: pickString(user, ["email"]) ?? "",
   };
-}
-
-function parseDriverId(value: unknown): number | null {
-  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-  return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
 function normalizeRide(raw: Record<string, unknown>): DispatchedRide | null {
@@ -506,15 +634,25 @@ function pickString(raw: Record<string, unknown>, keys: string[]): string | null
 
 function pickNestedString(raw: Record<string, unknown>, objectKeys: string[], valueKeys: string[]): string | null {
   for (const objectKey of objectKeys) {
-    const value = raw[objectKey];
-    if (!value || typeof value !== "object") continue;
-    const picked = pickString(value as Record<string, unknown>, valueKeys);
+    const value = pickNestedRecord(raw, [objectKey]);
+    if (!value) continue;
+    const picked = pickString(value, valueKeys);
     if (picked) return picked;
   }
   return null;
 }
 
-function pickCoords(raw: Record<string, unknown>, prefix: "pickup" | "dropoff"): { latitude: number; longitude: number } | null {
+function pickNestedRecord(raw: Record<string, unknown>, keys: string[]): Record<string, unknown> | null {
+  for (const key of keys) {
+    const value = raw[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+  }
+  return null;
+}
+
+function pickCoords(raw: Record<string, unknown>, prefix: "pickup" | "dropoff"): RideCoordinate | null {
   const routeEndpoint = prefix === "pickup" ? raw.start : raw.end;
   const direct = raw[`${prefix}Coords`] ?? raw[`${prefix}_coords`] ?? routeEndpoint;
   if (direct && typeof direct === "object") {
@@ -530,45 +668,56 @@ function pickCoords(raw: Record<string, unknown>, prefix: "pickup" | "dropoff"):
   return null;
 }
 
-function pickRouteCoords(raw: Record<string, unknown>): { latitude: number; longitude: number }[] {
-  // The backend's `route[]` field is a driver breadcrumb trail, not planned
-  // pickup-to-dropoff geometry. Only consume explicitly named route geometry
-  // fields so stale tracking pings cannot stretch ride maps across the globe.
-  const value =
-    raw.routeCoords ??
-    raw.route_coords ??
-    raw.plannedRoute ??
-    raw.planned_route ??
-    raw.routeGeometry ??
-    raw.route_geometry;
-  if (!Array.isArray(value)) return [];
+function pickRouteCoords(raw: Record<string, unknown>): RideCoordinate[] {
+  const candidates = getRouteCandidates(raw);
 
-  return value
-    .map((point) => {
-      if (!point || typeof point !== "object") return null;
-      const obj = point as Record<string, unknown>;
-      const latitude = toNumber(obj.latitude ?? obj.lat);
-      const longitude = toNumber(obj.longitude ?? obj.lon ?? obj.lng);
-      if (latitude === null || longitude === null || !isValidCoordinate(latitude, longitude)) {
-        return null;
-      }
-      return { latitude, longitude };
+  for (const candidate of candidates) {
+    const coords = normalizeRouteGeometry(candidate.value);
+    if (coords.length > 1) return coords;
+  }
+
+  return [];
+}
+
+function getRouteCandidates(raw: Record<string, unknown>): Array<{ name: string; value: unknown }> {
+  return [
+    { name: "routeCoords", value: raw.routeCoords },
+    { name: "route_coords", value: raw.route_coords },
+    { name: "plannedRoute", value: raw.plannedRoute },
+    { name: "planned_route", value: raw.planned_route },
+    { name: "planned_route_geometry", value: raw.planned_route_geometry },
+    { name: "plannedRouteGeometry", value: raw.plannedRouteGeometry },
+    { name: "routePoints", value: raw.routePoints },
+    { name: "route_points", value: raw.route_points },
+    { name: "routeHistory", value: raw.routeHistory },
+    { name: "route_history", value: raw.route_history },
+    { name: "driverRoute", value: raw.driverRoute },
+    { name: "driver_route", value: raw.driver_route },
+    { name: "routeGeometry", value: raw.routeGeometry },
+    { name: "route_geometry", value: raw.route_geometry },
+    { name: "routePolyline", value: raw.routePolyline },
+    { name: "route_polyline", value: raw.route_polyline },
+    { name: "route", value: raw.route },
+  ];
+}
+
+function describeRoutePayload(raw: Record<string, unknown> | null, options: { includeKeys?: boolean } = {}): string {
+  if (!raw) return "missing-detail";
+
+  const parts = getRouteCandidates(raw)
+    .map((candidate) => {
+      const coords = normalizeRouteGeometry(candidate.value);
+      return coords.length > 0 ? `${candidate.name}:${coords.length}` : null;
     })
-    .filter((point): point is { latitude: number; longitude: number } => !!point);
+    .filter((part): part is string => !!part);
+
+  if (parts.length > 0) return parts.join(", ");
+  return options.includeKeys === false ? "no-route-fields" : `no-route-fields keys=${Object.keys(raw).join("|")}`;
 }
 
 function toNumber(value: unknown): number | null {
   const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(n) ? n : null;
-}
-
-function isValidCoordinate(latitude: number, longitude: number): boolean {
-  return (
-    latitude >= -90 &&
-    latitude <= 90 &&
-    longitude >= -180 &&
-    longitude <= 180
-  );
 }
 
 function normalizeRideStatus(status: string): RideStatus {

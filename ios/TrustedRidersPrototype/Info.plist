@@ -33,9 +33,14 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>22</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+		<string>waze</string>
+	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>12.0</string>
 	<key>LSRequiresIPhoneOS</key>
@@ -47,14 +52,14 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>TrustedRiders needs your location to navigate to pickups and share your position with dispatch during active missions.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Allow $(PRODUCT_NAME) to access your location</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TrustedRiders needs your location to show your position on the map and calculate routes to pickups.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>TrustedRiders uses the camera to scan another driver's verification QR code.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>TrustedRiders needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>TrustedRiders needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TrustedRiders needs your location to show your position on the map and calculate routes to pickups.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

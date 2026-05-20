@@ -1,22 +1,24 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { colors, spacing, radii } from "@/lib/theme";
-import { clearToken, getDriverId, login, restoreToken } from "@/lib/fleet-api";
+import { clearToken, login, restoreToken } from "@/lib/fleet-api";
 import { registerForPushNotifications } from "@/lib/push";
 import * as storage from "@/lib/storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export type DriverSession = {
-  id: number;
   name: string;
 };
 
@@ -38,12 +40,16 @@ export function useAuth(): AuthContextValue {
  * Authenticates against the Fleet Tracking API, then renders children with the driver name.
  */
 export function DriverNameGate({ children }: { children: (session: DriverSession) => React.ReactNode }) {
+  const insets = useSafeAreaInsets();
   const [session, setSession] = useState<DriverSession | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     // Rehydrate stored credentials on boot. If the token is still present
@@ -54,15 +60,33 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
       restoreToken(),
     ]).then(([storedEmail, storedName, storedToken]) => {
       if (storedEmail) setEmail(storedEmail);
-      const storedDriverId = getDriverId();
-      if (storedName && storedToken && storedDriverId) {
-        setSession({ id: storedDriverId, name: storedName });
+      if (storedName && storedToken) {
+        setSession({ name: storedName });
         // Re-register the push token on every cold boot so dispatch always
         // has the current one (tokens can rotate on reinstall or OS restore).
         void registerForPushNotifications();
       }
       setLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    if (loading || session) return;
+    setPassword("");
+    passwordInputRef.current?.clear();
+    passwordInputRef.current?.setNativeProps({ text: "" });
+  }, [loading, session]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
   }, []);
 
   const handleLogin = async () => {
@@ -76,7 +100,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
       const user = await login(trimmedEmail, trimmedPassword);
       await storage.set(DRIVER_NAME_KEY, user.name);
       await storage.set(DRIVER_EMAIL_KEY, trimmedEmail);
-      setSession({ id: user.id, name: user.name });
+      setSession({ name: user.name });
       // Ask for notification permission + hand our push token to the backend.
       // Fire-and-forget — failures don't block entry to the app.
       void registerForPushNotifications();
@@ -117,92 +141,154 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
         style={s.screen}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* HERO — dark dispatch panel with the brand icon front-and-center */}
-        <View style={s.hero}>
-          <View style={s.heroKicker}>
-            <View style={s.dot} />
-            <Text style={s.kickerText}>TrustedRiders Portal</Text>
-          </View>
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={[
+            s.scrollContent,
+            {
+              paddingTop: keyboardVisible ? insets.top + 8 : insets.top + spacing.sm,
+              paddingBottom: keyboardVisible ? spacing.sm : insets.bottom + spacing.sm,
+            },
+            keyboardVisible ? s.scrollContentCompact : null,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* HERO — dark dispatch panel with the brand icon front-and-center */}
+          <View style={[s.hero, keyboardVisible ? s.heroCompact : null]}>
+            {!keyboardVisible ? (
+              <View style={s.heroKicker}>
+                <View style={s.dot} />
+                <Text style={s.kickerText}>TrustedRiders Portal</Text>
+              </View>
+            ) : null}
 
-          <Image
-            source={require("../../assets/TR_favicon.png")}
-            accessibilityLabel="TrustedRiders"
-            resizeMode="contain"
-            style={s.heroIcon}
-          />
-
-          <Text style={s.heroTitle}>TrustedRiders</Text>
-          <Text style={s.heroSub}>Operator authentication</Text>
-        </View>
-
-        {/* FORM — dispatch-terminal style fields on the light surface */}
-        <View style={s.form}>
-          <Text style={s.sectionKicker}>Sign In</Text>
-
-          <View style={s.field}>
-            <Text style={s.fieldLabel}>Email</Text>
-            <TextInput
-              style={[s.input, webInputStyle]}
-              placeholder="driver@trustedriders.org"
-              placeholderTextColor={colors.slate400}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              autoFocus
+            <Image
+              source={require("../../assets/TR_favicon.png")}
+              accessibilityLabel="TrustedRiders"
+              resizeMode="contain"
+              style={[s.heroIcon, keyboardVisible ? s.heroIconCompact : null]}
             />
+
+            <View style={[s.heroText, keyboardVisible ? s.heroTextCompact : null]}>
+              <Text style={[s.heroTitle, keyboardVisible ? s.heroTitleCompact : null]}>
+                TrustedRiders
+              </Text>
+              <Text style={[s.heroSub, keyboardVisible ? s.heroSubCompact : null]}>
+                Operator authentication
+              </Text>
+            </View>
           </View>
 
-          <View style={s.field}>
-            <Text style={s.fieldLabel}>Password</Text>
-            <TextInput
-              style={[s.input, webInputStyle]}
-              placeholder="••••••••"
-              placeholderTextColor={colors.slate400}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textContentType="password"
-              returnKeyType="done"
-              onSubmitEditing={handleLogin}
-            />
+          {/* FORM — dispatch-terminal style fields on the light surface */}
+          <View style={[s.form, keyboardVisible ? s.formCompact : null]}>
+            <Text style={s.sectionKicker}>Sign In</Text>
+
+            <View style={[s.field, keyboardVisible ? s.fieldCompact : null]}>
+              <Text style={s.fieldLabel}>Email</Text>
+              <TextInput
+                style={[s.input, keyboardVisible ? s.inputCompact : null, webInputStyle]}
+                placeholder="driver@trustedriders.org"
+                placeholderTextColor={colors.slate400}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoFocus
+              />
+            </View>
+
+            <View style={[s.field, keyboardVisible ? s.fieldCompact : null]}>
+              <Text style={s.fieldLabel}>Password</Text>
+              <View style={s.passwordField}>
+                <TextInput
+                  ref={passwordInputRef}
+                  style={[
+                    s.input,
+                    s.passwordInput,
+                    keyboardVisible ? s.inputCompact : null,
+                    webInputStyle,
+                  ]}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.slate400}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!passwordVisible}
+                  autoComplete="off"
+                  textContentType="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+                <Pressable
+                  onPress={() => setPasswordVisible((visible) => !visible)}
+                  accessibilityRole="button"
+                  accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+                  accessibilityHint="Toggles password visibility"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    s.passwordToggle,
+                    pressed ? s.passwordTogglePressed : null,
+                  ]}
+                >
+                  <EyeGlyph visible={passwordVisible} />
+                </Pressable>
+              </View>
+            </View>
+
+            {error ? <Text style={s.error}>{error}</Text> : null}
+
+            <Pressable
+              style={({ pressed }) => [
+                s.primaryButton,
+                keyboardVisible ? s.primaryButtonCompact : null,
+                !canSubmit && s.primaryButtonDisabled,
+                pressed && canSubmit ? { backgroundColor: "#1E293B" } : null,
+              ]}
+              onPress={handleLogin}
+              disabled={!canSubmit}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Text style={s.primaryButtonText}>Sign In</Text>
+                  <Text style={s.primaryButtonArrow}>→</Text>
+                </>
+              )}
+            </Pressable>
+
+            {!keyboardVisible ? (
+              <View style={s.footer}>
+                <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
+                <Text style={s.footerText}>Encrypted</Text>
+              </View>
+            ) : null}
           </View>
-
-          {error ? <Text style={s.error}>{error}</Text> : null}
-
-          <Pressable
-            style={({ pressed }) => [
-              s.primaryButton,
-              !canSubmit && s.primaryButtonDisabled,
-              pressed && canSubmit ? { backgroundColor: "#1E293B" } : null,
-            ]}
-            onPress={handleLogin}
-            disabled={!canSubmit}
-            accessibilityRole="button"
-            accessibilityLabel="Sign in"
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Text style={s.primaryButtonText}>Sign In</Text>
-                <Text style={s.primaryButtonArrow}>→</Text>
-              </>
-            )}
-          </Pressable>
-
-          <View style={s.footer}>
-            <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
-            <Text style={s.footerText}>Encrypted</Text>
-          </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     );
   }
 
   return <AuthContext.Provider value={authValue}>{children(session)}</AuthContext.Provider>;
+}
+
+function EyeGlyph({ visible }: { visible: boolean }) {
+  const color = visible ? colors.primary : colors.slate400;
+
+  return (
+    <View style={s.eyeGlyph}>
+      <View style={[s.eyeOuter, { borderColor: color }]}>
+        <View style={[s.eyePupil, { backgroundColor: color }]} />
+      </View>
+      {!visible ? (
+        <View style={[s.eyeSlash, { backgroundColor: color }]} />
+      ) : null}
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
@@ -216,8 +302,20 @@ const s = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.surfaceLow,
+  },
+  scroll: {
+    flex: 1,
+    width: "100%",
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: spacing.sm,
+  },
+  scrollContentCompact: {
+    justifyContent: "flex-start",
+    paddingTop: 6,
   },
   hero: {
     width: "100%",
@@ -229,6 +327,14 @@ const s = StyleSheet.create({
     borderTopRightRadius: radii.md,
     borderCurve: "continuous",
     alignItems: "center",
+    gap: 14,
+  },
+  heroCompact: {
+    minHeight: 104,
+    paddingVertical: 18,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 14,
   },
   heroKicker: {
@@ -258,11 +364,29 @@ const s = StyleSheet.create({
     height: 96,
     marginTop: 4,
   },
+  heroIconCompact: {
+    width: 52,
+    height: 52,
+    marginTop: 0,
+  },
+  heroText: {
+    alignItems: "center",
+    gap: 14,
+  },
+  heroTextCompact: {
+    flex: 1,
+    alignItems: "flex-start",
+    gap: 4,
+  },
   heroTitle: {
     color: "#FFFFFF",
     fontSize: 32,
     fontWeight: "900",
     letterSpacing: -0.8,
+  },
+  heroTitleCompact: {
+    fontSize: 24,
+    letterSpacing: 0,
   },
   heroSub: {
     color: colors.slate400,
@@ -270,6 +394,10 @@ const s = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 2.4,
+  },
+  heroSubCompact: {
+    fontSize: 10,
+    letterSpacing: 1.8,
   },
   form: {
     width: "100%",
@@ -282,6 +410,10 @@ const s = StyleSheet.create({
     borderCurve: "continuous",
     gap: spacing.md,
   },
+  formCompact: {
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
   sectionKicker: {
     color: colors.slate400,
     fontSize: 11,
@@ -292,6 +424,9 @@ const s = StyleSheet.create({
   },
   field: {
     gap: 8,
+  },
+  fieldCompact: {
+    gap: 6,
   },
   fieldLabel: {
     color: colors.primary,
@@ -310,6 +445,54 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: colors.primary,
+  },
+  inputCompact: {
+    paddingVertical: 12,
+  },
+  passwordField: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  passwordInput: {
+    paddingRight: 54,
+  },
+  passwordToggle: {
+    position: "absolute",
+    right: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  passwordTogglePressed: {
+    backgroundColor: colors.surfaceHigh,
+  },
+  eyeGlyph: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eyeOuter: {
+    width: 21,
+    height: 13,
+    borderWidth: 2,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eyePupil: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  eyeSlash: {
+    position: "absolute",
+    width: 24,
+    height: 2,
+    borderRadius: 1,
+    transform: [{ rotate: "-35deg" }],
   },
   error: {
     fontSize: 12,
@@ -330,6 +513,11 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 56,
     marginTop: 6,
+  },
+  primaryButtonCompact: {
+    minHeight: 50,
+    paddingVertical: 14,
+    marginTop: 2,
   },
   primaryButtonDisabled: {
     opacity: 0.35,

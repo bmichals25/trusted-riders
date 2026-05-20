@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
+  Linking,
   Modal,
   Platform,
   Pressable,
   ScrollView,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
@@ -16,27 +18,37 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import MapView, { Marker, Polyline } from "@/components/Map";
 
-import { AnimatedDriverMarker } from "@/components/ui/AnimatedDriverMarker";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmergencyModal } from "@/components/ui/EmergencyModal";
 import { GradientCard } from "@/components/ui/gradient-card";
+import { LocationDotMarker } from "@/components/ui/LocationDotMarker";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DISPATCH_PHONE, formatPhone } from "@/lib/config";
+import { sendRideChatMessage } from "@/lib/chat-api";
 import { useDispatch } from "@/lib/dispatch-context";
 import { clearActiveRideId, setActiveRideId } from "@/lib/fleet-api";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
-import { getRideBackendId, type DispatchedRide } from "@/lib/rides";
+import { getRideBackendId, hasDetailedRoute, hasDrawableRoute, type DispatchedRide } from "@/lib/rides";
 import { useDirections } from "@/lib/use-directions";
 import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
 
 const totalStages = 4;
+const DRIVER_FOLLOW_ZOOM = 18.2;
+const DRIVER_FOLLOW_ALTITUDE = 260;
+const MINIMUM_DRAWER_CHROME_HEIGHT = 58;
+
+type NavigationOption = {
+  label: string;
+  url: string;
+};
 
 export default function MissionScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
   const headerHeight = useHeaderHeight();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const mapRef = useRef<MapView | null>(null);
@@ -46,21 +58,37 @@ export default function MissionScreen() {
   const missionInitials = getInitials(mission.passengerName);
   const { location, startBackgroundTracking, stopBackgroundTracking } = useLocation();
   const { impact, notification } = useHaptics();
-  const snapPoints = useMemo(() => [520, "88%"], []);
+  const [missionStep, setMissionStep] = useState(1);
+  const [sheetIndex, setSheetIndex] = useState(1);
+  const [riderProfileOpen, setRiderProfileOpen] = useState(false);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [emergencyOpen, setEmergencyOpen] = useState(false);
+  const [minimumSummaryHeight, setMinimumSummaryHeight] = useState(132);
+  const minSnapPoint = useMemo(
+    () => {
+      const contentDrivenHeight = minimumSummaryHeight + MINIMUM_DRAWER_CHROME_HEIGHT + insets.bottom;
+      return Math.max(220 + insets.bottom, Math.min(contentDrivenHeight, screenHeight * 0.38));
+    },
+    [insets.bottom, minimumSummaryHeight, screenHeight],
+  );
+  const collapsedSnapPoint = useMemo(
+    () => Math.max(560, Math.min(660, screenHeight - headerHeight - 72)),
+    [headerHeight, screenHeight],
+  );
+  const snapPoints = useMemo(
+    () => [minSnapPoint, collapsedSnapPoint, "88%"],
+    [collapsedSnapPoint, minSnapPoint],
+  );
+  const sheetMapPaddingBottom = sheetIndex === 0 ? minSnapPoint : collapsedSnapPoint;
   const routeFitPadding = useMemo(
     () => ({
       top: headerHeight + 208,
       right: 84,
-      bottom: 532 + insets.bottom,
+      bottom: sheetMapPaddingBottom + 12 + insets.bottom,
       left: 48,
     }),
-    [headerHeight, insets.bottom],
+    [headerHeight, insets.bottom, sheetMapPaddingBottom],
   );
-  const [missionStep, setMissionStep] = useState(1);
-  const [sheetIndex, setSheetIndex] = useState(0);
-  const [riderProfileOpen, setRiderProfileOpen] = useState(false);
-  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
-  const [emergencyOpen, setEmergencyOpen] = useState(false);
 
   // While on the mission screen, keep Suresh's backend informed even if the phone is
   // locked. `setActiveRideId` writes to AsyncStorage so the TaskManager task
@@ -69,10 +97,11 @@ export default function MissionScreen() {
     const backendRideId = activeRide ? getRideBackendId(activeRide.id) : null;
     if (backendRideId !== null) {
       void setActiveRideId(backendRideId);
+      startBackgroundTracking();
     } else {
       void clearActiveRideId();
+      stopBackgroundTracking();
     }
-    startBackgroundTracking();
     return () => {
       stopBackgroundTracking();
       clearActiveRideId();
@@ -117,24 +146,92 @@ export default function MissionScreen() {
   );
   const currentStage = stages[missionStep - 1] ?? stages[0];
   const nextStage = stages[missionStep] ?? null;
-  const isExpanded = sheetIndex > 0;
+  const isMinimum = sheetIndex === 0;
+  const isExpanded = sheetIndex === 2;
   const missionMapCoords = useMemo(() => {
     const coords: Array<{ latitude: number; longitude: number }> = [];
     if (location) coords.push({ latitude: location.latitude, longitude: location.longitude });
-    if (mission.pickupCoords) coords.push(mission.pickupCoords);
-    if (mission.dropoffCoords) coords.push(mission.dropoffCoords);
+    const target = missionStep <= 1
+      ? mission.pickupCoords
+      : missionStep <= 3
+        ? mission.dropoffCoords
+        : mission.pickupCoords;
+    if (target) coords.push(target);
+    coords.push(...mission.routeCoords);
     return coords;
   }, [
     location?.latitude,
     location?.longitude,
     mission.dropoffCoords,
     mission.pickupCoords,
+    mission.routeCoords,
+    missionStep,
   ]);
   const currentMapTarget = missionStep <= 1
     ? mission.pickupCoords
     : missionStep <= 3
       ? mission.dropoffCoords
       : mission.pickupCoords;
+
+  const postMissionChatEvent = (
+    command: string,
+    extra: Record<string, unknown> = {},
+  ) => {
+    const timestamp = new Date().toISOString();
+    const payload = {
+      type: "mission_command_status",
+      command,
+      timestamp,
+      ride: {
+        id: mission.id,
+        passenger_name: mission.passengerName,
+        status: mission.status,
+        status_check: missionStatus,
+        transit_type: mission.transitType,
+        trip_type: mission.tripType,
+      },
+      mission: {
+        step: missionStep,
+        total_steps: totalStages,
+        current_action: currentAction,
+        current_stage: {
+          title: currentStage.title,
+          address: currentStage.value,
+        },
+        next_stage: nextStage
+          ? {
+              title: nextStage.title,
+              address: nextStage.value,
+            }
+          : null,
+        target: {
+          address: currentTarget,
+          coordinates: currentMapTarget,
+        },
+      },
+      driver_location: location
+        ? {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            heading: location.heading,
+            speed: location.speed,
+          }
+        : null,
+      ...extra,
+    };
+
+    void sendRideChatMessage({
+      rideId: mission.id,
+      text: JSON.stringify(payload, null, 2),
+      sender: "system",
+      senderName: "Mission Status",
+      clientMessageId: `mission-${mission.id}-${command}-${Date.now()}`,
+      metadata: payload,
+    }).catch((error) => {
+      console.log(`[mission-chat] failed to post ${command}: ${String(error)}`);
+    });
+  };
+
   const advanceMission = () => {
     notification(NotificationFeedbackType.Success);
     const nextStatus =
@@ -143,6 +240,13 @@ export default function MissionScreen() {
         : missionStep === 2 || missionStep === 3
           ? "in_transit"
           : "completed";
+    postMissionChatEvent("advance_mission", {
+      status_update: {
+        from: mission.status,
+        to: nextStatus,
+      },
+      completed_mission: missionStep >= totalStages,
+    });
     updateStatus(mission.id, nextStatus);
     if (missionStep >= totalStages) {
       router.back();
@@ -152,51 +256,104 @@ export default function MissionScreen() {
   };
   const openCancelConfirm = () => {
     notification(NotificationFeedbackType.Warning);
+    postMissionChatEvent("cancel_requested");
     setCancelConfirmOpen(true);
   };
   const confirmCancelRide = () => {
     notification(NotificationFeedbackType.Warning);
+    postMissionChatEvent("cancel_confirmed", {
+      status_update: {
+        from: mission.status,
+        to: "cancelled",
+      },
+    });
     updateStatus(mission.id, "cancelled");
     setCancelConfirmOpen(false);
     router.back();
   };
   const openReportIssue = () => {
     impact(ImpactFeedbackStyle.Light);
+    postMissionChatEvent("report_issue_opened");
     router.push({ pathname: "/info", params: { slug: "report" } });
   };
   const openEmergency = () => {
     notification(NotificationFeedbackType.Error);
+    postMissionChatEvent("emergency_opened");
     setEmergencyOpen(true);
+  };
+  const openNavigationChooser = async () => {
+    impact(ImpactFeedbackStyle.Light);
+    postMissionChatEvent("start_navigation_requested");
+    if (!currentMapTarget) {
+      Alert.alert(
+        "Navigation unavailable",
+        "This ride is missing coordinates for the current stop.",
+      );
+      return;
+    }
+
+    const options = await getAvailableNavigationOptions(currentMapTarget);
+    if (options.length === 0) {
+      Alert.alert(
+        "No navigation app found",
+        "Install a supported maps app to start navigation.",
+      );
+      return;
+    }
+
+    const openOption = (option: NavigationOption) => {
+      postMissionChatEvent("navigation_app_selected", {
+        navigation: {
+          app: option.label,
+          url: option.url,
+        },
+      });
+      Linking.openURL(option.url).catch(() => {
+        Alert.alert("Navigation unavailable", `Could not open ${option.label}.`);
+      });
+    };
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: "Start Navigation",
+          message: currentTarget,
+          options: [...options.map((option) => option.label), "Cancel"],
+          cancelButtonIndex: options.length,
+          userInterfaceStyle: "light",
+        },
+        (buttonIndex) => {
+          const option = options[buttonIndex];
+          if (option) openOption(option);
+        },
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Start Navigation",
+      currentTarget,
+      [
+        ...options.map((option) => ({
+          text: option.label,
+          onPress: () => openOption(option),
+        })),
+        { text: "Cancel", style: "cancel" as const },
+      ],
+    );
   };
   const recenterOnDriver = () => {
     impact(ImpactFeedbackStyle.Light);
     if (location && mapRef.current) {
       followMode.current = true;
       mapRef.current.animateCamera(
-        { center: { latitude: location.latitude, longitude: location.longitude } },
+        getDriverFollowCamera(
+          { latitude: location.latitude, longitude: location.longitude },
+          location.heading ?? 0,
+        ),
         { duration: 400 },
       );
     }
-  };
-  const focusCurrentStopOnMap = () => {
-    impact(ImpactFeedbackStyle.Light);
-    followMode.current = false;
-    if (!mapRef.current || !currentMapTarget) return;
-    const latitudeInset = 0.0028;
-    const longitudeInset = 0.0028;
-    mapRef.current.fitToCoordinates(
-      [
-        {
-          latitude: currentMapTarget.latitude - latitudeInset,
-          longitude: currentMapTarget.longitude - longitudeInset,
-        },
-        {
-          latitude: currentMapTarget.latitude + latitudeInset,
-          longitude: currentMapTarget.longitude + longitudeInset,
-        },
-      ],
-      { edgePadding: routeFitPadding, animated: true },
-    );
   };
   const fitMissionRouteOnMap = () => {
     impact(ImpactFeedbackStyle.Light);
@@ -211,55 +368,22 @@ export default function MissionScreen() {
     }
     mapRef.current.fitToCoordinates(
       missionMapCoords,
-      { edgePadding: routeFitPadding, animated: true },
+      {
+        edgePadding: {
+          top: headerHeight + 132,
+          right: 32,
+          bottom: sheetMapPaddingBottom + 18 + insets.bottom,
+          left: 32,
+        },
+        animated: true,
+      },
     );
   };
-  const toggleMissionDetail = () => {
+  const collapseDrawerToMapView = () => {
+    if (isMinimum) return;
     impact(ImpactFeedbackStyle.Light);
-    bottomSheetRef.current?.snapToIndex(isExpanded ? 0 : 1);
+    bottomSheetRef.current?.snapToIndex(0);
   };
-  const openRiderProfile = () => {
-    impact(ImpactFeedbackStyle.Light);
-    setRiderProfileOpen(true);
-  };
-  const openNativeMissionMenu = () => {
-    impact(ImpactFeedbackStyle.Light);
-    const detailLabel = isExpanded ? "Show Compact Controls" : "Show Full Mission Detail";
-    const actions = [
-      { label: detailLabel, run: toggleMissionDetail },
-      { label: "Fit Route On Map", run: fitMissionRouteOnMap },
-      { label: "View Rider Profile", run: openRiderProfile },
-    ];
-
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          title: mission.passengerName,
-          message: `Ride ${mission.id}`,
-          options: [...actions.map((action) => action.label), "Cancel"],
-          cancelButtonIndex: actions.length,
-          userInterfaceStyle: "light",
-        },
-        (buttonIndex) => {
-          actions[buttonIndex]?.run();
-        },
-      );
-      return;
-    }
-
-    Alert.alert(
-      "Mission Options",
-      `${mission.passengerName} · Ride ${mission.id}`,
-      [
-        ...actions.map((action) => ({
-          text: action.label,
-          onPress: action.run,
-        })),
-        { text: "Cancel", style: "cancel" as const },
-      ],
-    );
-  };
-
   return (
     <PageTransition>
     <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
@@ -268,93 +392,115 @@ export default function MissionScreen() {
         missionStep={missionStep}
         fitPadding={routeFitPadding}
         onMapRef={(ref) => { mapRef.current = ref; }}
+        onMapPress={collapseDrawerToMapView}
       />
 
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: "absolute",
-          top: headerHeight + 8,
-          left: 16,
-          right: 16,
-          gap: 8,
-        }}
-      >
-        {Platform.OS !== "web" && (
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingHorizontal: 12,
-            }}
-          >
-            <Text style={statusText}>
-              9:41
-            </Text>
-            <View style={{ flexDirection: "row", gap: 6 }}>
-              <View style={hudPill(16)} />
-              <View style={hudPill(8)} />
-            </View>
-          </View>
-        )}
-
+      {isMinimum ? (
         <View
-          style={mapInfoBanner}
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            top: headerHeight + 8,
+            left: 16,
+            right: 16,
+            gap: 8,
+          }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Avatar initials={missionInitials} size={40} />
-            <View style={{ flex: 1, gap: 5, minWidth: 0 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Text style={missionEyebrow} numberOfLines={1}>
-                  Active Mission
+          <View
+            style={mapInfoBanner}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Avatar initials={missionInitials} size={40} />
+              <View style={{ flex: 1, gap: 5, minWidth: 0 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Text style={missionEyebrow} numberOfLines={1}>
+                    {currentStage.title}
+                  </Text>
+                  <StatusBadge status={missionStatus} />
+                </View>
+                <Text selectable numberOfLines={2} style={missionTarget}>
+                  {currentTarget}
                 </Text>
-                <StatusBadge status={missionStatus} />
               </View>
-              <Text selectable numberOfLines={2} style={missionTarget}>
-                {currentTarget}
-              </Text>
-            </View>
-            <View style={etaPill}>
-              <Text style={etaLabel}>
-                ETA
-              </Text>
-              <Text selectable style={etaValue}>
-                Live
-              </Text>
+              <View style={etaPill}>
+                <Text style={etaLabel}>
+                  ETA
+                </Text>
+                <Text selectable style={etaValue}>
+                  Live
+                </Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      ) : null}
 
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: "absolute",
-          right: 16,
-          top: headerHeight + 158,
-          gap: 10,
-          zIndex: 20,
-        }}
-      >
-        <FloatingControl
-          label="➤"
-          hint="Re-center map on my location"
-          onPress={recenterOnDriver}
-        />
-        <FloatingControl
-          label="◎"
-          hint="Center the current mission stop in the visible map area"
-          onPress={focusCurrentStopOnMap}
-        />
-      </View>
+      {isMinimum ? (
+        <View
+          pointerEvents="box-none"
+          style={{
+            position: "absolute",
+            right: 16,
+            bottom: minSnapPoint + 88 + insets.bottom,
+            gap: 10,
+            zIndex: 20,
+          }}
+        >
+          <FloatingControl
+            label="➤"
+            hint="Re-center map on my location"
+            onPress={recenterOnDriver}
+          />
+          <FloatingControl
+            label="◎"
+            hint="Zoom out to show the full ride route"
+            onPress={fitMissionRouteOnMap}
+          />
+        </View>
+      ) : null}
+
+      {isMinimum ? (
+        <Animated.View
+          pointerEvents="box-none"
+          entering={FadeIn.duration(160)}
+          exiting={FadeOut.duration(120)}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: minSnapPoint + 16,
+            alignItems: "center",
+            zIndex: 22,
+          }}
+        >
+          <Pressable
+            onPress={openNavigationChooser}
+            accessibilityRole="button"
+            accessibilityLabel="Go to navigation"
+            style={({ pressed }) => [
+              floatingNavigationButton,
+              pressed ? floatingNavigationButtonPressed : null,
+            ]}
+          >
+            <Text style={floatingNavigationIcon}>↗</Text>
+            <Text
+              style={floatingNavigationText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.84}
+            >
+              Go to navigation
+            </Text>
+          </Pressable>
+        </Animated.View>
+      ) : null}
 
       <BottomSheet
         ref={bottomSheetRef}
-        index={0}
+        index={1}
         snapPoints={snapPoints}
         onChange={setSheetIndex}
-        enableContentPanningGesture={false}
+        enableContentPanningGesture
         handleIndicatorStyle={{
           width: 48,
           height: 6,
@@ -370,43 +516,59 @@ export default function MissionScreen() {
       >
         <BottomSheetScrollView
           contentContainerStyle={{
-            paddingHorizontal: spacing.lg,
-            paddingBottom: 14,
-            gap: spacing.md,
+            paddingHorizontal: isMinimum ? spacing.lg : spacing.lg,
+            paddingTop: isMinimum ? 8 : 0,
+            paddingBottom: isMinimum ? 16 + insets.bottom : 14,
+            gap: isMinimum ? 8 : spacing.md,
           }}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View
-            layout={LinearTransition.duration(220)}
-            style={sheetHeaderCard}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
-              <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setRiderProfileOpen(true); }} accessibilityRole="button" accessibilityLabel={`View profile for ${mission.passengerName}`}>
-                <Avatar initials={missionInitials} size={56} />
-              </Pressable>
-              <View style={rideTitleBlock}>
-                <Text style={rideTitleEyebrow} numberOfLines={1}>
-                  Ride {mission.id}
-                </Text>
-                <Text selectable style={sheetTitle} numberOfLines={1}>
-                  {mission.passengerName}
-                </Text>
-                <Text style={sheetSubtitle} numberOfLines={1}>
-                  {mission.transitType} {mission.tripType}
-                </Text>
-              </View>
-            </View>
-            <Pressable
-              onPress={openNativeMissionMenu}
-              accessibilityRole="button"
-              accessibilityLabel="Open mission options"
-              style={({ pressed }) => [missionMenuButton, pressed ? { opacity: 0.72 } : null]}
+          {isMinimum ? (
+            <Animated.View
+              key="minimum-mission-summary"
+              entering={FadeIn.duration(160)}
+              exiting={FadeOut.duration(120)}
+              layout={LinearTransition.duration(220)}
             >
-              <Text style={{ color: colors.slate500, fontSize: 20 }}>⋯</Text>
-            </Pressable>
-          </Animated.View>
+              <MinimalMissionSummary
+                initials={missionInitials}
+                rideId={mission.id}
+                passengerName={mission.passengerName}
+                currentStage={currentStage}
+                missionStep={missionStep}
+                totalStages={totalStages}
+                onHeightChange={setMinimumSummaryHeight}
+                onPress={() => {
+                  impact(ImpactFeedbackStyle.Light);
+                  bottomSheetRef.current?.snapToIndex(1);
+                }}
+              />
+            </Animated.View>
+          ) : (
+            <Animated.View
+              layout={LinearTransition.duration(220)}
+              style={sheetHeaderCard}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14, flex: 1, minWidth: 0 }}>
+                <Pressable onPress={() => { impact(ImpactFeedbackStyle.Light); setRiderProfileOpen(true); }} accessibilityRole="button" accessibilityLabel={`View profile for ${mission.passengerName}`}>
+                  <Avatar initials={missionInitials} size={56} />
+                </Pressable>
+                <View style={rideTitleBlock}>
+                  <Text style={rideTitleEyebrow} numberOfLines={1}>
+                    Ride {mission.id}
+                  </Text>
+                  <Text selectable style={sheetTitle} numberOfLines={1}>
+                    {mission.passengerName}
+                  </Text>
+                  <Text style={sheetSubtitle} numberOfLines={1}>
+                    {mission.transitType} {mission.tripType}
+                  </Text>
+                </View>
+              </View>
+            </Animated.View>
+          )}
 
-          {isExpanded ? (
+          {isMinimum ? null : isExpanded ? (
             <Animated.View
               key="expanded-mission-detail"
               entering={FadeIn.duration(180)}
@@ -489,6 +651,7 @@ export default function MissionScreen() {
               />
               <MissionActionStack
                 currentAction={currentAction}
+                onNavigate={openNavigationChooser}
                 onAdvance={advanceMission}
                 onCancel={openCancelConfirm}
                 onReport={openReportIssue}
@@ -515,6 +678,7 @@ export default function MissionScreen() {
           >
             <MissionActionStack
               currentAction={currentAction}
+              onNavigate={openNavigationChooser}
               onAdvance={advanceMission}
               onCancel={openCancelConfirm}
               onReport={openReportIssue}
@@ -645,11 +809,13 @@ function MissionMap({
   missionStep,
   fitPadding,
   onMapRef,
+  onMapPress,
 }: {
   ride: DispatchedRide;
   missionStep: number;
   fitPadding: { top: number; right: number; bottom: number; left: number };
   onMapRef?: (ref: MapView | null) => void;
+  onMapPress?: () => void;
 }) {
   const { location } = useLocation();
   const mapRef = useRef<MapView | null>(null);
@@ -708,9 +874,10 @@ function MissionMap({
 
     if (followMode.current) {
       mapRef.current.animateCamera(
-        {
-          center: { latitude: location.latitude, longitude: location.longitude },
-        },
+        getDriverFollowCamera(
+          { latitude: location.latitude, longitude: location.longitude },
+          location.heading ?? 0,
+        ),
         { duration: 800 },
       );
     }
@@ -730,15 +897,14 @@ function MissionMap({
     );
   }
 
-  // Use real route coords if available, otherwise fall back to straight line
+  // Use backend route geometry if available, otherwise fall back to live
+  // directions and finally a straight line.
   const activeRouteCoords =
-    missionStep > 1 && ride.routeCoords.length > 1
+    hasDrawableRoute(ride.routeCoords)
       ? ride.routeCoords
-      : directions.routeCoords && directions.routeCoords.length > 1
+      : hasDetailedRoute(directions.routeCoords)
       ? directions.routeCoords
-      : driverPos && currentTarget
-        ? [driverPos, currentTarget]
-        : routeEndpoints;
+      : [];
 
   return (
     <MapView
@@ -766,8 +932,9 @@ function MissionMap({
         followMode.current = false;
       }}
       onPanDrag={() => { followMode.current = false; }}
+      onPress={onMapPress}
     >
-      {ride.pickupCoords ? (
+      {ride.pickupCoords && !isNear(driverPos, ride.pickupCoords) ? (
         <Marker
           coordinate={ride.pickupCoords}
           title="Pickup"
@@ -776,7 +943,7 @@ function MissionMap({
           tracksViewChanges={false}
         />
       ) : null}
-      {ride.dropoffCoords ? (
+      {ride.dropoffCoords && !isNear(driverPos, ride.dropoffCoords) ? (
         <Marker
           coordinate={ride.dropoffCoords}
           title="Drop-off"
@@ -785,7 +952,7 @@ function MissionMap({
           tracksViewChanges={false}
         />
       ) : null}
-      {activeRouteCoords.length > 1 ? (
+      {hasDrawableRoute(activeRouteCoords) ? (
         <Polyline
           coordinates={activeRouteCoords}
           strokeColor={colors.blue}
@@ -793,14 +960,34 @@ function MissionMap({
         />
       ) : null}
       {location && (
-        <AnimatedDriverMarker
+        <LocationDotMarker
           latitude={location.latitude}
           longitude={location.longitude}
-          heading={location.heading}
         />
       )}
     </MapView>
   );
+}
+
+function isNear(
+  a: { latitude: number; longitude: number } | null,
+  b: { latitude: number; longitude: number } | null | undefined,
+) {
+  if (!a || !b) return false;
+  return Math.abs(a.latitude - b.latitude) < 0.00025 && Math.abs(a.longitude - b.longitude) < 0.00025;
+}
+
+function getDriverFollowCamera(
+  center: { latitude: number; longitude: number },
+  heading: number,
+) {
+  return {
+    center,
+    heading,
+    pitch: 0,
+    zoom: DRIVER_FOLLOW_ZOOM,
+    ...(Platform.OS === "ios" ? { altitude: DRIVER_FOLLOW_ALTITUDE } : null),
+  };
 }
 
 function StageRow({
@@ -942,14 +1129,122 @@ function CondensedMissionSummary({
   );
 }
 
+function MinimalMissionSummary({
+  initials,
+  rideId,
+  passengerName,
+  currentStage,
+  missionStep,
+  totalStages,
+  onHeightChange,
+  onPress,
+}: {
+  initials: string;
+  rideId: string;
+  passengerName: string;
+  currentStage: { title: string; value: string };
+  missionStep: number;
+  totalStages: number;
+  onHeightChange: (height: number) => void;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      onLayout={(event) => {
+        const height = Math.ceil(event.nativeEvent.layout.height);
+        onHeightChange(height);
+      }}
+      accessibilityRole="button"
+      accessibilityLabel="Expand mission drawer"
+      style={({ pressed }) => [
+        {
+          minHeight: 118,
+          borderRadius: radii.md,
+          borderCurve: "continuous",
+          backgroundColor: colors.surface,
+          paddingHorizontal: 6,
+          paddingTop: 10,
+          paddingBottom: 14,
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: 14,
+        },
+        pressed ? { opacity: 0.82 } : null,
+      ]}
+    >
+      <View style={{ paddingTop: 12 }}>
+        <Avatar initials={initials} size={48} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text
+            style={{
+              color: colors.blue,
+              fontSize: 11,
+              fontWeight: "900",
+              textTransform: "uppercase",
+              letterSpacing: 1.5,
+            }}
+            numberOfLines={1}
+          >
+            Ride {rideId}
+          </Text>
+          <View
+            style={{
+              backgroundColor: colors.blue,
+              borderRadius: radii.pill,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}
+          >
+            <Text style={{ color: colors.surface, fontSize: 11, fontWeight: "900" }}>
+              {missionStep}/{totalStages}
+            </Text>
+          </View>
+        </View>
+        <Text
+          selectable
+          style={{ color: colors.primary, fontSize: 22, lineHeight: 26, fontWeight: "900" }}
+          numberOfLines={1}
+        >
+          {passengerName}
+        </Text>
+        <Text
+          selectable
+          style={{ color: colors.slate500, fontSize: 14, fontWeight: "800", lineHeight: 19 }}
+          numberOfLines={4}
+        >
+          {currentStage.title}
+          {"\n"}
+          {currentStage.value}
+        </Text>
+      </View>
+      <Text
+        style={{
+          color: colors.slate400,
+          fontSize: 24,
+          fontWeight: "900",
+          paddingHorizontal: 4,
+          paddingTop: 24,
+        }}
+      >
+        ⌃
+      </Text>
+    </Pressable>
+  );
+}
+
 function MissionActionStack({
   currentAction,
+  onNavigate,
   onAdvance,
   onCancel,
   onReport,
   onEmergency,
 }: {
   currentAction: string;
+  onNavigate: () => void;
   onAdvance: () => void;
   onCancel: () => void;
   onReport: () => void;
@@ -957,6 +1252,18 @@ function MissionActionStack({
 }) {
   return (
     <View style={missionActionStack}>
+      <Pressable
+        onPress={onNavigate}
+        accessibilityRole="button"
+        accessibilityLabel="Start navigation"
+        style={({ pressed }) => [navigationActionButton, pressed ? navigationActionButtonPressed : null]}
+      >
+        <Text style={navigationButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
+          Start Navigation
+        </Text>
+        <Text style={navigationButtonIcon}>↗</Text>
+      </Pressable>
+
       <Pressable
         onPress={onAdvance}
         accessibilityRole="button"
@@ -1003,6 +1310,57 @@ function MissionActionStack({
       </View>
     </View>
   );
+}
+
+async function getAvailableNavigationOptions(destination: {
+  latitude: number;
+  longitude: number;
+}): Promise<NavigationOption[]> {
+  const { latitude, longitude } = destination;
+  const latLng = `${latitude},${longitude}`;
+  const candidates: NavigationOption[] =
+    Platform.OS === "ios"
+      ? [
+          {
+            label: "Apple Maps",
+            url: `maps://?daddr=${encodeURIComponent(latLng)}&dirflg=d`,
+          },
+          {
+            label: "Google Maps",
+            url: `comgooglemaps://?daddr=${encodeURIComponent(latLng)}&directionsmode=driving`,
+          },
+          {
+            label: "Waze",
+            url: `waze://?ll=${encodeURIComponent(latLng)}&navigate=yes`,
+          },
+        ]
+      : [
+          {
+            label: "Google Maps",
+            url: `google.navigation:q=${encodeURIComponent(latLng)}&mode=d`,
+          },
+          {
+            label: "Waze",
+            url: `waze://?ll=${encodeURIComponent(latLng)}&navigate=yes`,
+          },
+          {
+            label: "Default Maps",
+            url: `geo:0,0?q=${encodeURIComponent(latLng)}`,
+          },
+        ];
+
+  const options: NavigationOption[] = [];
+  for (const candidate of candidates) {
+    try {
+      if (await Linking.canOpenURL(candidate.url)) {
+        options.push(candidate);
+      }
+    } catch {
+      // Ignore apps that cannot be queried on this platform/build.
+    }
+  }
+
+  return options;
 }
 
 function ConfirmActionModal({
@@ -1103,15 +1461,6 @@ function FloatingControl({ label, hint, onPress }: { label: string; hint?: strin
   );
 }
 
-function hudPill(width: number) {
-  return {
-    width,
-    height: 8,
-    borderRadius: radii.pill,
-    backgroundColor: colors.primary,
-  };
-}
-
 function getInitials(name: string): string {
   return name
     .split(/\s+/)
@@ -1141,12 +1490,6 @@ function makeMissingRide(): DispatchedRide {
     createdAt: Date.now(),
   };
 }
-
-const statusText = {
-  color: colors.primary,
-  fontSize: 14,
-  fontWeight: "700" as const,
-};
 
 const missionEyebrow = {
   color: colors.blue,
@@ -1213,17 +1556,6 @@ const sheetHeaderCard = {
   borderColor: colors.slate200,
   paddingHorizontal: spacing.md,
   paddingVertical: 14,
-};
-
-const missionMenuButton = {
-  width: 48,
-  height: 48,
-  borderRadius: radii.sm,
-  backgroundColor: colors.surface,
-  borderWidth: 1,
-  borderColor: colors.slate200,
-  alignItems: "center" as const,
-  justifyContent: "center" as const,
 };
 
 const rideTitleBlock = {
@@ -1415,6 +1747,60 @@ const nextStepValue = {
   flex: 1,
 };
 
+const minimalMissionCard = {
+  minHeight: 98,
+  borderRadius: radii.lg,
+  borderCurve: "continuous" as const,
+  borderWidth: 1,
+  borderColor: colors.slate200,
+  backgroundColor: colors.surfaceLowest,
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 12,
+};
+
+const minimalRideId = {
+  color: colors.blue,
+  fontSize: 11,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1.5,
+};
+
+const minimalStepPill = {
+  backgroundColor: colors.blue,
+  borderRadius: radii.pill,
+  paddingHorizontal: 8,
+  paddingVertical: 3,
+};
+
+const minimalStepText = {
+  color: colors.surface,
+  fontSize: 11,
+  fontWeight: "900" as const,
+};
+
+const minimalPassengerName = {
+  color: colors.primary,
+  fontSize: 20,
+  fontWeight: "900" as const,
+};
+
+const minimalStageText = {
+  color: colors.slate500,
+  fontSize: 13,
+  fontWeight: "800" as const,
+};
+
+const minimalChevron = {
+  color: colors.slate400,
+  fontSize: 18,
+  fontWeight: "900" as const,
+  paddingHorizontal: 2,
+};
+
 const detailGrid = {
   flexDirection: "row" as const,
   gap: 10,
@@ -1449,6 +1835,74 @@ const primaryActionButton = {
 
 const primaryActionButtonPressed = {
   backgroundColor: colors.primarySoft,
+};
+
+const navigationActionButton = {
+  minHeight: 56,
+  borderRadius: radii.md,
+  borderCurve: "continuous" as const,
+  backgroundColor: colors.green,
+  paddingHorizontal: spacing.md,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  gap: 10,
+  ...shadows.soft,
+};
+
+const navigationActionButtonPressed = {
+  backgroundColor: "#15803D",
+};
+
+const navigationButtonText = {
+  color: colors.surface,
+  fontSize: 13,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1.4,
+  flexShrink: 1,
+};
+
+const navigationButtonIcon = {
+  color: colors.surface,
+  fontSize: 18,
+  fontWeight: "900" as const,
+};
+
+const floatingNavigationButton = {
+  minHeight: 52,
+  maxWidth: 240,
+  borderRadius: radii.pill,
+  borderCurve: "continuous" as const,
+  backgroundColor: colors.green,
+  opacity: 0.9,
+  paddingLeft: 14,
+  paddingRight: 18,
+  paddingVertical: 12,
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 9,
+  ...shadows.floating,
+};
+
+const floatingNavigationButtonPressed = {
+  backgroundColor: "#15803D",
+  transform: [{ scale: 0.98 }],
+};
+
+const floatingNavigationIcon = {
+  color: colors.surface,
+  fontSize: 17,
+  fontWeight: "900" as const,
+};
+
+const floatingNavigationText = {
+  color: colors.surface,
+  fontSize: 12,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1.1,
+  flexShrink: 1,
 };
 
 const primaryButtonText = {

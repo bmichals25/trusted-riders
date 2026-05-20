@@ -150,7 +150,6 @@ export default function SettingsScreen() {
         <FadeInBlock delay={40}>
           <OperatorSummary
             name={profileName}
-            backendId={session?.id ?? null}
             certifications={certifications}
             vehicle={vehicle}
           />
@@ -287,17 +286,13 @@ export default function SettingsScreen() {
 /* ─────────────────────────────────────── */
 function OperatorSummary({
   name,
-  backendId,
   certifications,
   vehicle,
 }: {
   name: string;
-  backendId: number | null;
   certifications: string;
   vehicle: string;
 }) {
-  const backendIdLabel = backendId !== null ? `Backend ID ${backendId}` : "Backend ID pending";
-
   return (
     <View
       style={{
@@ -324,7 +319,7 @@ function OperatorSummary({
             letterSpacing: 2.4,
           }}
         >
-          Operator · {backendIdLabel}
+          Operator · Backend identity from login
         </Text>
         <View
           style={{

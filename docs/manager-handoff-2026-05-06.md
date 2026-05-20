@@ -14,7 +14,7 @@ We confirmed the TrustedRiders frontend is successfully communicating with the
 Flask backend at:
 
 ```text
-https://pretyphoid-electrovalently-zena.ngrok-free.dev
+https://trdev.tailff74b1.ts.net
 ```
 
 What is working now:
@@ -24,8 +24,7 @@ What is working now:
   token is valid.
 - Location updates are hitting the real backend through
   `POST /api/update_location`.
-- Driver ride polling is wired through
-  `GET /api/drivers/<driver_id>/rides`.
+- Ride polling is wired through `GET /api/rides`.
 - Ride details are enriched through `GET /api/rides/<ride_id>`, which gives the
   mobile UI pickup/dropoff addresses, coordinates, route data, and driver
   metadata.

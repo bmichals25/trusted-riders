@@ -5,7 +5,7 @@ dispatch platform. Expo / React Native; iOS-first with a working web preview for
 development.
 
 All production backend data is expected to come from Suresh's Fleet Tracking
-API at `https://pretyphoid-electrovalently-zena.ngrok-free.dev`.
+API at `https://trdev.tailff74b1.ts.net`.
 
 ---
 
@@ -61,7 +61,15 @@ The app points at the canonical ngrok URL defined in
 [`lib/config.ts`](lib/config.ts):
 
 ```ts
-export const FLEET_API_URL = "https://pretyphoid-electrovalently-zena.ngrok-free.dev";
+export const FLEET_API_URL =
+  process.env.EXPO_PUBLIC_FLEET_API_URL ??
+  "https://trdev.tailff74b1.ts.net";
+```
+
+When the backend URL rotates, restart Metro with the override:
+
+```bash
+EXPO_PUBLIC_FLEET_API_URL=https://new-backend-url.example npm run ios
 ```
 
 The token is persisted in `AsyncStorage` / `localStorage` so reloads stay

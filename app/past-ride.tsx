@@ -8,7 +8,7 @@ import { PageTransition } from "@/components/ui/PageTransition";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useDispatch } from "@/lib/dispatch-context";
-import type { DispatchedRide } from "@/lib/rides";
+import { hasDetailedRoute, hasDrawableRoute, type DispatchedRide } from "@/lib/rides";
 import { colors, radii, spacing } from "@/lib/theme";
 
 export default function PastRideScreen() {
@@ -52,7 +52,7 @@ export default function PastRideScreen() {
 
   const hasRouteMap = !!ride.pickupCoords && !!ride.dropoffCoords;
   const routeCoords =
-    ride.routeCoords.length > 1
+    hasDrawableRoute(ride.routeCoords)
       ? ride.routeCoords
       : [ride.pickupCoords, ride.dropoffCoords].filter((coord): coord is NonNullable<typeof coord> => !!coord);
   const midLat = routeCoords.length > 0 ? routeCoords.reduce((sum, c) => sum + c.latitude, 0) / routeCoords.length : 0;
@@ -81,11 +81,13 @@ export default function PastRideScreen() {
               >
                 <Marker coordinate={ride.pickupCoords!} title="Pickup" pinColor={colors.blue} />
                 <Marker coordinate={ride.dropoffCoords!} title="Drop-off" pinColor={colors.green} />
-                <Polyline
-                  coordinates={routeCoords}
-                  strokeColor={colors.blue}
-                  strokeWidth={3}
-                />
+                {hasDrawableRoute(routeCoords) ? (
+                  <Polyline
+                    coordinates={routeCoords}
+                    strokeColor={colors.blue}
+                    strokeWidth={3}
+                  />
+                ) : null}
               </MapView>
             </View>
           ) : (

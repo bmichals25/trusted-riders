@@ -47,6 +47,7 @@ import { useDispatch } from "@/lib/dispatch-context";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useLocation } from "@/lib/location-context";
+import { hasDetailedRoute, hasDrawableRoute } from "@/lib/rides";
 import { useDirections } from "@/lib/use-directions";
 import { DISPATCH_PHONE, formatPhone } from "@/lib/config";
 import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
@@ -60,7 +61,15 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<TabKey | null>("current");
   const [riderProfileOpen, setRiderProfileOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { rides, pendingRides, scheduledRides, activeRide, refreshRides, acceptRide, declineRide } = useDispatch();
+  const {
+    rides,
+    pendingRides,
+    scheduledRides,
+    activeRide,
+    refreshRides,
+    acceptRide,
+    declineRide,
+  } = useDispatch();
   const { impact, notification, selection } = useHaptics();
   const pastRides = rides.filter((ride) => ride.status === "completed" || ride.status === "cancelled");
 
@@ -524,6 +533,20 @@ export default function HomeScreen() {
                       </Pressable>
                       <View style={requestActions}>
                         <Pressable
+                          onPress={() => {
+                            impact(ImpactFeedbackStyle.Light);
+                            router.push({
+                              pathname: "/chat",
+                              params: { rideId: ride.id, riderName: ride.passengerName },
+                            });
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Open admin chat for ride ${ride.id}`}
+                          style={({ pressed }) => [requestChatButton, pressed ? { opacity: 0.82 } : null]}
+                        >
+                          <Text style={requestChatText}>Chat</Text>
+                        </Pressable>
+                        <Pressable
                           onPress={() => { notification(NotificationFeedbackType.Success); acceptRide(ride.id); }}
                           accessibilityRole="button"
                           accessibilityLabel={`Accept ride ${ride.id}`}
@@ -877,7 +900,6 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
   const [emergencyOpen, setEmergencyOpen] = useState(false);
   const { height: screenHeight } = Dimensions.get("window");
   const operatorDisplayName = session?.name ?? "Driver";
-  const operatorBackendId = session ? String(session.id) : "Pending";
   const operatorInitials = getInitials(operatorDisplayName);
   const pendingProfileFields = useMemo(
     () => [
@@ -1006,7 +1028,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                   </View>
                   <View>
                     <Text style={operatorName}>{operatorDisplayName}</Text>
-                    <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Backend ID #{operatorBackendId}</Text>
+                    <Text style={{ color: colors.slate400, fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>Authenticated driver</Text>
                   </View>
                 </View>
               </View>
@@ -1027,7 +1049,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                       <View style={{ flex: 1, gap: 4, justifyContent: "center" }}>
                         <Text style={{ color: colors.primary, fontSize: 24, fontWeight: "900" }}>{operatorDisplayName}</Text>
                         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>Backend ID: {operatorBackendId}</Text>
+                          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>Backend identity from login</Text>
                           <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.slate300 }} />
                           <Text style={{ color: colors.green, fontSize: 13, fontWeight: "800", textTransform: "uppercase" }}>Active</Text>
                         </View>
@@ -1064,7 +1086,7 @@ function OperatorSheet({ bottomInset }: { bottomInset: number }) {
                     </View>
                     <View style={{ alignItems: "center", gap: 6 }}>
                       <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>{operatorDisplayName}</Text>
-                      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>Backend ID: {operatorBackendId}</Text>
+                      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>Backend identity from login</Text>
                       <Text style={{ color: colors.slate400, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18, paddingHorizontal: 20 }}>Backend needs to provide a QR verification payload</Text>
                     </View>
                   </View>
@@ -1216,9 +1238,9 @@ function MiniMap() {
   const directions = useDirections(pickup, dropoff);
 
   const routeCoords =
-    activeRide?.routeCoords && activeRide.routeCoords.length > 1
+    hasDrawableRoute(activeRide?.routeCoords)
       ? activeRide.routeCoords
-      : directions.routeCoords && directions.routeCoords.length > 1
+      : hasDetailedRoute(directions.routeCoords)
       ? directions.routeCoords
       : [pickup, dropoff].filter((coord): coord is NonNullable<typeof coord> => !!coord);
 
@@ -1279,7 +1301,7 @@ function MiniMap() {
             pinColor={colors.green}
           />
         ) : null}
-        {routeCoords.length > 1 ? (
+        {hasDrawableRoute(routeCoords) ? (
           <Polyline
             coordinates={routeCoords}
             strokeColor={colors.blue}
@@ -1802,6 +1824,15 @@ const requestActions = {
   flexShrink: 0,
 };
 
+const requestChatButton = {
+  minHeight: 34,
+  borderRadius: radii.xs,
+  backgroundColor: colors.blue,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  paddingHorizontal: 8,
+};
+
 const requestAcceptButton = {
   minHeight: 36,
   borderRadius: radii.xs,
@@ -1821,6 +1852,14 @@ const requestDeclineButton = {
 };
 
 const requestAcceptText = {
+  color: colors.surface,
+  fontSize: 11,
+  fontWeight: "900" as const,
+  textTransform: "uppercase" as const,
+  letterSpacing: 1,
+};
+
+const requestChatText = {
   color: colors.surface,
   fontSize: 11,
   fontWeight: "900" as const,

@@ -73,7 +73,7 @@ Known backend/API tasks already created in ClickUp:
 The canonical TrustedRiders backend is Suresh's Flask API:
 
 ```text
-https://pretyphoid-electrovalently-zena.ngrok-free.dev
+https://trdev.tailff74b1.ts.net
 ```
 
 See `docs/suresh-fleet-api-inventory.md` for the latest discovered API routes
