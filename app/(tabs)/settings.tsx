@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useRouter } from "expo-router";
 import { DevSettings, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,10 +18,12 @@ import {
 import { NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
+import { sendGpsCommandMessage } from "@/lib/chat-api";
 import { colors, spacing } from "@/lib/theme";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { isTracking, startTracking, stopTracking } = useLocation();
   const { signOut, session } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
@@ -36,7 +39,25 @@ export default function SettingsScreen() {
 
   const handleReloadApp = () => {
     selection();
-    DevSettings.reload();
+    router.replace("/");
+    setTimeout(() => {
+      DevSettings.reload();
+    }, 80);
+  };
+
+  const handleLocationToggle = async (enabled: boolean) => {
+    selection();
+    if (enabled) {
+      await startTracking();
+      void sendGpsCommandMessage("gps_yes").catch((error) => {
+        console.log("[settings] gps_yes command failed", error instanceof Error ? error.message : error);
+      });
+    } else {
+      stopTracking();
+      void sendGpsCommandMessage("gps_off").catch((error) => {
+        console.log("[settings] gps_off command failed", error instanceof Error ? error.message : error);
+      });
+    }
   };
 
   return (
@@ -67,9 +88,7 @@ export default function SettingsScreen() {
                 value={isTracking}
                 critical
                 onValueChange={(val) => {
-                  selection();
-                  if (val) startTracking();
-                  else stopTracking();
+                  void handleLocationToggle(val);
                 }}
               />
               <ReadoutRow label="Telemetry" value={isTracking ? "Broadcasting" : "Paused"} tone={isTracking ? "good" : "muted"} last />
