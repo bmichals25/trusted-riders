@@ -1,6 +1,6 @@
 import React from "react";
 import { SymbolView, type SFSymbol } from "expo-symbols";
-import { Pressable, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Switch, Text, View } from "react-native";
 
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
@@ -19,7 +19,15 @@ export function SettingsTitle() {
   );
 }
 
-export function OperatorSummary({ name }: { name: string }) {
+export function OperatorSummary({
+  name,
+  isTracking,
+  hasAlwaysLocationAccess,
+}: {
+  name: string;
+  isTracking: boolean;
+  hasAlwaysLocationAccess: boolean;
+}) {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -30,7 +38,7 @@ export function OperatorSummary({ name }: { name: string }) {
   return (
     <View
       accessible
-      accessibilityLabel={`Chaperone ${name}. On duty.`}
+      accessibilityLabel={`Chaperone ${name}. On duty. ${hasAlwaysLocationAccess ? "Always location ready." : "Always location required before tracking."} ${isTracking ? "Live location broadcasting." : "Live location paused."}`}
       style={{
         marginHorizontal: spacing.md,
         marginBottom: spacing.md,
@@ -39,7 +47,7 @@ export function OperatorSummary({ name }: { name: string }) {
         borderCurve: "continuous",
         padding: spacing.md,
         flexDirection: "row",
-        alignItems: "center",
+        alignItems: "flex-start",
         gap: spacing.md,
         ...shadows.soft,
       }}
@@ -58,20 +66,55 @@ export function OperatorSummary({ name }: { name: string }) {
           {initials}
         </Text>
       </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
         <Text style={{ color: colors.slate500, ...typography.sectionKicker }} numberOfLines={1}>
           Chaperone
         </Text>
         <Text selectable style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 27 }} numberOfLines={1}>
           {name}
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.green }} />
-          <Text style={{ color: colors.greenStrong, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
-            On duty
-          </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <StatusChip label="On duty" tone="good" />
+          <StatusChip
+            label={hasAlwaysLocationAccess ? "Always ready" : "Always needed"}
+            tone={hasAlwaysLocationAccess ? "good" : "warning"}
+          />
+          <StatusChip label={isTracking ? "Broadcasting" : "Paused"} tone={isTracking ? "good" : "muted"} />
         </View>
       </View>
+    </View>
+  );
+}
+
+function StatusChip({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "good" | "warning" | "muted";
+}) {
+  const palette = tone === "good"
+    ? { bg: colors.greenSoft, dot: colors.green, text: colors.greenStrong }
+    : tone === "warning"
+      ? { bg: colors.amberSoft, dot: colors.amber, text: colors.amberStrong }
+      : { bg: colors.slate100, dot: colors.slate400, text: colors.primarySoft };
+
+  return (
+    <View
+      style={{
+        minHeight: 24,
+        borderRadius: radii.pill,
+        backgroundColor: palette.bg,
+        paddingHorizontal: 9,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.dot }} />
+      <Text style={{ color: palette.text, fontSize: 11, fontWeight: "900" }} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -222,6 +265,13 @@ export function ReadoutRow({
       : tone === "muted"
         ? colors.slate500
         : colors.primary;
+  const valueBackground = tone === "good"
+    ? colors.greenSoft
+    : tone === "warning"
+      ? colors.amberSoft
+      : tone === "muted"
+        ? colors.slate100
+        : colors.surfaceLow;
 
   return (
     <View
@@ -246,9 +296,19 @@ export function ReadoutRow({
           </Text>
         ) : null}
       </View>
-      <Text selectable style={{ color: valueColor, fontSize: 14, fontWeight: "800", flexShrink: 1, textAlign: "right" }} numberOfLines={2}>
-        {value}
-      </Text>
+      <View
+        style={{
+          maxWidth: 128,
+          borderRadius: radii.pill,
+          backgroundColor: valueBackground,
+          paddingHorizontal: 10,
+          paddingVertical: 5,
+        }}
+      >
+        <Text selectable style={{ color: valueColor, fontSize: 13, fontWeight: "900", textAlign: "right" }} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -312,11 +372,21 @@ export function ActionRow({
             </Text>
           ) : null}
         </View>
-        {value ? (
+        {busy ? (
+          <ActivityIndicator size="small" color={destructive ? colors.error : colors.blueStrong} />
+        ) : value ? (
           <Text style={{ color: destructive ? colors.error : colors.blueStrong, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>
             {value}
           </Text>
-        ) : null}
+        ) : (
+          <SymbolView
+            name="chevron.right"
+            size={13}
+            type="hierarchical"
+            tintColor={colors.slate400}
+            weight="semibold"
+          />
+        )}
       </Pressable>
   );
 }

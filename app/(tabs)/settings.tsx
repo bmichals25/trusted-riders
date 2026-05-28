@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
-import { DevSettings, Linking, ScrollView, View } from "react-native";
+import { Alert, DevSettings, Linking, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/components/ui/DriverNameGate";
@@ -42,11 +42,28 @@ export default function SettingsScreen() {
       ? "Required"
       : "Required to track";
 
-  const handleSignOut = async () => {
+  const performSignOut = async () => {
     if (signingOut) return;
     notification(NotificationFeedbackType.Warning);
     setSigningOut(true);
     await signOut();
+  };
+
+  const handleSignOut = () => {
+    Alert.alert(
+      "Sign out?",
+      "This clears the current chaperone session on this device.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: () => {
+            void performSignOut();
+          },
+        },
+      ],
+    );
   };
 
   const handleOpenSystemSettings = () => {
@@ -92,7 +109,11 @@ export default function SettingsScreen() {
           </FadeInBlock>
 
           <FadeInBlock delay={90}>
-            <OperatorSummary name={profileName} />
+            <OperatorSummary
+              name={profileName}
+              isTracking={isTracking}
+              hasAlwaysLocationAccess={hasAlwaysLocationAccess}
+            />
           </FadeInBlock>
 
           <FadeInBlock delay={150}>
