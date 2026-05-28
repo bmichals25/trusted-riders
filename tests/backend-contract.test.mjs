@@ -137,6 +137,11 @@ test("chat helpers use the chaperone-scoped backend contract", () => {
 });
 
 test("fleet helpers map Suresh statuses and include active ride location context", () => {
+  const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
+    "./rides": {
+      normalizeRouteGeometry: () => [],
+    },
+  });
   const fleetApi = loadTsModule("lib/fleet-api.ts", {
     react: {},
     "react-native": { Platform: { OS: "ios" } },
@@ -145,6 +150,7 @@ test("fleet helpers map Suresh statuses and include active ride location context
     "./demo-data": { demoRides: [] },
     "./demo-mode": { DEMO_MODE: false },
     "./fleet-fetch-result": { shouldSuppressRideFetchError: () => false },
+    "./fleet-normalization": fleetNormalization,
     "./rides": {
       getRideBackendId: () => null,
       mergeRideSummaryAndDetail: (summary, detail) => ({ ...summary, ...(detail ?? {}) }),
@@ -211,7 +217,98 @@ test("dispatch helpers treat assigned rides as current ride candidates", () => {
   assert.equal(dispatchContext.isCurrentRideStatus("completed"), false);
 });
 
+test("fleet normalization maps backend ride shapes into mobile ride models", () => {
+  const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
+    "./rides": {
+      normalizeRouteGeometry: (value) => Array.isArray(value)
+        ? value.map((point) => ({
+            latitude: Number(point.lat ?? point.latitude),
+            longitude: Number(point.lon ?? point.lng ?? point.longitude),
+          })).filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude))
+        : [],
+    },
+  });
+
+  const ride = fleetNormalization.normalizeRide({
+    ride_id: 184,
+    status: "driver/passenger in transit",
+    passenger: {
+      full_name: "Ava Passenger",
+      accessibility_notes: "Needs curbside handoff",
+    },
+    pickup: {
+      address: "67 West St, Brooklyn, NY",
+      lat: "40.71",
+      lon: "-74.01",
+    },
+    destination: {
+      formatted_address: "420 W 14th St, New York, NY",
+    },
+    end: {
+      latitude: 40.74,
+      longitude: -74.0,
+    },
+    planned_route: [
+      { lat: 40.71, lon: -74.01 },
+      { lat: 40.74, lon: -74.0 },
+    ],
+    start_time: "2026-05-28T12:30:00",
+    vehicle_type: "wheelchair van",
+    trip_type: "round trip",
+    contact_phone: "555-0100",
+  });
+
+  assert.deepEqual(plain(ride), {
+    id: "184",
+    passengerName: "Ava Passenger",
+    passengerPhotoUrl: "",
+    pickupAddress: "67 West St, Brooklyn, NY",
+    dropoffAddress: "420 W 14th St, New York, NY",
+    pickupCoords: {
+      latitude: 40.71,
+      longitude: -74.01,
+    },
+    dropoffCoords: {
+      latitude: 40.74,
+      longitude: -74,
+    },
+    routeCoords: [
+      {
+        latitude: 40.71,
+        longitude: -74.01,
+      },
+      {
+        latitude: 40.74,
+        longitude: -74,
+      },
+    ],
+    scheduledDate: "May 28",
+    scheduledTime: "8:30 AM",
+    transitType: "Wheelchair",
+    tripType: "Round-Trip",
+    notes: "Needs curbside handoff",
+    emergencyContact: "555-0100",
+    status: "in_transit",
+    createdAt: Date.parse("2026-05-28T12:30:00Z"),
+  });
+
+  assert.equal(
+    fleetNormalization.describeRoutePayload({
+      planned_route: [
+        { lat: 40.71, lon: -74.01 },
+        { lat: 40.74, lon: -74 },
+      ],
+    }),
+    "planned_route:2",
+  );
+});
+
 test("login helpers preserve passwords and accept common auth token shapes", () => {
+  const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
+    "./rides": {
+      normalizeRouteGeometry: () => [],
+    },
+  });
   const fleetApi = loadTsModule("lib/fleet-api.ts", {
     react: {},
     "react-native": { Platform: { OS: "ios" } },
@@ -220,6 +317,7 @@ test("login helpers preserve passwords and accept common auth token shapes", () 
     "./demo-data": { demoRides: [] },
     "./demo-mode": { DEMO_MODE: false },
     "./fleet-fetch-result": { shouldSuppressRideFetchError: () => false },
+    "./fleet-normalization": fleetNormalization,
     "./rides": {
       getRideBackendId: () => null,
       mergeRideSummaryAndDetail: (summary, detail) => ({ ...summary, ...(detail ?? {}) }),

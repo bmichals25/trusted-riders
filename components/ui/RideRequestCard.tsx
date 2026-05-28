@@ -87,6 +87,7 @@ function RequestActionButton({ label, tone, onPress }: { label: string; tone: "p
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={label}
       style={({ pressed }) => ({
         flex: 1,
         minHeight: 46,

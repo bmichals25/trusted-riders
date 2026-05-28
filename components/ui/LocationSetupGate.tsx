@@ -14,7 +14,7 @@ import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { DEMO_MODE } from "@/lib/demo-mode";
-import { colors, radii, spacing } from "@/lib/theme";
+import { colors, radii, shadows, spacing } from "@/lib/theme";
 
 /**
  * Post-sign-in onboarding step. Blocks entry to the app until the driver has
@@ -107,6 +107,9 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
             <Pressable
               style={s.button}
               onPress={Platform.OS === "web" ? onReload : onOpenSettings}
+              accessibilityRole="button"
+              accessibilityLabel={Platform.OS === "web" ? "Enable tracking" : "Open Settings"}
+              accessibilityHint={Platform.OS === "web" ? "Reloads after you allow location in the browser." : "Opens iOS Settings for TrustedRiders."}
             >
               <Text style={s.buttonText}>
                 {Platform.OS === "web" ? "Enable Tracking" : "Open Settings"}
@@ -118,6 +121,10 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
             style={[s.button, requesting && s.buttonDisabled]}
             onPress={onEnable}
             disabled={requesting}
+            accessibilityRole="button"
+            accessibilityLabel={requesting ? "Requesting location access" : "Enable tracking"}
+            accessibilityHint="Requests location access for maps, pickup navigation, and dispatch updates."
+            accessibilityState={{ disabled: requesting, busy: requesting }}
           >
             {requesting ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -135,6 +142,10 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
             style={[s.secondaryButton, requesting && s.buttonDisabled]}
             onPress={onEnableAlways}
             disabled={requesting}
+            accessibilityRole="button"
+            accessibilityLabel="Allow always later"
+            accessibilityHint="Continues without background location permission for now."
+            accessibilityState={{ disabled: requesting }}
           >
             <Text style={s.secondaryButtonText}>Allow Always Later</Text>
           </Pressable>
@@ -160,11 +171,7 @@ const s = StyleSheet.create({
     padding: spacing.xl,
     alignItems: "center",
     gap: spacing.md,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    ...shadows.floating,
   },
   iconWrap: {
     width: 64,
@@ -176,7 +183,7 @@ const s = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   icon: {
-    color: "#fff",
+    color: colors.surface,
     fontSize: 32,
     fontWeight: "900",
   },
@@ -234,7 +241,7 @@ const s = StyleSheet.create({
     letterSpacing: 1.4,
   },
   buttonText: {
-    color: "#fff",
+    color: colors.surface,
     fontSize: 14,
     fontWeight: "900",
     textTransform: "uppercase",

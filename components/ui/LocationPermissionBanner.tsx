@@ -17,7 +17,7 @@ export function LocationPermissionBanner() {
       style={{
         marginHorizontal: spacing.md,
         marginTop: spacing.sm,
-        backgroundColor: "rgba(220, 38, 38, 0.06)",
+        backgroundColor: colors.errorSoft,
         borderRadius: radii.md,
         borderCurve: "continuous",
         padding: spacing.md,
@@ -58,11 +58,16 @@ export function LocationPermissionBanner() {
             Linking.openSettings();
           }
         }}
+        accessibilityRole="button"
+        accessibilityLabel="Enable location"
+        accessibilityHint="Requests location access or opens settings if access is blocked."
         style={{
           backgroundColor: colors.primary,
           borderRadius: radii.xs,
           paddingHorizontal: 14,
           paddingVertical: 10,
+          minHeight: 44,
+          justifyContent: "center",
         }}
       >
         <Text style={{ color: colors.surface, fontSize: 11, fontWeight: "800" }}>Enable</Text>

@@ -11,6 +11,7 @@ export const colors = {
   mapPlaceholder: "#E5EBF2",
   primary: "#0F172A",
   primarySoft: "#334155",
+  primaryPressed: "#1E293B",
   accent: "#FACC15",
   error: "#DC2626",
   errorSoft: "rgba(220, 38, 38, 0.06)",
@@ -18,14 +19,18 @@ export const colors = {
   errorSoftStrong: "rgba(220, 38, 38, 0.2)",
   errorLight: "#FCA5A5",
   blue: "#2563EB",
+  blueStrong: "#1D4ED8",
   blueSoft: "#DBEAFE",
   green: "#16A34A",
+  greenStrong: "#15803D",
   greenSoft: "#DCFCE7",
   greenSoftDark: "rgba(22, 163, 74, 0.15)",
   greenLight: "#86EFAC",
   amber: "#D97706",
+  amberStrong: "#92400E",
   amberSoft: "#FEF3C7",
   purple: "#7C3AED",
+  purpleStrong: "#5B21B6",
   purpleSoft: "#EDE9FE",
   slate500: "#64748B",
   slate400: "#94A3B8",
@@ -40,17 +45,17 @@ export const colors = {
 
 // Status badge color pairs — background + text for each operational state.
 export const statusColors = {
-  pending:    { bg: "#FEF3C7", text: "#B45309" },
-  scheduled:  { bg: "#DBEAFE", text: "#1D4ED8" },
-  enRoute:    { bg: "#FEF3C7", text: "#B45309" },
-  inTransit:  { bg: "#EDE9FE", text: "#6D28D9" },
+  pending:    { bg: "#FEF3C7", text: "#92400E" },
+  scheduled:  { bg: "#DBEAFE", text: "#1E40AF" },
+  enRoute:    { bg: "#FEF3C7", text: "#92400E" },
+  inTransit:  { bg: "#EDE9FE", text: "#5B21B6" },
   arrived:    { bg: "#DCFCE7", text: "#15803D" },
   completed:  { bg: "#DCFCE7", text: "#15803D" },
   cancelled:  { bg: "#FEE2E2", text: "#B91C1C" },
-  noShow:     { bg: "#FEF3C7", text: "#B45309" },
+  noShow:     { bg: "#FEF3C7", text: "#92400E" },
   available:  { bg: "#DCFCE7", text: "#15803D" },
-  onRide:     { bg: "#DBEAFE", text: "#1D4ED8" },
-  offDuty:    { bg: "#F1F5F9", text: "#64748B" },
+  onRide:     { bg: "#DBEAFE", text: "#1E40AF" },
+  offDuty:    { bg: "#F1F5F9", text: "#475569" },
 } as const;
 
 export type StatusKey = keyof typeof statusColors;
@@ -95,5 +100,22 @@ export const shadows = {
   } as const,
   inset: {
     boxShadow: "inset 0 2px 6px rgba(15, 23, 42, 0.05)",
+  } as const,
+};
+
+export const typography = {
+  sectionKicker: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  } as const,
+  body: {
+    fontSize: 15,
+    lineHeight: 21,
+  } as const,
+  footnote: {
+    fontSize: 13,
+    lineHeight: 18,
   } as const,
 };

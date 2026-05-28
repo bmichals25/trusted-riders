@@ -20,9 +20,11 @@ import { LocationDotMarker } from "./LocationDotMarker";
 export function LocationIndicator({
   backendConnected = true,
   backendError,
+  compact = false,
 }: {
   backendConnected?: boolean;
   backendError?: string | null;
+  compact?: boolean;
 }) {
   const { location, isTracking } = useLocation();
   const { impact, selection } = useHaptics();
@@ -49,12 +51,13 @@ export function LocationIndicator({
     <>
       <View
         style={{
-          minHeight: 34,
+          minHeight: 44,
           borderRadius: 13,
           backgroundColor: colors.surfaceLow,
           flexDirection: "row",
           alignItems: "center",
           overflow: "hidden",
+          alignSelf: compact ? "flex-start" : "auto",
         }}
       >
         <StatusFlag
@@ -65,6 +68,7 @@ export function LocationIndicator({
           inactiveColor={colors.slate400}
           pulseStyle={isTracking ? pulseStyle : undefined}
           accessibilityLabel={isTracking ? "Tracking enabled, tap to view map" : "Tracking off, tap to view map"}
+          compact={compact}
           onPress={() => {
             impact(ImpactFeedbackStyle.Light);
             setMapOpen(true);
@@ -78,6 +82,7 @@ export function LocationIndicator({
           activeColor={colors.blue}
           inactiveColor={colors.error}
           accessibilityLabel={backendConnected ? "Connected to backend server" : "Backend server disconnected"}
+          compact={compact}
           onPress={() => {
             impact(ImpactFeedbackStyle.Light);
             Alert.alert(
@@ -107,6 +112,7 @@ function StatusFlag({
   pulseStyle,
   accessibilityLabel,
   onPress,
+  compact,
 }: {
   label: string;
   active: boolean;
@@ -116,6 +122,7 @@ function StatusFlag({
   pulseStyle?: ReturnType<typeof useAnimatedStyle>;
   accessibilityLabel: string;
   onPress: () => void;
+  compact?: boolean;
 }) {
   const color = active ? activeColor : inactiveColor;
   return (
@@ -124,9 +131,10 @@ function StatusFlag({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => ({
-        minHeight: 34,
-        paddingLeft: 9,
-        paddingRight: 10,
+        minHeight: 44,
+        minWidth: compact ? 44 : undefined,
+        paddingLeft: compact ? 10 : 9,
+        paddingRight: compact ? 10 : 10,
         flexDirection: "row",
         alignItems: "center",
         gap: 5,
@@ -135,9 +143,11 @@ function StatusFlag({
       })}
     >
       <StatusFlagIcon type={icon} color={color} pulseStyle={pulseStyle} />
-      <Text style={{ color, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>
-        {label}
-      </Text>
+      {compact ? null : (
+        <Text style={{ color, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
