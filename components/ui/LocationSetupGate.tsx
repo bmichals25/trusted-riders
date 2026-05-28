@@ -14,6 +14,7 @@ import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { DEMO_MODE } from "@/lib/demo-mode";
+import { sendGpsCommandMessage } from "@/lib/chat-api";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
 /**
@@ -39,7 +40,10 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
     const granted = await requestPermission();
     setRequesting(false);
     if (granted) {
-      startTracking();
+      await startTracking();
+      void sendGpsCommandMessage("gps_yes").catch((error) => {
+        console.log("[location-setup] gps_yes command failed", error instanceof Error ? error.message : error);
+      });
     }
   }, [impact, requestPermission, startTracking]);
 

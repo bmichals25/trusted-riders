@@ -6,9 +6,10 @@ import { colors } from "@/lib/theme";
 type Props = {
   latitude: number;
   longitude: number;
+  isTracking: boolean;
 };
 
-export function LocationDotMarker({ latitude, longitude }: Props) {
+export function LocationDotMarker({ latitude, longitude, isTracking }: Props) {
   return (
     <Marker
       coordinate={{ latitude, longitude }}
@@ -21,7 +22,7 @@ export function LocationDotMarker({ latitude, longitude }: Props) {
             width: 18,
             height: 18,
             borderRadius: 9,
-            backgroundColor: colors.blue,
+            backgroundColor: isTracking ? colors.green : colors.slate400,
             borderWidth: 3,
             borderColor: colors.surface,
           }}

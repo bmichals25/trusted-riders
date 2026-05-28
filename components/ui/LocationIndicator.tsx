@@ -14,6 +14,7 @@ import MapView from "@/components/Map";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
+import { sendGpsCommandMessage } from "@/lib/chat-api";
 import { colors, radii, spacing } from "@/lib/theme";
 import { LocationDotMarker } from "./LocationDotMarker";
 
@@ -31,12 +32,13 @@ export function LocationIndicator({
   visible?: boolean;
 }) {
   const { impact } = useHaptics();
+  const { isTracking } = useLocation();
   const [mapOpen, setMapOpen] = useState(false);
   const lastOpenRequestKeyRef = useRef(openRequestKey);
   const pulseOpacity = useSharedValue(1);
 
   useEffect(() => {
-    if (backendConnected) {
+    if (isTracking) {
       pulseOpacity.value = withRepeat(
         withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
         -1,
@@ -45,13 +47,13 @@ export function LocationIndicator({
     } else {
       pulseOpacity.value = 1;
     }
-  }, [backendConnected]);
+  }, [isTracking]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     opacity: pulseOpacity.value,
   }));
-  const statusColor = backendConnected ? colors.green : colors.error;
-  const statusLabel = backendConnected ? "Live" : "Offline";
+  const statusColor = isTracking ? colors.green : colors.slate400;
+  const statusLabel = isTracking ? "Tracking active" : "Tracking off";
 
   useEffect(() => {
     if (openRequestKey === undefined || lastOpenRequestKeyRef.current === openRequestKey) return;
@@ -70,7 +72,7 @@ export function LocationIndicator({
           }}
           accessibilityRole="button"
           accessibilityLabel={`${statusLabel} status, tap to view map`}
-          accessibilityHint={backendConnected ? "Opens the map with server connection status." : backendError ?? "Opens the map with server connection status."}
+          accessibilityHint={backendConnected ? "Opens the map with tracking and server status." : backendError ?? "Opens the map with tracking and server status."}
           hitSlop={8}
           style={({ pressed }) => ({
             minHeight: 40,
@@ -84,7 +86,7 @@ export function LocationIndicator({
             opacity: pressed ? 0.72 : 1,
           })}
         >
-          <LiveDot color={statusColor} pulseStyle={backendConnected ? pulseStyle : undefined} />
+          <LiveDot color={statusColor} pulseStyle={isTracking ? pulseStyle : undefined} />
         </Pressable>
       ) : null}
 
@@ -319,6 +321,7 @@ function LocationMapModal({
               <LocationDotMarker
                 latitude={location.latitude}
                 longitude={location.longitude}
+                isTracking={isTracking}
               />
             )}
           </MapView>
@@ -393,8 +396,15 @@ function LocationMapModal({
               selection();
               if (isTracking) {
                 stopTracking();
+                void sendGpsCommandMessage("gps_off").catch((error) => {
+                  console.log("[location] gps_off command failed", error instanceof Error ? error.message : error);
+                });
               } else {
-                startTracking();
+                void startTracking().then(() => {
+                  void sendGpsCommandMessage("gps_yes").catch((error) => {
+                    console.log("[location] gps_yes command failed", error instanceof Error ? error.message : error);
+                  });
+                });
               }
             }}
             accessibilityRole="button"

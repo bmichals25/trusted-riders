@@ -29,6 +29,24 @@ The driver/chaperone POST body is:
 }
 ```
 
+Machine-to-machine chat updates should be sent through `message_metadata` and
+may use an empty `text` field. The mobile app treats these as hidden command
+messages unless a command explicitly has a user-facing card.
+
+GPS request flow:
+
+- Dispatch sends `{ "command": "gps_ask" }`.
+- Mobile prompts the TrustedRider to approve or deny turning on local tracking.
+- Mobile starts local tracking and replies with `{ "command": "gps_yes" }` when
+  approved.
+- Mobile replies with `{ "command": "gps_off" }` when denied.
+
+Mobile does not send coordinate payloads in the chat response. After an
+approved `gps_yes`, location coordinates are sent through the normal
+`POST /api/update_location` endpoint while tracking remains on. Tracking and
+coordinate posting remain off until dispatch requests access through `gps_ask`
+and the TrustedRider approves the popup.
+
 ## Accept / Decline Gap
 
 The app still uses the legacy endpoint below for TrustedRider accept/decline:

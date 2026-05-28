@@ -12,7 +12,7 @@ export type DriverSession = {
 
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
-const STARTUP_VIDEO_DURATION_MS = 4100;
+const STARTUP_REVEAL_DELAY_MS = 3300;
 
 type AuthContextValue = { signOut: () => Promise<void>; session: DriverSession | null };
 const AuthContext = createContext<AuthContextValue>({
@@ -84,8 +84,9 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     if (!startupAnimationReady) return;
 
     const startupTimer = setTimeout(() => {
+      setStartupAnimationComplete(true);
       setStartupAnimationExiting(true);
-    }, STARTUP_VIDEO_DURATION_MS);
+    }, STARTUP_REVEAL_DELAY_MS);
 
     return () => clearTimeout(startupTimer);
   }, [startupAnimationReady]);
@@ -129,7 +130,6 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   }, []);
   const handleStartupAnimationExitComplete = useCallback(() => {
     setStartupAnimationVisible(false);
-    setStartupAnimationComplete(true);
   }, []);
   const startupPresentationValue = useMemo<StartupPresentationValue>(
     () => ({

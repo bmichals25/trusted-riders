@@ -56,6 +56,7 @@ type MarkerProps = {
   coordinate: LatLng;
   title?: string;
   pinColor?: string;
+  pulseColor?: string;
   anchor?: { x: number; y: number };
   tracksViewChanges?: boolean;
   children?: React.ReactNode;
@@ -264,7 +265,7 @@ function ensurePulseCSS() {
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background: rgba(37, 99, 235, 0.35);
+      background: var(--tr-pulse-ring, rgba(22, 163, 74, 0.32));
       animation: tr-pulse-ring 1.5s ease-out infinite;
     }
     .tr-pulse-dot::after {
@@ -272,19 +273,22 @@ function ensurePulseCSS() {
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background: #2563EB;
+      background: var(--tr-pulse-color, #16A34A);
       border: 2.5px solid #fff;
-      box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
+      box-shadow: 0 0 8px var(--tr-pulse-ring, rgba(22, 163, 74, 0.32));
     }
   `;
   document.head.appendChild(style);
 }
 
-function makePulseIcon() {
+function makePulseIcon(color = "#16A34A") {
   ensurePulseCSS();
+  const ringColor = color === "#94A3B8"
+    ? "rgba(148, 163, 184, 0.3)"
+    : "rgba(22, 163, 74, 0.32)";
   return L.divIcon({
     className: "",
-    html: '<div class="tr-pulse-dot"></div>',
+    html: `<div class="tr-pulse-dot" style="--tr-pulse-color:${color};--tr-pulse-ring:${ringColor}"></div>`,
     iconSize: [14, 14],
     iconAnchor: [7, 7],
   });
@@ -292,12 +296,12 @@ function makePulseIcon() {
 
 // ── Marker ──
 
-function Marker({ coordinate, title, pinColor, children }: MarkerProps) {
+function Marker({ coordinate, title, pinColor, pulseColor, children }: MarkerProps) {
   // If no pinColor and has children, render as pulsing location dot
   const icon = pinColor
     ? makeColoredIcon(pinColor)
     : children
-      ? makePulseIcon()
+      ? makePulseIcon(pulseColor)
       : undefined;
 
   return (

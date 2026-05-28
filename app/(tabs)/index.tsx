@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Linking, RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
@@ -12,7 +12,6 @@ import {
   CurrentRideCard,
   EmptyRideState,
   LoadingState,
-  navigationUrlForRide,
   NextUpcomingRideCard,
   Notice,
   RideRequestsBanner,
@@ -23,6 +22,7 @@ import { useDispatch } from "@/lib/dispatch-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
+import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide } from "@/lib/rides";
 import { colors, spacing } from "@/lib/theme";
 
@@ -73,7 +73,7 @@ export default function HomeScreen() {
 
   const openNavigation = useCallback((ride: DispatchedRide) => {
     impact(ImpactFeedbackStyle.Light);
-    Linking.openURL(navigationUrlForRide(ride));
+    showMapProviderOptionsForRide(ride);
   }, [impact]);
 
   return (

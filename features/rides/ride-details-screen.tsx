@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,6 +11,7 @@ import { useDispatch } from "@/lib/dispatch-context";
 import { fetchRides } from "@/lib/fleet-api";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
+import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate } from "@/lib/rides";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
@@ -49,7 +50,7 @@ export function RideDetailsScreenContent() {
 
   const openNavigation = useCallback((target: DispatchedRide) => {
     impact(ImpactFeedbackStyle.Light);
-    Linking.openURL(navigationUrlForRide(target));
+    showMapProviderOptionsForRide(target);
   }, [impact]);
 
   return (
@@ -364,23 +365,6 @@ function rideStatusLabel(status: DispatchedRide["status"]) {
   if (status === "completed") return "Completed";
   if (status === "cancelled") return "Cancelled";
   return "Pending";
-}
-
-function navigationUrlForRide(ride: DispatchedRide) {
-  const destination = ride.dropoffCoords
-    ? `${ride.dropoffCoords.latitude},${ride.dropoffCoords.longitude}`
-    : ride.dropoffAddress;
-  const encodedDestination = encodeURIComponent(destination);
-
-  if (Platform.OS === "ios") {
-    return `http://maps.apple.com/?daddr=${encodedDestination}&dirflg=d`;
-  }
-
-  if (Platform.OS === "android") {
-    return `google.navigation:q=${encodedDestination}`;
-  }
-
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}&travelmode=driving`;
 }
 
 function normalizeRideId(value?: string) {

@@ -360,9 +360,9 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.remove();
   }, [startWatcher, stopWatcher]);
 
-  // On mount, check the current permission without prompting. If already
-  // granted (e.g. a returning user), start tracking silently. Otherwise the
-  // LocationSetupGate will ask the user to grant permission explicitly.
+  // On mount, check the current permission without prompting. Already-granted
+  // users pass through with tracking off until they explicitly turn it on or
+  // approve a dispatch GPS request.
   useEffect(() => {
     let mounted = true;
 
@@ -387,10 +387,6 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
             await Location.stopLocationUpdatesAsync(BACKGROUND_TASK_NAME);
             await clearActiveRideId();
           }
-        }
-
-        if (foreground.status === Location.PermissionStatus.GRANTED) {
-          await startTracking();
         }
       } catch {
         if (mounted) {

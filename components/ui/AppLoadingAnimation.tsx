@@ -5,7 +5,6 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withDelay,
   withTiming,
 } from "react-native-reanimated";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -30,7 +29,6 @@ export function AppLoadingAnimation({
   const readyCalledRef = useRef(false);
   const rootOpacity = useSharedValue(1);
   const videoOpacity = useSharedValue(1);
-  const scrimOpacity = useSharedValue(0);
   const player = useVideoPlayer(LOADING_VIDEO, (videoPlayer) => {
     videoPlayer.loop = false;
     videoPlayer.muted = true;
@@ -65,7 +63,6 @@ export function AppLoadingAnimation({
     if (!exiting) {
       rootOpacity.value = 1;
       videoOpacity.value = 1;
-      scrimOpacity.value = 0;
       return;
     }
 
@@ -75,28 +72,21 @@ export function AppLoadingAnimation({
       return;
     }
 
-    scrimOpacity.value = withTiming(1, {
-      duration: 140,
-      easing: Easing.bezier(0.25, 1, 0.5, 1),
-    });
     videoOpacity.value = withTiming(0, {
-      duration: 180,
+      duration: 120,
       easing: Easing.bezier(0.4, 0, 1, 1),
     });
-    rootOpacity.value = withDelay(
-      120,
-      withTiming(0, {
-        duration: 220,
-        easing: Easing.bezier(0.4, 0, 1, 1),
-      }),
-    );
+    rootOpacity.value = withTiming(0, {
+      duration: 220,
+      easing: Easing.bezier(0.4, 0, 1, 1),
+    });
 
     const completeTimer = setTimeout(() => {
       onExitComplete?.();
-    }, 360);
+    }, 240);
 
     return () => clearTimeout(completeTimer);
-  }, [exiting, onExitComplete, reducedMotion, rootOpacity, scrimOpacity, videoOpacity]);
+  }, [exiting, onExitComplete, reducedMotion, rootOpacity, videoOpacity]);
 
   const rootAnimatedStyle = useAnimatedStyle(() => ({
     opacity: rootOpacity.value,
@@ -104,10 +94,6 @@ export function AppLoadingAnimation({
   const videoAnimatedStyle = useAnimatedStyle(() => ({
     opacity: videoOpacity.value,
   }));
-  const scrimAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: scrimOpacity.value,
-  }));
-
   return (
     <Animated.View style={[s.screen, style, rootAnimatedStyle]}>
       {reducedMotion ? (
@@ -126,7 +112,6 @@ export function AppLoadingAnimation({
           />
         </Animated.View>
       )}
-      <Animated.View pointerEvents="none" style={[s.exitScrim, scrimAnimatedStyle]} />
     </Animated.View>
   );
 }
@@ -134,16 +119,13 @@ export function AppLoadingAnimation({
 const s = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: "transparent",
     overflow: "hidden",
-  },
-  exitScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.surface,
   },
   reducedMotionFallback: {
     flex: 1,
     alignItems: "center",
+    backgroundColor: colors.surface,
     justifyContent: "center",
     padding: spacing.xl,
   },

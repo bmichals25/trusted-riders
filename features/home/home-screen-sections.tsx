@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import Animated, {
   Easing,
@@ -315,23 +315,6 @@ export function Notice({ tone, title, body }: { tone: "error" | "warning"; title
       <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>{body}</Text>
     </View>
   );
-}
-
-export function navigationUrlForRide(ride: DispatchedRide) {
-  const destination = ride.dropoffCoords
-    ? `${ride.dropoffCoords.latitude},${ride.dropoffCoords.longitude}`
-    : ride.dropoffAddress;
-  const encodedDestination = encodeURIComponent(destination);
-
-  if (Platform.OS === "ios") {
-    return `http://maps.apple.com/?daddr=${encodedDestination}&dirflg=d`;
-  }
-
-  if (Platform.OS === "android") {
-    return `google.navigation:q=${encodedDestination}`;
-  }
-
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodedDestination}&travelmode=driving`;
 }
 
 function RideHeader({ ride }: { ride: DispatchedRide }) {
