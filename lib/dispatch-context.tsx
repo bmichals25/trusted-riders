@@ -8,7 +8,6 @@ import {
   updateRideStatus,
 } from "./fleet-api";
 import {
-  buildGpsResponseMetadata,
   getChatCommandType,
   listRideChatMessages,
   sendGpsCommandMessage,
@@ -303,20 +302,15 @@ export function DispatchProvider({
   ) => {
     gpsSharingApprovedRef.current = approved;
 
-    const metadata = approved
-      ? buildGpsResponseMetadata("gps_yes")
-      : buildGpsResponseMetadata("gps_off");
-
-    await sendRideChatMessage({
-      rideId: "dispatch",
-      text: "",
-      sender: "driver",
-      senderName: "Driver",
-      clientMessageId: `driver-gps-${requestMessageId}-${Date.now()}`,
-      metadata,
-    });
-
     if (approved) {
+      await sendRideChatMessage({
+        rideId: "dispatch",
+        text: "",
+        sender: "driver",
+        senderName: "Driver",
+        clientMessageId: `driver-gps-${requestMessageId}-${Date.now()}`,
+        metadata: { command: "gps_yes" },
+      });
       await startTracking();
     } else if (shouldStopTrackingAfterGpsResponse(approved)) {
       stopTracking();
@@ -332,7 +326,7 @@ export function DispatchProvider({
       gpsPromptOpenRef.current = false;
       void sendGpsResponse(message.id, approved).catch((error) => {
         console.log(
-          approved ? "[chat] gps response failed" : "[chat] gps_off response failed",
+          approved ? "[chat] gps response failed" : "[chat] gps deny handling failed",
           error instanceof Error ? error.message : error,
         );
       });

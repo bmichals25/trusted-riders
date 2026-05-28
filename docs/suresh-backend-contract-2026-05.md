@@ -39,7 +39,8 @@ GPS request flow:
 - Mobile prompts the TrustedRider to approve or deny turning on local tracking.
 - Mobile starts local tracking and replies with `{ "command": "gps_yes" }` when
   approved.
-- Mobile replies with `{ "command": "gps_off" }` when denied.
+- Mobile does not send a chat response when the request is denied; it only keeps
+  local tracking off.
 
 Mobile does not send coordinate payloads in the chat response. After an
 approved `gps_yes`, location coordinates are sent through the normal
