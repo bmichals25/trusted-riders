@@ -48,6 +48,7 @@ export default function ChatScreen() {
     ? `Dispatch + TrustedRider · Ride ${rideId}${riderLabel ? ` · ${riderLabel}` : ""}`
     : "Dispatch + TrustedRider";
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [inputText, setInputText] = useState("");
   const [composerResetKey, setComposerResetKey] = useState(0);
   const [isSending, setIsSending] = useState(false);
@@ -136,13 +137,15 @@ export default function ChatScreen() {
       console.log(`[chat] load failed: ${message}`);
     } finally {
       refreshInFlightRef.current = false;
+      setIsInitialLoading(false);
     }
   }, [markLatestIncomingRead, mergeMessages, refreshChatStatus, roomId]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    lastMessageIdRef.current = undefined;
-    setMessages([]);
+    if (!lastMessageIdRef.current) {
+      setIsInitialLoading(true);
+    }
 
     void refreshMessages();
 
@@ -339,6 +342,7 @@ export default function ChatScreen() {
           listRef={flatListRef}
           messages={messages}
           isOtherTyping={isOtherTyping}
+          isInitialLoading={isInitialLoading}
           loadError={loadError}
           lastOperatorMessageId={lastOperatorMessageId}
           readMessageIds={readMessageIds}

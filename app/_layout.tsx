@@ -37,8 +37,9 @@ export default function RootLayout() {
                 name="chat"
                 options={{
                   animation: "ios_from_right",
-                  animationDuration: 400,
+                  animationDuration: 280,
                   animationTypeForReplace: "pop",
+                  contentStyle: { backgroundColor: colors.surface },
                   gestureEnabled: true,
                   gestureDirection: "horizontal",
                 }}

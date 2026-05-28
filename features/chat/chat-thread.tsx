@@ -40,6 +40,7 @@ export function ChatMessageList({
   listRef,
   messages,
   isOtherTyping,
+  isInitialLoading,
   loadError,
   lastOperatorMessageId,
   readMessageIds,
@@ -48,6 +49,7 @@ export function ChatMessageList({
   listRef: RefObject<FlatList<Message> | null>;
   messages: Message[];
   isOtherTyping: boolean;
+  isInitialLoading: boolean;
   loadError: string | null;
   lastOperatorMessageId?: string;
   readMessageIds: Set<string>;
@@ -124,23 +126,27 @@ export function ChatMessageList({
       keyExtractor={(item) => item.id}
       ListFooterComponent={isOtherTyping ? <TypingBubble /> : null}
       ListEmptyComponent={
-        <View
-          style={{
-            backgroundColor: colors.surfaceLow,
-            borderRadius: radii.md,
-            borderCurve: "continuous",
-            padding: spacing.lg,
-            gap: 6,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", textAlign: "center" }}>
-            {loadError ? "Chat backend unavailable" : "No messages yet"}
-          </Text>
-          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18 }}>
-            {loadError ?? "Send a message to start the dispatch chat."}
-          </Text>
-        </View>
+        isInitialLoading && !loadError ? (
+          <ChatLoadingState />
+        ) : (
+          <View
+            style={{
+              backgroundColor: colors.surfaceLow,
+              borderRadius: radii.md,
+              borderCurve: "continuous",
+              padding: spacing.lg,
+              gap: 6,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", textAlign: "center" }}>
+              {loadError ? "Chat backend unavailable" : "No messages yet"}
+            </Text>
+            <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18 }}>
+              {loadError ?? "Send a message to start the dispatch chat."}
+            </Text>
+          </View>
+        )
       }
       contentContainerStyle={{
         paddingHorizontal: spacing.md,
@@ -157,6 +163,50 @@ export function ChatMessageList({
         listRef.current?.scrollToEnd({ animated: true })
       }
     />
+  );
+}
+
+function ChatLoadingState() {
+  return (
+    <View
+      accessibilityLabel="Loading dispatch chat"
+      style={{
+        width: "100%",
+        gap: 12,
+        paddingTop: spacing.xl,
+      }}
+    >
+      <View
+        style={{
+          alignSelf: "flex-start",
+          width: "72%",
+          height: 58,
+          borderRadius: 16,
+          borderBottomLeftRadius: 4,
+          backgroundColor: colors.surfaceLow,
+        }}
+      />
+      <View
+        style={{
+          alignSelf: "flex-end",
+          width: "58%",
+          height: 50,
+          borderRadius: 16,
+          borderBottomRightRadius: 4,
+          backgroundColor: colors.slate100,
+        }}
+      />
+      <View
+        style={{
+          alignSelf: "flex-start",
+          width: "64%",
+          height: 46,
+          borderRadius: 16,
+          borderBottomLeftRadius: 4,
+          backgroundColor: colors.surfaceLow,
+        }}
+      />
+    </View>
   );
 }
 

@@ -1,17 +1,49 @@
 import { useCallback } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { getLastNonChatHref } from "@/lib/navigation-memory";
-import { colors } from "@/lib/theme";
+import { colors, spacing } from "@/lib/theme";
 
 export default function MessagesTabScreen() {
   const router = useRouter();
 
   useFocusEffect(useCallback(() => {
     const returnTo = getLastNonChatHref();
-    router.replace({ pathname: "/chat", params: { returnTo } });
+    router.push({ pathname: "/chat", params: { returnTo } });
   }, [router]));
 
-  return <View style={{ flex: 1, backgroundColor: colors.surfaceLow }} />;
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.surface,
+        paddingHorizontal: spacing.md,
+        justifyContent: "center",
+        gap: 14,
+      }}
+    >
+      <View
+        style={{
+          height: 4,
+          width: 42,
+          borderRadius: 2,
+          backgroundColor: colors.blue,
+          alignSelf: "center",
+        }}
+      />
+      <Text
+        style={{
+          color: colors.primary,
+          fontSize: 13,
+          fontWeight: "900",
+          letterSpacing: 2,
+          textAlign: "center",
+          textTransform: "uppercase",
+        }}
+      >
+        Opening Dispatch
+      </Text>
+    </View>
+  );
 }
