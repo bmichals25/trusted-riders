@@ -3,8 +3,8 @@ import { Linking, RefreshControl, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { FocusTransition } from "@/components/ui/FocusTransition";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
-import { PageTransition } from "@/components/ui/PageTransition";
 import { RideRequestCard } from "@/components/ui/RideRequestCard";
 import { HomeBrandHeader } from "@/features/home/home-brand-header";
 import {
@@ -37,6 +37,7 @@ export default function HomeScreen() {
   const homeCanScroll = homeScrollableContentHeight > homeViewportHeight + 2;
   const shouldShowRideRequests = hasLoadedRides && !backendError && pendingRides.length > 0;
   const shouldShowEmptyRides = hasLoadedRides && !backendError && !activeRide && pendingRides.length === 0;
+  const blockExitOnBlur = false;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -68,7 +69,7 @@ export default function HomeScreen() {
   }, [impact]);
 
   return (
-    <PageTransition>
+    <FocusTransition>
       <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
         <HomeBrandHeader backendConnected={!backendError} backendError={backendError} />
 
@@ -101,30 +102,30 @@ export default function HomeScreen() {
           }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
         >
-          <FadeInBlock delay={80} exitDelay={90}>
+          <FadeInBlock delay={60} exitOnBlur={blockExitOnBlur}>
             <LocationPermissionBanner />
           </FadeInBlock>
 
           {backendError ? (
-            <FadeInBlock delay={125} exitDelay={70}>
+            <FadeInBlock delay={105} exitOnBlur={blockExitOnBlur}>
               <Notice tone="error" title="Backend rides unavailable" body={backendError} />
             </FadeInBlock>
           ) : null}
 
           {locationError ? (
-            <FadeInBlock delay={145} exitDelay={60}>
+            <FadeInBlock delay={125} exitOnBlur={blockExitOnBlur}>
               <Notice tone="warning" title="Location warning" body={locationError} />
             </FadeInBlock>
           ) : null}
 
           {!hasLoadedRides && !backendError ? (
-            <FadeInBlock delay={170} exitDelay={35}>
+            <FadeInBlock delay={150} exitOnBlur={blockExitOnBlur}>
               <Section title="Current Ride">
                 <LoadingState title="Loading ride information" body="Checking the live backend for current rides and requests." />
               </Section>
             </FadeInBlock>
           ) : activeRide ? (
-            <FadeInBlock delay={170} exitDelay={35}>
+            <FadeInBlock delay={150} exitOnBlur={blockExitOnBlur}>
               <Section title="Current Ride">
                 <CurrentRideCard
                   ride={activeRide}
@@ -135,7 +136,7 @@ export default function HomeScreen() {
               </Section>
             </FadeInBlock>
           ) : shouldShowEmptyRides ? (
-            <FadeInBlock delay={170} exitDelay={35}>
+            <FadeInBlock delay={150} exitOnBlur={blockExitOnBlur}>
               <Section title="Current Ride">
                 <EmptyRideState />
               </Section>
@@ -144,20 +145,20 @@ export default function HomeScreen() {
 
           {shouldShowRideRequests ? (
             activeRide ? (
-              <FadeInBlock delay={230} exitDelay={0}>
+              <FadeInBlock delay={205} exitOnBlur={blockExitOnBlur}>
                 <View style={{ marginHorizontal: spacing.md }}>
                   <RideRequestsBanner count={pendingRides.length} latestRide={pendingRides[0]} onPress={() => openRideRequestDetails(pendingRides[0])} />
                 </View>
               </FadeInBlock>
             ) : (
-              <FadeInBlock delay={230} exitDelay={0}>
+              <FadeInBlock delay={205} exitOnBlur={blockExitOnBlur}>
                 <Section title="Ride Requests" count={pendingRides.length}>
                   <View style={{ gap: spacing.md }}>
                     {pendingRides.map((ride, index) => (
                       <FadeInBlock
                         key={ride.id}
                         delay={260 + index * 45}
-                        exitDelay={Math.max(0, (pendingRides.length - index - 1) * 28)}
+                        exitOnBlur={blockExitOnBlur}
                         distance={10}
                       >
                         <RideRequestCard
@@ -182,6 +183,6 @@ export default function HomeScreen() {
           ) : null}
         </ScrollView>
       </View>
-    </PageTransition>
+    </FocusTransition>
   );
 }

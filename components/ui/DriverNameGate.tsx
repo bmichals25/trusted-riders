@@ -35,6 +35,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [authRestoring, setAuthRestoring] = useState(true);
   const [startupAnimationVisible, setStartupAnimationVisible] = useState(true);
+  const [startupAnimationExiting, setStartupAnimationExiting] = useState(false);
   const [startupAnimationReady, setStartupAnimationReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     if (!startupAnimationReady) return;
 
     const startupTimer = setTimeout(() => {
-      setStartupAnimationVisible(false);
+      setStartupAnimationExiting(true);
     }, STARTUP_VIDEO_DURATION_MS);
 
     return () => clearTimeout(startupTimer);
@@ -109,6 +110,9 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const handleStartupAnimationReady = useCallback(() => {
     setStartupAnimationReady(true);
   }, []);
+  const handleStartupAnimationExitComplete = useCallback(() => {
+    setStartupAnimationVisible(false);
+  }, []);
 
   const appContent = session ? (
     <AuthContext.Provider value={authValue}>{children(session)}</AuthContext.Provider>
@@ -132,6 +136,8 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
       {appContent}
       {startupAnimationVisible ? (
         <AppLoadingAnimation
+          exiting={startupAnimationExiting}
+          onExitComplete={handleStartupAnimationExitComplete}
           onReady={handleStartupAnimationReady}
           style={s.startupOverlay}
         />

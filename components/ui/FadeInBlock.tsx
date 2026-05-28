@@ -18,6 +18,7 @@ type Props = {
   duration?: number;
   exitDelay?: number;
   exitDuration?: number;
+  exitOnBlur?: boolean;
   style?: any;
 };
 
@@ -43,6 +44,7 @@ export function FadeInBlock({
   duration = 420,
   exitDelay = 0,
   exitDuration = 220,
+  exitOnBlur = true,
   style,
 }: Props) {
   const progress = useSharedValue(0);
@@ -56,7 +58,7 @@ export function FadeInBlock({
       progress.value = isFocused ? 1 : 0;
       return;
     }
-    if (isFocused) {
+    if (isFocused || !exitOnBlur) {
       progress.value = withDelay(
         delay,
         withTiming(1, {
@@ -74,7 +76,7 @@ export function FadeInBlock({
         }),
       );
     }
-  }, [isFocused, delay, duration, exitDelay, exitDuration, progress, reduced]);
+  }, [isFocused, delay, duration, exitDelay, exitDuration, exitOnBlur, progress, reduced]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
