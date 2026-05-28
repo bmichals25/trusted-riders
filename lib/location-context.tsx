@@ -311,12 +311,14 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    const backgroundStarted = Platform.OS === "web" ? true : await startBackgroundTracking();
-    if (!backgroundStarted) {
-      shouldTrackRef.current = false;
-      setIsTracking(false);
-      stopWatcher();
-      return false;
+    if (Platform.OS !== "web") {
+      const backgroundStarted = await startBackgroundTracking();
+      if (!backgroundStarted) {
+        shouldTrackRef.current = false;
+        setIsTracking(false);
+        stopWatcher();
+        return false;
+      }
     }
 
     // Get an initial position immediately

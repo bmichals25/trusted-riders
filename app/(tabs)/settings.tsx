@@ -41,7 +41,7 @@ export default function SettingsScreen() {
     ? "Background: Always"
     : isTracking
       ? "Background: Needs Always"
-      : "Background ready check before tracking";
+      : "Always required before tracking";
 
   const performSignOut = async () => {
     if (signingOut) return;
@@ -120,7 +120,7 @@ export default function SettingsScreen() {
           <FadeInBlock delay={150}>
             <SettingsSection
               kicker="Operations"
-              footer="Tracking stays off until approved by the chaperone or dispatch GPS metadata. Once on, iOS Always access keeps dispatch updated while the phone is locked."
+              footer="Tracking stays off until approved by the chaperone or dispatch GPS metadata. iOS Always access is required before tracking can start, so dispatch keeps receiving updates while the phone is locked or the app is closed."
             >
               <ToggleRow
                 label="Live Location"
