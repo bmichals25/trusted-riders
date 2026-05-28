@@ -73,8 +73,8 @@ export function DriverLoginScreen({
         contentContainerStyle={[
           s.scrollContent,
           {
-            paddingTop: keyboardVisible ? insets.top + 8 : insets.top + spacing.sm,
-            paddingBottom: keyboardVisible ? spacing.sm : insets.bottom + spacing.sm,
+            paddingTop: keyboardVisible ? insets.top + 6 : insets.top + spacing.sm,
+            paddingBottom: keyboardVisible ? spacing.xs : insets.bottom + spacing.sm,
           },
           keyboardVisible ? s.scrollContentCompact : null,
         ]}
@@ -89,12 +89,14 @@ export function DriverLoginScreen({
             </View>
           ) : null}
 
-          <Image
-            source={require("../../assets/TR_favicon.png")}
-            accessibilityLabel="TrustedRiders"
-            resizeMode="contain"
-            style={[s.heroIcon, keyboardVisible ? s.heroIconCompact : null]}
-          />
+          {!keyboardVisible ? (
+            <Image
+              source={require("../../assets/TR_favicon.png")}
+              accessibilityLabel="TrustedRiders"
+              resizeMode="contain"
+              style={s.heroIcon}
+            />
+          ) : null}
 
           <View style={[s.heroText, keyboardVisible ? s.heroTextCompact : null]}>
             <Text style={[s.heroTitle, keyboardVisible ? s.heroTitleCompact : null]}>
@@ -245,7 +247,7 @@ const s = StyleSheet.create({
   },
   scrollContentCompact: {
     justifyContent: "flex-start",
-    paddingTop: 6,
+    paddingHorizontal: spacing.md,
   },
   hero: {
     width: "100%",
@@ -260,12 +262,13 @@ const s = StyleSheet.create({
     gap: 14,
   },
   heroCompact: {
-    minHeight: 104,
-    paddingVertical: 18,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 14,
+    minHeight: 0,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    borderTopLeftRadius: radii.sm,
+    borderTopRightRadius: radii.sm,
+    alignItems: "flex-start",
+    gap: 2,
   },
   heroKicker: {
     flexDirection: "row",
@@ -304,9 +307,8 @@ const s = StyleSheet.create({
     gap: 14,
   },
   heroTextCompact: {
-    flex: 1,
     alignItems: "flex-start",
-    gap: 4,
+    gap: 0,
   },
   heroTitle: {
     color: "#FFFFFF",
@@ -315,7 +317,8 @@ const s = StyleSheet.create({
     letterSpacing: 0,
   },
   heroTitleCompact: {
-    fontSize: 24,
+    fontSize: 21,
+    lineHeight: 26,
   },
   heroSub: {
     color: colors.slate400,
@@ -340,7 +343,10 @@ const s = StyleSheet.create({
     gap: spacing.md,
   },
   formCompact: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderBottomLeftRadius: radii.sm,
+    borderBottomRightRadius: radii.sm,
     gap: spacing.sm,
   },
   sectionKicker: {
@@ -376,7 +382,7 @@ const s = StyleSheet.create({
     color: colors.primary,
   },
   inputCompact: {
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   passwordField: {
     position: "relative",
@@ -444,9 +450,9 @@ const s = StyleSheet.create({
     marginTop: 6,
   },
   primaryButtonCompact: {
-    minHeight: 50,
-    paddingVertical: 14,
-    marginTop: 2,
+    minHeight: 48,
+    paddingVertical: 12,
+    marginTop: 0,
   },
   primaryButtonDisabled: {
     opacity: 0.35,
