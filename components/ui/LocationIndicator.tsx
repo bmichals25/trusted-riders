@@ -21,13 +21,18 @@ export function LocationIndicator({
   backendConnected = true,
   backendError,
   compact = false,
+  openRequestKey,
+  visible = true,
 }: {
   backendConnected?: boolean;
   backendError?: string | null;
   compact?: boolean;
+  openRequestKey?: number;
+  visible?: boolean;
 }) {
   const { impact } = useHaptics();
   const [mapOpen, setMapOpen] = useState(false);
+  const lastOpenRequestKeyRef = useRef(openRequestKey);
   const pulseOpacity = useSharedValue(1);
 
   useEffect(() => {
@@ -48,39 +53,40 @@ export function LocationIndicator({
   const statusColor = backendConnected ? colors.green : colors.error;
   const statusLabel = backendConnected ? "Live" : "Offline";
 
+  useEffect(() => {
+    if (openRequestKey === undefined || lastOpenRequestKeyRef.current === openRequestKey) return;
+
+    lastOpenRequestKeyRef.current = openRequestKey;
+    setMapOpen(true);
+  }, [openRequestKey]);
+
   return (
     <>
-      <Pressable
-        onPress={() => {
-          impact(ImpactFeedbackStyle.Light);
-          setMapOpen(true);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`${statusLabel} status, tap to view map`}
-        accessibilityHint={backendConnected ? "Opens the map with server connection status." : backendError ?? "Opens the map with server connection status."}
-        hitSlop={8}
-        style={({ pressed }) => ({
-          minHeight: 40,
-          minWidth: compact ? 40 : 74,
-          paddingLeft: compact ? 10 : 12,
-          paddingRight: compact ? 10 : 14,
-          borderRadius: 999,
-          backgroundColor: pressed ? colors.surfaceHigh : colors.surfaceLow,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 7,
-          alignSelf: compact ? "flex-start" : "auto",
-          opacity: pressed ? 0.72 : 1,
-        })}
-      >
-        <LiveDot color={statusColor} pulseStyle={backendConnected ? pulseStyle : undefined} />
-        {compact ? null : (
-          <Text style={{ color: statusColor, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
-            {statusLabel}
-          </Text>
-        )}
-      </Pressable>
+      {visible ? (
+        <Pressable
+          onPress={() => {
+            impact(ImpactFeedbackStyle.Light);
+            setMapOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${statusLabel} status, tap to view map`}
+          accessibilityHint={backendConnected ? "Opens the map with server connection status." : backendError ?? "Opens the map with server connection status."}
+          hitSlop={8}
+          style={({ pressed }) => ({
+            minHeight: 40,
+            minWidth: 28,
+            paddingHorizontal: 8,
+            borderRadius: 999,
+            backgroundColor: pressed ? colors.surfaceLow : "transparent",
+            alignItems: "center",
+            justifyContent: "center",
+            alignSelf: compact ? "flex-start" : "auto",
+            opacity: pressed ? 0.72 : 1,
+          })}
+        >
+          <LiveDot color={statusColor} pulseStyle={backendConnected ? pulseStyle : undefined} />
+        </Pressable>
+      ) : null}
 
       <LocationMapModal
         visible={mapOpen}
@@ -103,8 +109,8 @@ function LiveDot({
     <Animated.View
       style={[
         {
-          width: 16,
-          height: 16,
+          width: 14,
+          height: 14,
           alignItems: "center",
           justifyContent: "center",
         },
@@ -113,19 +119,10 @@ function LiveDot({
     >
       <View
         style={{
-          width: 11,
-          height: 11,
-          borderRadius: 5.5,
+          width: 9,
+          height: 9,
+          borderRadius: 4.5,
           backgroundColor: color,
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          width: 5,
-          height: 5,
-          borderRadius: 2.5,
-          backgroundColor: colors.surface,
         }}
       />
     </Animated.View>
