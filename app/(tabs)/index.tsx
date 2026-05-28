@@ -49,8 +49,11 @@ export default function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshRides();
-    setRefreshing(false);
+    try {
+      await refreshRides();
+    } finally {
+      setRefreshing(false);
+    }
   }, [refreshRides]);
 
   const openChat = useCallback((ride: DispatchedRide) => {

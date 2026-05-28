@@ -160,6 +160,10 @@ export function DispatchProvider({
       if (isFleetApiError(error)) {
         if (shouldSuppressRideErrorPanel(error.status)) {
           setBackendError(null);
+          if (!hasLoadedRidesRef.current) {
+            hasLoadedRidesRef.current = true;
+            setHasLoadedRides(true);
+          }
           return;
         }
         setBackendError(

@@ -21,12 +21,14 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 type StartupPresentationValue = {
+  replayStartupAnimation: () => void;
   startupAnimationVisible: boolean;
   startupAnimationExiting: boolean;
   startupAnimationComplete: boolean;
 };
 
 const StartupPresentationContext = createContext<StartupPresentationValue>({
+  replayStartupAnimation: () => {},
   startupAnimationVisible: false,
   startupAnimationExiting: false,
   startupAnimationComplete: true,
@@ -54,6 +56,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const [startupAnimationExiting, setStartupAnimationExiting] = useState(false);
   const [startupAnimationReady, setStartupAnimationReady] = useState(false);
   const [startupAnimationComplete, setStartupAnimationComplete] = useState(false);
+  const [startupAnimationKey, setStartupAnimationKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,13 +134,21 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const handleStartupAnimationExitComplete = useCallback(() => {
     setStartupAnimationVisible(false);
   }, []);
+  const replayStartupAnimation = useCallback(() => {
+    setStartupAnimationComplete(false);
+    setStartupAnimationReady(false);
+    setStartupAnimationExiting(false);
+    setStartupAnimationVisible(true);
+    setStartupAnimationKey((key) => key + 1);
+  }, []);
   const startupPresentationValue = useMemo<StartupPresentationValue>(
     () => ({
+      replayStartupAnimation,
       startupAnimationVisible,
       startupAnimationExiting,
       startupAnimationComplete,
     }),
-    [startupAnimationComplete, startupAnimationExiting, startupAnimationVisible],
+    [replayStartupAnimation, startupAnimationComplete, startupAnimationExiting, startupAnimationVisible],
   );
 
   const appContent = session ? (
@@ -163,6 +174,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
         {appContent}
         {startupAnimationVisible ? (
           <AppLoadingAnimation
+            key={startupAnimationKey}
             exiting={startupAnimationExiting}
             onExitComplete={handleStartupAnimationExitComplete}
             onReady={handleStartupAnimationReady}

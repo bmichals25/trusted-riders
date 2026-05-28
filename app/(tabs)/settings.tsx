@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
-import { Alert, DevSettings, Linking, ScrollView, View } from "react-native";
+import { Alert, Linking, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAuth } from "@/components/ui/DriverNameGate";
+import { useAuth, useStartupPresentation } from "@/components/ui/DriverNameGate";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
 import {
@@ -32,6 +32,7 @@ export default function SettingsScreen() {
     stopTracking,
   } = useLocation();
   const { signOut, session } = useAuth();
+  const { replayStartupAnimation } = useStartupPresentation();
   const [signingOut, setSigningOut] = useState(false);
   const { hapticsEnabled, setHapticsEnabled, selection, notification } = useHaptics();
   const profileName = session?.name ?? "Chaperone";
@@ -73,10 +74,8 @@ export default function SettingsScreen() {
 
   const handleReloadApp = () => {
     selection();
-    router.replace("/");
-    setTimeout(() => {
-      DevSettings.reload();
-    }, 80);
+    router.navigate("/");
+    setTimeout(replayStartupAnimation, 240);
   };
 
   const handleLocationToggle = async (enabled: boolean) => {
