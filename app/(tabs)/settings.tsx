@@ -74,8 +74,10 @@ export default function SettingsScreen() {
 
   const handleReloadApp = () => {
     selection();
-    router.navigate("/");
-    setTimeout(replayStartupAnimation, 240);
+    replayStartupAnimation();
+    requestAnimationFrame(() => {
+      router.replace("/(tabs)");
+    });
   };
 
   const handleLocationToggle = async (enabled: boolean) => {

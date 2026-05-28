@@ -1,10 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { FocusTransition } from "@/components/ui/FocusTransition";
-import { useStartupPresentation } from "@/components/ui/DriverNameGate";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
 import { RideRequestCard } from "@/components/ui/RideRequestCard";
 import { HomeBrandHeader } from "@/features/home/home-brand-header";
@@ -31,21 +30,14 @@ export default function HomeScreen() {
   const { activeRide, pendingRides, scheduledRides, backendError, hasLoadedRides, refreshRides, acceptRide, declineRide } = useDispatch();
   const { error: locationError } = useLocation();
   const { impact, notification } = useHaptics();
-  const { startupAnimationComplete } = useStartupPresentation();
-  const homeScrollRef = useRef<ScrollView>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [homeViewportHeight, setHomeViewportHeight] = useState(0);
-  const [homeContentHeight, setHomeContentHeight] = useState(0);
   const homeBottomPadding = 108;
-  const homeScrollableContentHeight = Math.max(0, homeContentHeight - homeBottomPadding);
-  const homeCanScroll = homeScrollableContentHeight > homeViewportHeight + 2;
   const shouldShowRideRequests = hasLoadedRides && !backendError && pendingRides.length > 0;
   const shouldShowUpcomingRides = hasLoadedRides && !backendError && !activeRide && scheduledRides.length > 0;
   const shouldShowEmptyRides = hasLoadedRides && !backendError && !activeRide && pendingRides.length === 0 && scheduledRides.length === 0;
   const blockExitOnBlur = false;
-  const replayHomeEntrance = true;
-  const homeEntranceReplayKey = startupAnimationComplete ? "startup-complete" : "startup-covered";
-  const homeEntranceReady = startupAnimationComplete;
+  const replayHomeEntrance = false;
+  const homeEntranceReady = true;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -89,34 +81,19 @@ export default function HomeScreen() {
           exitOnBlur={blockExitOnBlur}
           ready={homeEntranceReady}
           replayOnFocus={replayHomeEntrance}
-          replayKey={homeEntranceReplayKey}
         >
           <HomeBrandHeader backendConnected={!backendError} backendError={backendError} />
         </FadeInBlock>
 
         <ScrollView
-          ref={homeScrollRef}
           style={{ flex: 1, backgroundColor: colors.surfaceLow }}
           contentInsetAdjustmentBehavior="never"
           scrollEnabled
           bounces
           alwaysBounceVertical
           scrollEventThrottle={16}
-          onScroll={(event) => {
-            if (!homeCanScroll && event.nativeEvent.contentOffset.y > 0) {
-              homeScrollRef.current?.scrollTo({ y: 0, animated: false });
-            }
-          }}
-          onScrollEndDrag={() => {
-            if (!homeCanScroll) homeScrollRef.current?.scrollTo({ y: 0, animated: true });
-          }}
-          onMomentumScrollEnd={() => {
-            if (!homeCanScroll) homeScrollRef.current?.scrollTo({ y: 0, animated: false });
-          }}
-          onLayout={(event) => setHomeViewportHeight(event.nativeEvent.layout.height)}
-          onContentSizeChange={(_, height) => setHomeContentHeight(height)}
           contentContainerStyle={{
-            minHeight: homeCanScroll ? undefined : homeViewportHeight,
+            flexGrow: 1,
             paddingTop: spacing.md,
             paddingBottom: homeBottomPadding,
             gap: spacing.lg,
@@ -129,7 +106,6 @@ export default function HomeScreen() {
             exitOnBlur={blockExitOnBlur}
             ready={homeEntranceReady}
             replayOnFocus={replayHomeEntrance}
-            replayKey={homeEntranceReplayKey}
           >
             <LocationPermissionBanner />
           </FadeInBlock>
@@ -141,7 +117,6 @@ export default function HomeScreen() {
               exitOnBlur={blockExitOnBlur}
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
-              replayKey={homeEntranceReplayKey}
             >
               <Notice tone="error" title="Backend rides unavailable" body={backendError} />
             </FadeInBlock>
@@ -154,7 +129,6 @@ export default function HomeScreen() {
               exitOnBlur={blockExitOnBlur}
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
-              replayKey={homeEntranceReplayKey}
             >
               <Notice tone="warning" title="Location warning" body={locationError} />
             </FadeInBlock>
@@ -168,7 +142,6 @@ export default function HomeScreen() {
               exitOnBlur={blockExitOnBlur}
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
-              replayKey={homeEntranceReplayKey}
             >
               <Section title="Current Ride">
                 <LoadingState title="Loading ride information" body="Checking the live backend for current rides and requests." />
@@ -182,7 +155,6 @@ export default function HomeScreen() {
               exitOnBlur={blockExitOnBlur}
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
-              replayKey={homeEntranceReplayKey}
             >
               <Section title="Current Ride">
                 <CurrentRideCard
@@ -201,7 +173,6 @@ export default function HomeScreen() {
               exitOnBlur={blockExitOnBlur}
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
-              replayKey={homeEntranceReplayKey}
             >
               <Section title="Upcoming Rides" count={scheduledRides.length}>
                 <View style={{ gap: spacing.md }}>
@@ -215,7 +186,6 @@ export default function HomeScreen() {
                         exitOnBlur={blockExitOnBlur}
                         ready={homeEntranceReady}
                         replayOnFocus={replayHomeEntrance}
-                        replayKey={homeEntranceReplayKey}
                         distance={10}
                       >
                         {isNextUpcomingRide ? (
@@ -244,7 +214,6 @@ export default function HomeScreen() {
               exitOnBlur={blockExitOnBlur}
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
-              replayKey={homeEntranceReplayKey}
             >
               <Section title="Current Ride">
                 <EmptyRideState refreshing={refreshing} onRefresh={onRefresh} />
@@ -261,7 +230,6 @@ export default function HomeScreen() {
                 exitOnBlur={blockExitOnBlur}
                 ready={homeEntranceReady}
                 replayOnFocus={replayHomeEntrance}
-                replayKey={homeEntranceReplayKey}
               >
                 <View style={{ marginHorizontal: spacing.md }}>
                   <RideRequestsBanner count={pendingRides.length} latestRide={pendingRides[0]} onPress={() => openRideRequestDetails(pendingRides[0])} />
@@ -275,7 +243,6 @@ export default function HomeScreen() {
                 exitOnBlur={blockExitOnBlur}
                 ready={homeEntranceReady}
                 replayOnFocus={replayHomeEntrance}
-                replayKey={homeEntranceReplayKey}
               >
                 <Section title="Ride Requests" count={pendingRides.length}>
                   <View style={{ gap: spacing.md }}>
@@ -287,7 +254,6 @@ export default function HomeScreen() {
                         exitOnBlur={blockExitOnBlur}
                         ready={homeEntranceReady}
                         replayOnFocus={replayHomeEntrance}
-                        replayKey={homeEntranceReplayKey}
                         distance={10}
                       >
                         <RideRequestCard
