@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -13,8 +12,19 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 import { colors, radii, spacing } from "@/lib/theme";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 
 export function DriverLoginScreen({
   canSubmit,
@@ -42,20 +52,100 @@ export function DriverLoginScreen({
   const insets = useSafeAreaInsets();
   const passwordInputRef = useRef<TextInput>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const reduced = useReducedMotion();
+  const keyboardProgress = useSharedValue(0);
   const webInputStyle =
     Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null;
+
+  const animateKeyboardProgress = (visible: boolean, duration?: number) => {
+    const toValue = visible ? 1 : 0;
+
+    if (reduced) {
+      keyboardProgress.value = toValue;
+      return;
+    }
+
+    keyboardProgress.value = withTiming(toValue, {
+      duration: duration ?? (visible ? 310 : 260),
+      easing: Easing.bezier(0.25, 1, 0.5, 1),
+    });
+  };
+
+  const heroAnimatedStyle = useAnimatedStyle(() => ({
+    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [40, spacing.md]),
+    paddingHorizontal: interpolate(keyboardProgress.value, [0, 1], [spacing.xl, spacing.lg]),
+    gap: interpolate(keyboardProgress.value, [0, 1], [14, 8]),
+  }));
+
+  const heroKickerAnimatedStyle = useAnimatedStyle(() => ({
+    paddingHorizontal: interpolate(keyboardProgress.value, [0, 1], [12, 10]),
+    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [6, 5]),
+  }));
+
+  const heroIconAnimatedStyle = useAnimatedStyle(() => ({
+    width: interpolate(keyboardProgress.value, [0, 1], [96, 58]),
+    height: interpolate(keyboardProgress.value, [0, 1], [96, 58]),
+    marginTop: interpolate(keyboardProgress.value, [0, 1], [4, 0]),
+  }));
+
+  const heroTextAnimatedStyle = useAnimatedStyle(() => ({
+    gap: interpolate(keyboardProgress.value, [0, 1], [14, 3]),
+  }));
+
+  const heroTitleAnimatedStyle = useAnimatedStyle(() => ({
+    fontSize: interpolate(keyboardProgress.value, [0, 1], [32, 24]),
+    lineHeight: interpolate(keyboardProgress.value, [0, 1], [38, 29]),
+  }));
+
+  const heroSubAnimatedStyle = useAnimatedStyle(() => ({
+    fontSize: interpolate(keyboardProgress.value, [0, 1], [12, 10]),
+    letterSpacing: interpolate(keyboardProgress.value, [0, 1], [2.4, 1.8]),
+  }));
+
+  const formAnimatedStyle = useAnimatedStyle(() => ({
+    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [spacing.xl, spacing.md]),
+    paddingHorizontal: interpolate(keyboardProgress.value, [0, 1], [spacing.xl, spacing.lg]),
+    gap: interpolate(keyboardProgress.value, [0, 1], [spacing.md, spacing.sm]),
+  }));
+
+  const fieldAnimatedStyle = useAnimatedStyle(() => ({
+    gap: interpolate(keyboardProgress.value, [0, 1], [8, 6]),
+  }));
+
+  const inputAnimatedStyle = useAnimatedStyle(() => ({
+    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [14, 10]),
+  }));
+
+  const primaryButtonAnimatedStyle = useAnimatedStyle(() => ({
+    minHeight: interpolate(keyboardProgress.value, [0, 1], [56, 48]),
+    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [18, 12]),
+    marginTop: interpolate(keyboardProgress.value, [0, 1], [6, 0]),
+  }));
+
+  const footerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: 1 - keyboardProgress.value,
+    height: interpolate(keyboardProgress.value, [0, 1], [24, 0]),
+    marginTop: interpolate(keyboardProgress.value, [0, 1], [14, 0]),
+    overflow: "hidden",
+  }));
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      animateKeyboardProgress(true, event.duration);
+      setKeyboardVisible(true);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, (event) => {
+      animateKeyboardProgress(false, event.duration);
+      setKeyboardVisible(false);
+    });
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [keyboardProgress, reduced]);
 
   useEffect(() => {
     if (password) return;
@@ -73,48 +163,43 @@ export function DriverLoginScreen({
         contentContainerStyle={[
           s.scrollContent,
           {
-            paddingTop: keyboardVisible ? insets.top + 6 : insets.top + spacing.sm,
-            paddingBottom: keyboardVisible ? spacing.xs : insets.bottom + spacing.sm,
+            paddingTop: insets.top + spacing.xs,
+            paddingBottom: insets.bottom + spacing.sm,
           },
-          keyboardVisible ? s.scrollContentCompact : null,
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={[s.hero, keyboardVisible ? s.heroCompact : null]}>
-          {!keyboardVisible ? (
-            <View style={s.heroKicker}>
-              <View style={s.dot} />
-              <Text style={s.kickerText}>TrustedRiders Portal</Text>
-            </View>
-          ) : null}
+        <Animated.View style={[s.hero, heroAnimatedStyle]}>
+          <Animated.View style={[s.heroKicker, heroKickerAnimatedStyle]}>
+            <View style={s.dot} />
+            <Text style={s.kickerText}>TrustedRiders Portal</Text>
+          </Animated.View>
 
-          {!keyboardVisible ? (
-            <Image
-              source={require("../../assets/TR_favicon.png")}
-              accessibilityLabel="TrustedRiders"
-              resizeMode="contain"
-              style={s.heroIcon}
-            />
-          ) : null}
+          <Animated.Image
+            source={require("../../assets/TR_favicon.png")}
+            accessibilityLabel="TrustedRiders"
+            resizeMode="contain"
+            style={[s.heroIcon, heroIconAnimatedStyle]}
+          />
 
-          <View style={[s.heroText, keyboardVisible ? s.heroTextCompact : null]}>
-            <Text style={[s.heroTitle, keyboardVisible ? s.heroTitleCompact : null]}>
+          <Animated.View style={[s.heroText, heroTextAnimatedStyle]}>
+            <Animated.Text style={[s.heroTitle, heroTitleAnimatedStyle]}>
               TrustedRiders
-            </Text>
-            <Text style={[s.heroSub, keyboardVisible ? s.heroSubCompact : null]}>
+            </Animated.Text>
+            <Animated.Text style={[s.heroSub, heroSubAnimatedStyle]}>
               Operator authentication
-            </Text>
-          </View>
-        </View>
+            </Animated.Text>
+          </Animated.View>
+        </Animated.View>
 
-        <View style={[s.form, keyboardVisible ? s.formCompact : null]}>
+        <Animated.View style={[s.form, formAnimatedStyle]}>
           <Text style={s.sectionKicker}>Sign In</Text>
 
-          <View style={[s.field, keyboardVisible ? s.fieldCompact : null]}>
+          <Animated.View style={[s.field, fieldAnimatedStyle]}>
             <Text nativeID="driver-email-label" style={s.fieldLabel}>Email</Text>
-            <TextInput
-              style={[s.input, keyboardVisible ? s.inputCompact : null, webInputStyle]}
+            <AnimatedTextInput
+              style={[s.input, inputAnimatedStyle, webInputStyle]}
               placeholder="driver@trustedriders.org"
               placeholderTextColor={colors.slate400}
               value={email}
@@ -131,17 +216,17 @@ export function DriverLoginScreen({
               blurOnSubmit={false}
               autoFocus
             />
-          </View>
+          </Animated.View>
 
-          <View style={[s.field, keyboardVisible ? s.fieldCompact : null]}>
+          <Animated.View style={[s.field, fieldAnimatedStyle]}>
             <Text nativeID="driver-password-label" style={s.fieldLabel}>Password</Text>
             <View style={s.passwordField}>
-              <TextInput
+              <AnimatedTextInput
                 ref={passwordInputRef}
                 style={[
                   s.input,
                   s.passwordInput,
-                  keyboardVisible ? s.inputCompact : null,
+                  inputAnimatedStyle,
                   webInputStyle,
                 ]}
                 placeholder=""
@@ -172,7 +257,7 @@ export function DriverLoginScreen({
                 <EyeGlyph visible={passwordVisible} />
               </Pressable>
             </View>
-          </View>
+          </Animated.View>
 
           {error ? (
             <Text accessibilityRole="alert" style={s.error}>
@@ -180,12 +265,11 @@ export function DriverLoginScreen({
             </Text>
           ) : null}
 
-          <Pressable
-            style={({ pressed }) => [
+          <AnimatedPressable
+            style={[
               s.primaryButton,
-              keyboardVisible ? s.primaryButtonCompact : null,
+              primaryButtonAnimatedStyle,
               !canSubmit && s.primaryButtonDisabled,
-              pressed && canSubmit ? { backgroundColor: "#1E293B" } : null,
             ]}
             onPress={onSubmit}
             disabled={!canSubmit}
@@ -201,15 +285,13 @@ export function DriverLoginScreen({
                 <Text style={s.primaryButtonArrow}>→</Text>
               </>
             )}
-          </Pressable>
+          </AnimatedPressable>
 
-          {!keyboardVisible ? (
-            <View style={s.footer}>
-              <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
-              <Text style={s.footerText}>Encrypted</Text>
-            </View>
-          ) : null}
-        </View>
+          <Animated.View style={[s.footer, footerAnimatedStyle]} pointerEvents="none">
+            <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
+            <Text style={s.footerText}>Encrypted</Text>
+          </Animated.View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -245,10 +327,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.sm,
   },
-  scrollContentCompact: {
-    justifyContent: "flex-start",
-    paddingHorizontal: spacing.md,
-  },
   hero: {
     width: "100%",
     maxWidth: 440,
@@ -260,15 +338,6 @@ const s = StyleSheet.create({
     borderCurve: "continuous",
     alignItems: "center",
     gap: 14,
-  },
-  heroCompact: {
-    minHeight: 0,
-    paddingVertical: 12,
-    paddingHorizontal: spacing.md,
-    borderTopLeftRadius: radii.sm,
-    borderTopRightRadius: radii.sm,
-    alignItems: "flex-start",
-    gap: 2,
   },
   heroKicker: {
     flexDirection: "row",
@@ -297,18 +366,9 @@ const s = StyleSheet.create({
     height: 96,
     marginTop: 4,
   },
-  heroIconCompact: {
-    width: 52,
-    height: 52,
-    marginTop: 0,
-  },
   heroText: {
     alignItems: "center",
     gap: 14,
-  },
-  heroTextCompact: {
-    alignItems: "flex-start",
-    gap: 0,
   },
   heroTitle: {
     color: "#FFFFFF",
@@ -316,20 +376,12 @@ const s = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 0,
   },
-  heroTitleCompact: {
-    fontSize: 21,
-    lineHeight: 26,
-  },
   heroSub: {
     color: colors.slate400,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 2.4,
-  },
-  heroSubCompact: {
-    fontSize: 10,
-    letterSpacing: 1.8,
   },
   form: {
     width: "100%",
@@ -342,13 +394,6 @@ const s = StyleSheet.create({
     borderCurve: "continuous",
     gap: spacing.md,
   },
-  formCompact: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderBottomLeftRadius: radii.sm,
-    borderBottomRightRadius: radii.sm,
-    gap: spacing.sm,
-  },
   sectionKicker: {
     color: colors.slate400,
     fontSize: 11,
@@ -359,9 +404,6 @@ const s = StyleSheet.create({
   },
   field: {
     gap: 8,
-  },
-  fieldCompact: {
-    gap: 6,
   },
   fieldLabel: {
     color: colors.primary,
@@ -380,9 +422,6 @@ const s = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: colors.primary,
-  },
-  inputCompact: {
-    paddingVertical: 10,
   },
   passwordField: {
     position: "relative",
@@ -448,11 +487,6 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 56,
     marginTop: 6,
-  },
-  primaryButtonCompact: {
-    minHeight: 48,
-    paddingVertical: 12,
-    marginTop: 0,
   },
   primaryButtonDisabled: {
     opacity: 0.35,
