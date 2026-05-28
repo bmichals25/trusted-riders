@@ -39,10 +39,12 @@ export function CurrentRideCard({
         <RideMiniMap ride={ride} />
         <RouteRows ride={ride} />
       </Pressable>
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
-        <ActionButton label="View" tone="primary" onPress={onOpen} />
-        <ActionButton label="Chat" tone="secondary" onPress={onChat} />
-        <ActionButton label="Navigate" tone="secondary" onPress={onNavigate} />
+      <View style={{ gap: spacing.sm }}>
+        <PrimaryActionButton label="Start Ride" onPress={onOpen} />
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <SecondaryActionButton label="Chat" onPress={onChat} />
+          <SecondaryActionButton label="Navigate" onPress={onNavigate} />
+        </View>
       </View>
     </View>
   );
@@ -167,10 +169,13 @@ export function LoadingState({ title, body }: { title: string; body: string }) {
         ))}
       </View>
 
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
-        {[0, 1, 2].map((item) => (
-          <SkeletonBlock key={item} pulseStyle={pulseStyle} style={{ flex: 1, height: 46, borderRadius: radii.sm }} />
-        ))}
+      <View style={{ gap: spacing.sm }}>
+        <SkeletonBlock pulseStyle={pulseStyle} style={{ height: 54, borderRadius: radii.sm }} />
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          {[0, 1].map((item) => (
+            <SkeletonBlock key={item} pulseStyle={pulseStyle} style={{ flex: 1, height: 42, borderRadius: radii.sm }} />
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -288,9 +293,7 @@ function RideMiniMap({ ride }: { ride: DispatchedRide }) {
   );
 }
 
-function ActionButton({ label, tone, onPress }: { label: string; tone: "primary" | "secondary" | "danger"; onPress: () => void }) {
-  const backgroundColor = tone === "primary" ? colors.primary : tone === "danger" ? colors.errorSoft : colors.surfaceLow;
-  const color = tone === "primary" ? colors.surface : tone === "danger" ? colors.error : colors.primary;
+function PrimaryActionButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
@@ -298,17 +301,38 @@ function ActionButton({ label, tone, onPress }: { label: string; tone: "primary"
       accessibilityLabel={label}
       style={({ pressed }) => ({
         flex: 1,
-        minHeight: 46,
+        minHeight: 54,
         borderRadius: radii.sm,
-        backgroundColor,
+        backgroundColor: colors.green,
         alignItems: "center",
         justifyContent: "center",
         opacity: pressed ? 0.72 : 1,
-        borderWidth: tone === "secondary" ? 1 : 0,
-        borderColor: colors.slate200,
       })}
     >
-      <Text style={{ color, fontSize: 13, fontWeight: "900", textAlign: "center" }}>{label}</Text>
+      <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "900", textAlign: "center" }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function SecondaryActionButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: 42,
+        borderRadius: radii.sm,
+        backgroundColor: pressed ? colors.surfaceHigh : colors.surfaceLow,
+        borderWidth: 1,
+        borderColor: colors.slate200,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed ? 0.72 : 1,
+      })}
+    >
+      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900", textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
