@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { SymbolView, type SFSymbol } from "expo-symbols";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -216,21 +216,62 @@ function RideDetailMap({ ride }: { ride: DispatchedRide }) {
       accessible
       accessibilityRole="image"
       accessibilityLabel={`Route map. Pickup ${ride.pickupAddress}. Dropoff ${ride.dropoffAddress}.`}
-      style={{ height: 230, borderRadius: radii.md, overflow: "hidden", backgroundColor: colors.mapPlaceholder, ...shadows.soft }}
+      style={{
+        height: 230,
+        borderRadius: radii.md,
+        overflow: "hidden",
+        backgroundColor: colors.mapPlaceholder,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.slate200,
+        ...shadows.soft,
+      }}
     >
       <MapView
+        pointerEvents="none"
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
-        style={{ flex: 1 }}
+        style={StyleSheet.absoluteFill}
         initialRegion={regionFor(coords)}
+        mapType="mutedStandard"
+        userInterfaceStyle="light"
         scrollEnabled={false}
         zoomEnabled={false}
         rotateEnabled={false}
         pitchEnabled={false}
+        showsBuildings={false}
+        showsCompass={false}
+        showsScale={false}
+        showsTraffic={false}
+        toolbarEnabled={false}
+        loadingEnabled
+        loadingBackgroundColor={colors.mapPlaceholder}
+        loadingIndicatorColor={colors.blueStrong}
+        legalLabelInsets={{ bottom: 4, left: 8, right: 8, top: 0 }}
       >
-        <Polyline coordinates={coords} strokeWidth={4} strokeColor={colors.blue} />
-        {ride.pickupCoords ? <Marker coordinate={ride.pickupCoords} pinColor={colors.green} /> : null}
-        {ride.dropoffCoords ? <Marker coordinate={ride.dropoffCoords} pinColor={colors.blue} /> : null}
+        <Polyline
+          coordinates={coords}
+          strokeWidth={8}
+          strokeColor="rgba(37, 99, 235, 0.24)"
+          lineCap="round"
+          lineJoin="round"
+        />
+        <Polyline
+          coordinates={coords}
+          strokeWidth={5}
+          strokeColor={colors.blue}
+          lineCap="round"
+          lineJoin="round"
+        />
+        {ride.pickupCoords ? (
+          <Marker coordinate={ride.pickupCoords} anchor={{ x: 0.5, y: 0.5 }}>
+            <MapStopMarker tone="pickup" />
+          </Marker>
+        ) : null}
+        {ride.dropoffCoords ? (
+          <Marker coordinate={ride.dropoffCoords} anchor={{ x: 0.5, y: 0.5 }}>
+            <MapStopMarker tone="dropoff" />
+          </Marker>
+        ) : null}
       </MapView>
       <View
         pointerEvents="none"
@@ -238,10 +279,10 @@ function RideDetailMap({ ride }: { ride: DispatchedRide }) {
           position: "absolute",
           left: spacing.sm,
           right: spacing.sm,
-          bottom: spacing.sm,
+          top: spacing.sm,
           minHeight: 42,
           borderRadius: radii.sm,
-          backgroundColor: colors.surfaceFrosted,
+          backgroundColor: "rgba(255,255,255,0.94)",
           borderWidth: 1,
           borderColor: colors.ghostBorder,
           flexDirection: "row",
@@ -258,6 +299,27 @@ function RideDetailMap({ ride }: { ride: DispatchedRide }) {
           Driving route
         </Text>
       </View>
+    </View>
+  );
+}
+
+function MapStopMarker({ tone }: { tone: "pickup" | "dropoff" }) {
+  const color = tone === "pickup" ? colors.green : colors.blue;
+  return (
+    <View
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: color,
+        borderWidth: 4,
+        borderColor: colors.surface,
+        alignItems: "center",
+        justifyContent: "center",
+        ...shadows.soft,
+      }}
+    >
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.surface }} />
     </View>
   );
 }
@@ -473,7 +535,7 @@ function regionFor(coords: RideCoordinate[]) {
   return {
     latitude: (minLat + maxLat) / 2,
     longitude: (minLng + maxLng) / 2,
-    latitudeDelta: Math.max((maxLat - minLat) * 1.8, 0.025),
-    longitudeDelta: Math.max((maxLng - minLng) * 1.8, 0.025),
+    latitudeDelta: Math.max((maxLat - minLat) * 2.35, 0.055),
+    longitudeDelta: Math.max((maxLng - minLng) * 2.35, 0.055),
   };
 }
