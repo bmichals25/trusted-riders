@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CommonActions, type NavigationProp, type ParamListBase, useNavigation } from "@react-navigation/native";
+import { CommonActions, useNavigation } from "@react-navigation/native";
 import { Alert, Linking, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,7 +22,7 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NavigationProp<ParamListBase>>();
+  const navigation = useNavigation();
   const {
     isTracking,
     permissionStatus,
@@ -76,29 +76,7 @@ export default function SettingsScreen() {
     selection();
     reloadAppToHome();
     requestAnimationFrame(() => {
-      let rootNavigation = navigation;
-      let parentNavigation = rootNavigation.getParent<NavigationProp<ParamListBase>>();
-
-      while (parentNavigation) {
-        rootNavigation = parentNavigation;
-        parentNavigation = rootNavigation.getParent<NavigationProp<ParamListBase>>();
-      }
-
-      rootNavigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [
-            {
-              name: "(tabs)",
-              state: {
-                type: "tab",
-                index: 0,
-                routes: [{ name: "index" }, { name: "mission" }, { name: "settings" }],
-              },
-            },
-          ],
-        }),
-      );
+      navigation.dispatch(CommonActions.navigate({ name: "index" }));
     });
   };
 
