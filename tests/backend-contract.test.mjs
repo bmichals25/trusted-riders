@@ -135,24 +135,20 @@ test("chat helpers use the chaperone-scoped backend contract", () => {
   );
   assert.equal(chatApi.getChatCommandType({ type: "gps_ask" }), "gps_ask");
   assert.equal(chatApi.getChatCommandType({ command: "gps_yes" }), "gps_yes");
+  assert.equal(chatApi.getChatCommandType("gps_ask"), "gps_ask");
   assert.equal(chatApi.getChatCommandType({ type: "unknown" }), null);
-  assert.deepEqual(plain(chatApi.buildGpsResponseMetadata({
-    command: "gps_yes",
-    location: {
-      latitude: 40.7,
-      longitude: -74,
-      timestamp: "2026-05-28T12:00:00Z",
-    },
-    rideId: 174,
-  })), {
-    type: "gps_yes",
+  assert.deepEqual(plain(chatApi.buildGpsResponseMetadata("gps_yes")), { command: "gps_yes" });
+  assert.deepEqual(plain(chatApi.buildGpsResponseMetadata("gps_off")), { command: "gps_off" });
+
+  const gpsRequest = chatApi.buildSendChatMessageRequest({
+    text: "",
+    clientMessageId: "driver-gps-1",
+    metadata: { command: "gps_yes" },
   });
-  assert.deepEqual(plain(chatApi.buildGpsResponseMetadata({
-    command: "gps_off",
-    reason: "denied",
-  })), {
-    type: "gps_off",
-    reason: "denied",
+  assert.deepEqual(JSON.parse(gpsRequest.init.body), {
+    text: "",
+    client_message_id: "driver-gps-1",
+    message_metadata: { command: "gps_yes" },
   });
 
   assert.equal(
@@ -216,7 +212,8 @@ test("fleet helpers map Suresh statuses and include active ride location context
   });
 });
 
-test("dispatch helpers treat assigned rides as current ride candidates", () => {
+test("dispatch helpers keep scheduled rides separate from current ride candidates", async () => {
+  const storage = new Map();
   const dispatchContext = loadTsModule("lib/dispatch-context.tsx", {
     react: {
       createContext: (value) => ({ value }),
@@ -237,13 +234,30 @@ test("dispatch helpers treat assigned rides as current ride candidates", () => {
       hasDrawableRoute: () => false,
     },
     "./location-context": { useLocation: () => ({ location: null, isTracking: false }) },
+    "./storage": {
+      get: async (key) => storage.get(key) ?? null,
+      set: async (key, value) => {
+        storage.set(key, value);
+      },
+      remove: async (key) => {
+        storage.delete(key);
+      },
+    },
   });
 
-  assert.equal(dispatchContext.isCurrentRideStatus("accepted"), true);
+  assert.equal(dispatchContext.isCurrentRideStatus("accepted"), false);
   assert.equal(dispatchContext.isCurrentRideStatus("en_route"), true);
   assert.equal(dispatchContext.isCurrentRideStatus("picked_up"), true);
   assert.equal(dispatchContext.isCurrentRideStatus("in_transit"), true);
   assert.equal(dispatchContext.isCurrentRideStatus("pending"), false);
+  assert.equal(dispatchContext.isCurrentRideStatus("completed"), false);
+  assert.equal(dispatchContext.shouldStopTrackingAfterGpsResponse(false), true);
+  assert.equal(dispatchContext.shouldStopTrackingAfterGpsResponse(true), false);
+  assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint(undefined, { id: "184", status: "completed" }), true);
+  assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "in_transit" }, { id: "184", status: "completed" }), true);
+  assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "completed" }, { id: "184", status: "completed" }), false);
+  assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "in_transit" }, { id: "184", status: "cancelled" }), false);
+
   const activeRide = {
     id: "184",
     passengerName: "Ava Passenger",
@@ -297,7 +311,14 @@ test("dispatch helpers treat assigned rides as current ride candidates", () => {
   );
   assert.deepEqual(plain(preserved.map((ride) => ride.id)), ["200"]);
   assert.equal(exhaustedMissingRefreshes.current, 0);
-  assert.equal(dispatchContext.isCurrentRideStatus("completed"), false);
+
+  storage.set("trustedriders-last-active-ride", JSON.stringify(activeRide));
+  const startupPreserved = await dispatchContext.preserveStartupActiveRide([pendingRide], false);
+  assert.deepEqual(plain(startupPreserved.map((ride) => ride.id)), ["184", "200"]);
+  assert.deepEqual(
+    plain(await dispatchContext.preserveStartupActiveRide([pendingRide], true).then((rides) => rides.map((ride) => ride.id))),
+    ["200"],
+  );
 });
 
 test("fleet normalization maps backend ride shapes into mobile ride models", () => {

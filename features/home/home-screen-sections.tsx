@@ -40,7 +40,7 @@ export function CurrentRideCard({
         <RouteRows ride={ride} />
       </Pressable>
       <View style={{ gap: spacing.sm }}>
-        <PrimaryActionButton label="Start Ride" onPress={onOpen} />
+        <PrimaryActionButton label={primaryActionLabelFor(ride.status)} onPress={onOpen} />
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <SecondaryActionButton label="Chat" onPress={onChat} />
           <SecondaryActionButton label="Navigate" onPress={onNavigate} />
@@ -344,6 +344,10 @@ function badgeStatusFor(status: RideStatus): StatusKey {
   if (status === "picked_up" || status === "in_transit") return "inTransit";
   if (status === "completed") return "completed";
   return "cancelled";
+}
+
+function primaryActionLabelFor(status: RideStatus) {
+  return status === "accepted" ? "Start Ride" : "View Ride";
 }
 
 function initialsFor(name: string) {

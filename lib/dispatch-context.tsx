@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { Alert } from "react-native";
 import {
   fetchRides,
-  getToken,
   isFleetApiError,
   isFleetApiRefreshSkippedError,
   updateLocation,
@@ -12,6 +11,7 @@ import {
   buildGpsResponseMetadata,
   getChatCommandType,
   listRideChatMessages,
+  sendGpsCommandMessage,
   sendRideChatMessage,
   type RideChatMessage,
 } from "./chat-api";
@@ -20,6 +20,7 @@ import { DEMO_MODE } from "./demo-mode";
 import { shouldSuppressRideErrorPanel } from "./fleet-fetch-result";
 import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideStatus } from "./rides";
 import { useLocation } from "./location-context";
+import * as storage from "./storage";
 
 export type RideStatusNotice = {
   id: string;
@@ -56,12 +57,12 @@ const DispatchContext = createContext<DispatchState>({
   acceptRide: () => {},
   declineRide: () => {},
 });
-const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
 
+const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
+const LAST_ACTIVE_RIDE_KEY = "trustedriders-last-active-ride";
 
 export function isCurrentRideStatus(status: RideStatus): boolean {
   return (
-    status === "accepted" ||
     status === "en_route" ||
     status === "picked_up" ||
     status === "in_transit"
@@ -82,7 +83,7 @@ export function DispatchProvider({
   const [backendError, setBackendError] = useState<string | null>(null);
   const [hasLoadedRides, setHasLoadedRides] = useState(false);
   const [statusNotice, setStatusNotice] = useState<RideStatusNotice | null>(null);
-  const { location, isTracking, startTracking } = useLocation();
+  const { location, isTracking, startTracking, stopTracking } = useLocation();
 
   const hasLoadedRidesRef = useRef(false);
   const ridesRef = useRef<DispatchedRide[]>([]);
@@ -94,11 +95,15 @@ export function DispatchProvider({
   const hasSeededChatCommandCursorRef = useRef(false);
   const gpsPromptOpenRef = useRef(false);
   const gpsSharingApprovedRef = useRef(false);
+  const sentEndpointGpsOffRideIdsRef = useRef(new Set<string>());
   const activeRideIdRef = useRef<number | null>(null);
   const locationRef = useRef(location);
   locationRef.current = location;
   const isTrackingRef = useRef(isTracking);
   isTrackingRef.current = isTracking;
+  if (!isTracking) {
+    gpsSharingApprovedRef.current = false;
+  }
   const activeRideInState = rides.find((r) => isCurrentRideStatus(r.status)) ?? null;
   activeRideIdRef.current = activeRideInState ? getRideBackendId(activeRideInState.id) : null;
 
@@ -122,6 +127,8 @@ export function DispatchProvider({
         nextRides,
         missingActiveRideRefreshesRef,
       );
+      nextRides = await preserveStartupActiveRide(nextRides, hasLoadedRidesRef.current);
+      await persistCurrentRideSnapshot(nextRides);
       setBackendError(null);
     } catch (error) {
       if (isFleetApiRefreshSkippedError(error)) {
@@ -175,6 +182,21 @@ export function DispatchProvider({
         }
       }
 
+      for (const ride of nextRides) {
+        const previous = previousById.get(ride.id);
+        if (
+          shouldEndGpsAtRideEndpoint(previous, ride) &&
+          !sentEndpointGpsOffRideIdsRef.current.has(ride.id)
+        ) {
+          sentEndpointGpsOffRideIdsRef.current.add(ride.id);
+          gpsSharingApprovedRef.current = false;
+          stopTracking();
+          void sendGpsCommandMessage("gps_off").catch((error) => {
+            console.log("[dispatch] endpoint gps_off command failed", error instanceof Error ? error.message : error);
+          });
+        }
+      }
+
       if (removedRides.length > 0) {
         console.log(
           `[dispatch] rides removed by successful API response: ${removedRides
@@ -189,7 +211,7 @@ export function DispatchProvider({
     ridesRef.current = nextRides;
     setRides(nextRides);
     setHasLoadedRides(true);
-  }, []);
+  }, [stopTracking]);
 
   const dismissStatusNotice = useCallback(() => {
     setStatusNotice(null);
@@ -205,7 +227,9 @@ export function DispatchProvider({
   }, [refreshRides]);
 
   useEffect(() => {
-    if (!isTracking) {
+    if (isTracking) {
+      gpsSharingApprovedRef.current = true;
+    } else {
       gpsSharingApprovedRef.current = false;
     }
   }, [isTracking]);
@@ -252,11 +276,8 @@ export function DispatchProvider({
     gpsSharingApprovedRef.current = approved;
 
     const metadata = approved
-      ? buildGpsResponseMetadata({ command: "gps_yes" })
-      : buildGpsResponseMetadata({
-          command: "gps_off",
-          reason: "denied",
-        });
+      ? buildGpsResponseMetadata("gps_yes")
+      : buildGpsResponseMetadata("gps_off");
 
     await sendRideChatMessage({
       rideId: "dispatch",
@@ -264,16 +285,15 @@ export function DispatchProvider({
       sender: "driver",
       senderName: "Driver",
       clientMessageId: `driver-gps-${requestMessageId}-${Date.now()}`,
-      metadata: {
-        ...metadata,
-        request_message_id: requestMessageId,
-      },
+      metadata,
     });
 
     if (approved) {
       await startTracking();
+    } else if (shouldStopTrackingAfterGpsResponse(approved)) {
+      stopTracking();
     }
-  }, [startTracking]);
+  }, [startTracking, stopTracking]);
 
   const promptForGpsRequest = useCallback((message: RideChatMessage) => {
     if (gpsPromptOpenRef.current) return;
@@ -373,7 +393,7 @@ export function DispatchProvider({
 
   const pendingRides = rides.filter((r) => r.status === "pending");
   const scheduledRides = rides.filter((r) => r.status === "accepted");
-  const activeRide = rides.find((r) => isCurrentRideStatus(r.status)) ?? null;
+  const activeRide = activeRideInState;
 
   return (
     <DispatchContext.Provider value={{
@@ -440,6 +460,66 @@ export function preserveTransientlyMissingActiveRide(
     `[dispatch] preserving current ride through one transient empty refresh id=${previousActiveRide.id} status=${previousActiveRide.status}`,
   );
   return [previousActiveRide, ...nextRides];
+}
+
+export async function preserveStartupActiveRide(
+  nextRides: DispatchedRide[],
+  hasLoadedRides: boolean,
+): Promise<DispatchedRide[]> {
+  if (hasLoadedRides || nextRides.some((ride) => isCurrentRideStatus(ride.status))) {
+    return nextRides;
+  }
+
+  const storedActiveRide = await readLastActiveRideSnapshot();
+  if (!storedActiveRide) return nextRides;
+
+  const returnedRide = nextRides.find((ride) => ride.id === storedActiveRide.id);
+  if (returnedRide) {
+    if (!isCurrentRideStatus(returnedRide.status)) {
+      await clearLastActiveRideSnapshot();
+    }
+    return nextRides;
+  }
+
+  console.log(
+    `[dispatch] restoring cached current ride during startup gap id=${storedActiveRide.id} status=${storedActiveRide.status}`,
+  );
+  return [storedActiveRide, ...nextRides];
+}
+
+async function persistCurrentRideSnapshot(rides: DispatchedRide[]): Promise<void> {
+  const currentRide = rides.find((ride) => isCurrentRideStatus(ride.status));
+  if (!currentRide) return;
+  await storage.set(LAST_ACTIVE_RIDE_KEY, JSON.stringify(currentRide));
+}
+
+async function readLastActiveRideSnapshot(): Promise<DispatchedRide | null> {
+  const raw = await storage.get(LAST_ACTIVE_RIDE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as DispatchedRide;
+    return parsed && typeof parsed.id === "string" && isCurrentRideStatus(parsed.status)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function clearLastActiveRideSnapshot(): Promise<void> {
+  await storage.remove(LAST_ACTIVE_RIDE_KEY);
+}
+
+export function shouldStopTrackingAfterGpsResponse(approved: boolean): boolean {
+  return !approved;
+}
+
+export function shouldEndGpsAtRideEndpoint(
+  previousRide: Pick<DispatchedRide, "id" | "status"> | undefined,
+  nextRide: Pick<DispatchedRide, "id" | "status">,
+): boolean {
+  return nextRide.status === "completed" && previousRide?.status !== "completed";
 }
 
 function isPendingAddress(value: string): boolean {

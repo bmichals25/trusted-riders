@@ -32,6 +32,7 @@ export type ChatReadReceipt = {
 };
 
 export type ChatCommandType = "gps_ask" | "gps_yes" | "gps_off";
+export type ChatMetadata = Record<string, unknown> | ChatCommandType;
 
 export type RideChatStatus = {
   ride_id: string;
@@ -129,7 +130,7 @@ export async function sendRideChatMessage({
   sender?: ChatSender;
   senderName?: string;
   clientMessageId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: ChatMetadata;
 }): Promise<RideChatMessage> {
   if (DEMO_MODE) {
     return {
@@ -139,19 +140,16 @@ export async function sendRideChatMessage({
       sender,
       sender_name: senderName ?? "Jordan",
       client_message_id: clientMessageId ?? null,
-      metadata: metadata ?? {},
+      metadata: normalizeMetadataForDisplay(metadata),
       created_at: new Date().toISOString(),
     };
   }
 
-  const metadataPayload = {
-    ...(metadata ?? {}),
-    ...(rideId && rideId !== DISPATCH_CHAT_ROOM_ID ? { ride_id: rideId } : {}),
-  };
+  const metadataPayload = buildMessageMetadataPayload(metadata, rideId);
   const request = buildSendChatMessageRequest({
     text,
     clientMessageId,
-    metadata: Object.keys(metadataPayload).length ? metadataPayload : undefined,
+    metadata: metadataPayload,
   });
   const data = await chatFetch<CreateMessageResponse>(
     request.path,
@@ -159,6 +157,19 @@ export async function sendRideChatMessage({
   );
   const normalized = normalizeChatMessage(unwrapCreateMessageResponse(data), rideId);
   return normalized.text.trim() ? normalized : { ...normalized, text };
+}
+
+export async function sendGpsCommandMessage(
+  command: "gps_yes" | "gps_off",
+): Promise<RideChatMessage> {
+  return sendRideChatMessage({
+    rideId: DISPATCH_CHAT_ROOM_ID,
+    text: "",
+    sender: "driver",
+    senderName: "Driver",
+    clientMessageId: `driver-gps-manual-${command}-${Date.now()}`,
+    metadata: buildGpsResponseMetadata(command),
+  });
 }
 
 export async function setRideChatTyping({
@@ -196,7 +207,7 @@ export function buildSendChatMessageRequest({
 }: {
   text: string;
   clientMessageId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: ChatMetadata;
 }): { path: string; init: RequestInit } {
   return {
     path: "/api/chat/messages",
@@ -240,9 +251,7 @@ export function normalizeChatMessage(
         ? record.sender_name
         : null,
     client_message_id: clientMessageId,
-    metadata: metadata && typeof metadata === "object" && !Array.isArray(metadata)
-      ? metadata as Record<string, unknown>
-      : {},
+    metadata: normalizeMetadataForDisplay(metadata),
     created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
   };
 }
@@ -266,22 +275,39 @@ export function isRelevantChatMessage(message: RideChatMessage): boolean {
   return isDisplayableChatMessage(message) || getChatCommandType(message.metadata) !== null;
 }
 
-export function getChatCommandType(metadata: Record<string, unknown> | undefined): ChatCommandType | null {
-  const value = metadata?.type ?? metadata?.command ?? metadata?.action;
+export function getChatCommandType(metadata: unknown): ChatCommandType | null {
+  const value = typeof metadata === "string"
+    ? metadata
+    : metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>).type ??
+        (metadata as Record<string, unknown>).command ??
+        (metadata as Record<string, unknown>).action
+      : null;
   return value === "gps_ask" || value === "gps_yes" || value === "gps_off" ? value : null;
 }
 
-export function buildGpsResponseMetadata({
-  command,
-  reason,
-}: {
-  command: "gps_yes" | "gps_off";
-  reason?: string;
-}): Record<string, unknown> {
-  return {
-    type: command,
-    ...(reason ? { reason } : {}),
+export function buildGpsResponseMetadata(command: "gps_yes" | "gps_off"): Record<string, ChatCommandType> {
+  return { command };
+}
+
+function buildMessageMetadataPayload(
+  metadata: ChatMetadata | undefined,
+  rideId: string,
+): ChatMetadata | undefined {
+  if (typeof metadata === "string") return metadata;
+  const payload = {
+    ...(metadata ?? {}),
+    ...(rideId && rideId !== DISPATCH_CHAT_ROOM_ID ? { ride_id: rideId } : {}),
   };
+  return Object.keys(payload).length ? payload : undefined;
+}
+
+function normalizeMetadataForDisplay(metadata: unknown): Record<string, unknown> {
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    return metadata as Record<string, unknown>;
+  }
+  const command = getChatCommandType(metadata);
+  return command ? { type: command } : {};
 }
 
 function readMessageText(record: Record<string, unknown>): string {
