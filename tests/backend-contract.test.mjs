@@ -126,6 +126,34 @@ test("chat helpers use the chaperone-scoped backend contract", () => {
     })),
     true,
   );
+  assert.equal(
+    chatApi.isDisplayableChatMessage(chatApi.normalizeChatMessage({
+      id: 15,
+      metadata: { type: "gps_ask" },
+    })),
+    false,
+  );
+  assert.equal(chatApi.getChatCommandType({ type: "gps_ask" }), "gps_ask");
+  assert.equal(chatApi.getChatCommandType({ command: "gps_yes" }), "gps_yes");
+  assert.equal(chatApi.getChatCommandType({ type: "unknown" }), null);
+  assert.deepEqual(plain(chatApi.buildGpsResponseMetadata({
+    command: "gps_yes",
+    location: {
+      latitude: 40.7,
+      longitude: -74,
+      timestamp: "2026-05-28T12:00:00Z",
+    },
+    rideId: 174,
+  })), {
+    type: "gps_yes",
+  });
+  assert.deepEqual(plain(chatApi.buildGpsResponseMetadata({
+    command: "gps_off",
+    reason: "denied",
+  })), {
+    type: "gps_off",
+    reason: "denied",
+  });
 
   assert.equal(
     chatApi.formatChatTimestamp("2026-05-28T02:43:00", {
@@ -198,7 +226,9 @@ test("dispatch helpers treat assigned rides as current ride candidates", () => {
       useRef: (current) => ({ current }),
       useState: (value) => [value, () => {}],
     },
+    "react-native": { Alert: { alert: () => {} } },
     "./fleet-api": {},
+    "./chat-api": {},
     "./demo-data": { demoRides: [] },
     "./demo-mode": { DEMO_MODE: false },
     "./fleet-fetch-result": { shouldSuppressRideErrorPanel: () => false },

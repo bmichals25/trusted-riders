@@ -31,6 +31,8 @@ export type ChatReadReceipt = {
   read_at: string;
 };
 
+export type ChatCommandType = "gps_ask" | "gps_yes" | "gps_off";
+
 export type RideChatStatus = {
   ride_id: string;
   typing: ChatTypingState[];
@@ -86,6 +88,7 @@ async function chatFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export async function listRideChatMessages(
   rideId: string,
   afterId?: string,
+  options: { includeCommands?: boolean } = {},
 ): Promise<RideChatMessage[]> {
   if (DEMO_MODE) {
     const messages = demoChatMessages(rideId);
@@ -100,7 +103,7 @@ export async function listRideChatMessages(
   const messages = Array.isArray(data) ? data : data.messages;
   return messages
     .map((message) => normalizeChatMessage(message, rideId))
-    .filter(isDisplayableChatMessage);
+    .filter(options.includeCommands ? isRelevantChatMessage : isDisplayableChatMessage);
 }
 
 export async function getRideChatStatus(rideId: string): Promise<RideChatStatus> {
@@ -257,6 +260,28 @@ export function unwrapCreateMessageResponse(raw: unknown): unknown {
 export function isDisplayableChatMessage(message: RideChatMessage): boolean {
   if (message.text.trim()) return true;
   return message.metadata.type === "mission_command_status";
+}
+
+export function isRelevantChatMessage(message: RideChatMessage): boolean {
+  return isDisplayableChatMessage(message) || getChatCommandType(message.metadata) !== null;
+}
+
+export function getChatCommandType(metadata: Record<string, unknown> | undefined): ChatCommandType | null {
+  const value = metadata?.type ?? metadata?.command ?? metadata?.action;
+  return value === "gps_ask" || value === "gps_yes" || value === "gps_off" ? value : null;
+}
+
+export function buildGpsResponseMetadata({
+  command,
+  reason,
+}: {
+  command: "gps_yes" | "gps_off";
+  reason?: string;
+}): Record<string, unknown> {
+  return {
+    type: command,
+    ...(reason ? { reason } : {}),
+  };
 }
 
 function readMessageText(record: Record<string, unknown>): string {
