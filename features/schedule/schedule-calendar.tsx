@@ -44,12 +44,15 @@ export function ScheduleToolbar({
 }) {
   return (
     <View style={{ gap: spacing.sm }}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
-        <Text style={{ color: colors.primary, fontSize: 30, fontWeight: "900", lineHeight: 35 }}>
+      <View style={{ gap: 3 }}>
+        <Text style={{ color: colors.primary, fontSize: 34, fontWeight: "900", lineHeight: 39 }} numberOfLines={1}>
           Schedule
         </Text>
-        <ModeControl mode={mode} onChange={onModeChange} />
+        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "800", lineHeight: 18 }} numberOfLines={1}>
+          Accepted rides and pending requests
+        </Text>
       </View>
+      <ModeControl mode={mode} onChange={onModeChange} />
 
       {mode === "list" ? (
         <View style={dateStripStyle}>
@@ -205,10 +208,10 @@ function DateArrow({ label, glyph, onPress }: { label: string; glyph: string; on
       accessibilityLabel={label}
       hitSlop={10}
       style={({ pressed }) => ({
-        width: 38,
-        height: 38,
+        width: 44,
+        height: 44,
         borderRadius: radii.pill,
-        backgroundColor: colors.surface,
+        backgroundColor: pressed ? colors.surfaceHigh : colors.surfaceLow,
         alignItems: "center",
         justifyContent: "center",
         opacity: pressed ? 0.62 : 1,
@@ -223,18 +226,29 @@ function DateArrow({ label, glyph, onPress }: { label: string; glyph: string; on
 
 function ModeControl({ mode, onChange }: { mode: CalendarMode; onChange: (mode: CalendarMode) => void }) {
   return (
-    <View style={{ width: 224, backgroundColor: colors.surfaceHigh, borderRadius: radii.pill, padding: 2, flexDirection: "row", gap: 2 }}>
+    <View
+      accessibilityRole="tablist"
+      style={{
+        alignSelf: "stretch",
+        backgroundColor: colors.surfaceHigh,
+        borderRadius: radii.pill,
+        padding: 3,
+        flexDirection: "row",
+        gap: 3,
+      }}
+    >
       {CALENDAR_MODES.map((item) => {
         const selected = item === mode;
         return (
           <Pressable
             key={item}
             onPress={() => onChange(item)}
-            accessibilityRole="button"
+            accessibilityRole="tab"
+            accessibilityLabel={`${item} view`}
             accessibilityState={{ selected }}
             style={({ pressed }) => ({
               flex: 1,
-              minHeight: 30,
+              minHeight: 44,
               borderRadius: radii.pill,
               backgroundColor: selected ? colors.surface : "transparent",
               alignItems: "center",
@@ -243,7 +257,7 @@ function ModeControl({ mode, onChange }: { mode: CalendarMode; onChange: (mode: 
               ...selected ? shadows.soft : null,
             })}
           >
-            <Text style={{ color: selected ? colors.primary : colors.slate500, fontSize: 12, fontWeight: "800", textTransform: "capitalize" }}>
+            <Text style={{ color: selected ? colors.primary : colors.slate500, fontSize: 13, fontWeight: "900", textTransform: "capitalize" }}>
               {item}
             </Text>
           </Pressable>
