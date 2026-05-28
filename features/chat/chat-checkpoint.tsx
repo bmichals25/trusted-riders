@@ -16,7 +16,7 @@ export function CheckpointUpdateCard({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="View checkpoint update details"
+      accessibilityLabel={`View checkpoint update details. ${data.commandLabel}. ${data.statusLabel} at ${data.timeLabel}.`}
       style={({ pressed }) => [
         {
           width: 286,

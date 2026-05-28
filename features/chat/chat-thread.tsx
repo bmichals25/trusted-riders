@@ -1,14 +1,25 @@
-import { type RefObject, useCallback } from "react";
+import { type RefObject, useCallback, useEffect } from "react";
 import { SymbolView } from "expo-symbols";
 import {
   ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 import { TypingBubble } from "@/features/chat/chat-accessories";
 import { CheckpointUpdateCard } from "@/features/chat/chat-checkpoint";
@@ -93,6 +104,8 @@ export function ChatMessageList({
     const checkpoint = item.checkpoint;
     return (
       <View
+        accessible={!checkpoint}
+        accessibilityLabel={!checkpoint ? messageAccessibilityLabel(item, isOperator, isLastOperatorMessage, isRead) : undefined}
         style={{
           alignSelf: isOperator ? "flex-end" : "flex-start",
           maxWidth: checkpoint ? "86%" : "78%",
@@ -259,8 +272,33 @@ function ChatUnavailableState({
 }
 
 function ChatLoadingState() {
+  const reduced = useReducedMotion();
+  const pulse = useSharedValue(0.62);
+
+  useEffect(() => {
+    if (reduced) {
+      pulse.value = 0.82;
+      return;
+    }
+
+    pulse.value = withRepeat(
+      withTiming(1, {
+        duration: 920,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      true,
+    );
+  }, [pulse, reduced]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: pulse.value,
+  }));
+
   return (
     <View
+      accessible
+      accessibilityRole="progressbar"
       accessibilityLabel="Loading dispatch chat"
       style={{
         width: "100%",
@@ -268,37 +306,38 @@ function ChatLoadingState() {
         paddingTop: spacing.xl,
       }}
     >
-      <View
-        style={{
-          alignSelf: "flex-start",
-          width: "72%",
-          height: 58,
-          borderRadius: 16,
-          borderBottomLeftRadius: 4,
-          backgroundColor: colors.surfaceLow,
-        }}
-      />
-      <View
-        style={{
-          alignSelf: "flex-end",
-          width: "58%",
-          height: 50,
-          borderRadius: 16,
-          borderBottomRightRadius: 4,
-          backgroundColor: colors.slate100,
-        }}
-      />
-      <View
-        style={{
-          alignSelf: "flex-start",
-          width: "64%",
-          height: 46,
-          borderRadius: 16,
-          borderBottomLeftRadius: 4,
-          backgroundColor: colors.surfaceLow,
-        }}
-      />
+      <LoadingBubble pulseStyle={pulseStyle} side="dispatch" style={{ width: "72%", height: 58 }} />
+      <LoadingBubble pulseStyle={pulseStyle} side="operator" style={{ width: "58%", height: 50 }} />
+      <LoadingBubble pulseStyle={pulseStyle} side="dispatch" style={{ width: "64%", height: 46 }} />
     </View>
+  );
+}
+
+function LoadingBubble({
+  pulseStyle,
+  side,
+  style,
+}: {
+  pulseStyle: StyleProp<ViewStyle>;
+  side: "dispatch" | "operator";
+  style: StyleProp<ViewStyle>;
+}) {
+  const operator = side === "operator";
+
+  return (
+    <Animated.View
+      style={[
+        styles.loadingBubble,
+        {
+          alignSelf: operator ? "flex-end" : "flex-start",
+          borderBottomRightRadius: operator ? 4 : 16,
+          borderBottomLeftRadius: operator ? 16 : 4,
+          backgroundColor: operator ? colors.slate100 : colors.surfaceLow,
+        },
+        style,
+        pulseStyle,
+      ]}
+    />
   );
 }
 
@@ -342,6 +381,11 @@ export function ChatComposer({
         placeholderTextColor={colors.slate400}
         accessibilityLabel="Message dispatch"
         accessibilityHint="Enter a message to send to dispatch."
+        accessibilityValue={{ text: value ? `${value.length} characters entered` : "No message entered" }}
+        autoCapitalize="sentences"
+        autoCorrect
+        blurOnSubmit={false}
+        enablesReturnKeyAutomatically
         returnKeyType="send"
         multiline
         // @ts-expect-error — web-only react-native-web props to remove
@@ -359,6 +403,7 @@ export function ChatComposer({
           color: colors.primary,
           maxHeight: 100,
           minHeight: 44,
+          lineHeight: 21,
         }}
         onSubmitEditing={onSubmit}
         // Multiline inputs don't normally fire `onSubmitEditing`, so handle
@@ -403,3 +448,27 @@ export function ChatComposer({
     </View>
   );
 }
+
+function messageAccessibilityLabel(
+  message: Message,
+  isOperator: boolean,
+  isLastOperatorMessage: boolean,
+  isRead: boolean,
+) {
+  const sender = isOperator ? "You" : "Dispatch";
+  const delivery = message.timestamp === "Not sent"
+    ? "Not sent"
+    : isLastOperatorMessage && !message.pending
+      ? (isRead ? "Read" : "Sent")
+      : message.pending
+        ? "Sending"
+        : message.timestamp;
+
+  return `${sender}. ${message.text}. ${delivery}.`;
+}
+
+const styles = StyleSheet.create({
+  loadingBubble: {
+    borderRadius: 16,
+  },
+});
