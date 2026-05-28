@@ -16,11 +16,13 @@ export function ChatOpeningBlock({
   delay,
   distance,
   style,
+  initialOpacity = 0.96,
 }: {
   children: ReactNode;
   delay: number;
   distance: number;
   style?: any;
+  initialOpacity?: number;
 }) {
   const isFocused = useIsFocused();
   const reduced = useReducedMotion();
@@ -47,7 +49,7 @@ export function ChatOpeningBlock({
   }, [delay, isFocused, progress, reduced]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
+    opacity: initialOpacity + (1 - initialOpacity) * progress.value,
     transform: [{ translateY: (1 - progress.value) * distance }],
   }));
 

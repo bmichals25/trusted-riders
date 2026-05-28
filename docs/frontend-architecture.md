@@ -50,6 +50,9 @@ Completed cleanup:
   previews, route panels, and fallback state to `features/rides/`.
 - `app/ride-requests.tsx` delegates request-list orchestration, empty/error
   states, and request header rendering to `features/rides/`.
+- `components/ui/DriverNameGate.tsx` owns auth/session state only; the
+  sign-in form, keyboard-aware layout, password visibility control, and input
+  accessibility semantics live in `features/auth/driver-login-screen.tsx`.
 
 The next cleanup targets are:
 
