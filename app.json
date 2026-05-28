@@ -3,6 +3,7 @@
     "name": "TrustedRide Certified Prototype",
     "slug": "trustedriders-prototype",
     "scheme": "trustedriders",
+    "icon": "./assets/TRC_APP_ICON_2.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "web": {
@@ -29,6 +30,10 @@
     },
     "android": {
       "package": "com.trustedriders.prototype",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/TRC_APP_ICON_2.png",
+        "backgroundColor": "#1559dc"
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
