@@ -56,6 +56,8 @@ const DispatchContext = createContext<DispatchState>({
   acceptRide: () => {},
   declineRide: () => {},
 });
+const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
+
 
 export function isCurrentRideStatus(status: RideStatus): boolean {
   return (
@@ -428,7 +430,7 @@ export function preserveTransientlyMissingActiveRide(
     return nextRides;
   }
 
-  if (missingActiveRideRefreshesRef.current > 0) {
+  if (missingActiveRideRefreshesRef.current >= MAX_TRANSIENT_ACTIVE_RIDE_MISSES) {
     missingActiveRideRefreshesRef.current = 0;
     return nextRides;
   }

@@ -244,6 +244,59 @@ test("dispatch helpers treat assigned rides as current ride candidates", () => {
   assert.equal(dispatchContext.isCurrentRideStatus("picked_up"), true);
   assert.equal(dispatchContext.isCurrentRideStatus("in_transit"), true);
   assert.equal(dispatchContext.isCurrentRideStatus("pending"), false);
+  const activeRide = {
+    id: "184",
+    passengerName: "Ava Passenger",
+    passengerPhotoUrl: "",
+    pickupAddress: "67 West St",
+    dropoffAddress: "420 W 14th St",
+    pickupCoords: null,
+    dropoffCoords: null,
+    routeCoords: [],
+    scheduledDate: "May 28",
+    scheduledTime: "8:30 AM",
+    transitType: "Wheelchair",
+    tripType: "One-Way",
+    notes: "",
+    emergencyContact: "",
+    status: "in_transit",
+    createdAt: 1,
+  };
+  const pendingRide = { ...activeRide, id: "200", status: "pending" };
+  const missingRefreshes = { current: 0 };
+
+  let preserved = dispatchContext.preserveTransientlyMissingActiveRide(
+    [activeRide, pendingRide],
+    [pendingRide],
+    missingRefreshes,
+  );
+  assert.deepEqual(plain(preserved.map((ride) => ride.id)), ["184", "200"]);
+  assert.equal(missingRefreshes.current, 1);
+
+  preserved = dispatchContext.preserveTransientlyMissingActiveRide(
+    preserved,
+    [pendingRide],
+    missingRefreshes,
+  );
+  assert.deepEqual(plain(preserved.map((ride) => ride.id)), ["184", "200"]);
+  assert.equal(missingRefreshes.current, 2);
+
+  preserved = dispatchContext.preserveTransientlyMissingActiveRide(
+    preserved,
+    [{ ...activeRide, status: "completed" }, pendingRide],
+    missingRefreshes,
+  );
+  assert.deepEqual(plain(preserved.map((ride) => `${ride.id}:${ride.status}`)), ["184:completed", "200:pending"]);
+  assert.equal(missingRefreshes.current, 0);
+
+  const exhaustedMissingRefreshes = { current: 3 };
+  preserved = dispatchContext.preserveTransientlyMissingActiveRide(
+    [activeRide, pendingRide],
+    [pendingRide],
+    exhaustedMissingRefreshes,
+  );
+  assert.deepEqual(plain(preserved.map((ride) => ride.id)), ["200"]);
+  assert.equal(exhaustedMissingRefreshes.current, 0);
   assert.equal(dispatchContext.isCurrentRideStatus("completed"), false);
 });
 
