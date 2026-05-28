@@ -104,6 +104,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) return;
+    if (submitting) return;
 
     setSubmitting(true);
     setError(null);
@@ -130,6 +131,14 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   }, []);
 
   const authValue = useMemo<AuthContextValue>(() => ({ signOut, session }), [signOut, session]);
+  const handleEmailChange = useCallback((value: string) => {
+    if (error) setError(null);
+    setEmail(value);
+  }, [error]);
+  const handlePasswordChange = useCallback((value: string) => {
+    if (error) setError(null);
+    setPassword(value);
+  }, [error]);
   const handleStartupAnimationReady = useCallback(() => {
     setStartupAnimationReady(true);
   }, []);
@@ -168,8 +177,8 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
       canSubmit={!!email.trim() && !!password && !submitting}
       email={email}
       error={error}
-      onEmailChange={setEmail}
-      onPasswordChange={setPassword}
+      onEmailChange={handleEmailChange}
+      onPasswordChange={handlePasswordChange}
       onSubmit={handleLogin}
       onTogglePasswordVisible={() => setPasswordVisible((visible) => !visible)}
       password={password}

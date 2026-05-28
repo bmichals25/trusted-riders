@@ -59,6 +59,9 @@ export function DriverLoginScreen({
   const keyboardProgress = useSharedValue(0);
   const webInputStyle =
     Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null;
+  const submitIfReady = () => {
+    if (canSubmit) onSubmit();
+  };
 
   const animateKeyboardProgress = (visible: boolean, duration?: number) => {
     const toValue = visible ? 1 : 0;
@@ -156,6 +159,7 @@ export function DriverLoginScreen({
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         showsVerticalScrollIndicator={false}
       >
         <View style={s.credentialCard}>
@@ -187,12 +191,12 @@ export function DriverLoginScreen({
                   value={email}
                   onChangeText={onEmailChange}
                   autoCapitalize="none"
-                  autoComplete="email"
+                  autoComplete="username"
                   autoCorrect={false}
                   accessibilityLabel="Email"
                   accessibilityHint="Enter the email address assigned to your TrustedRide Certified driver account."
                   keyboardType="email-address"
-                  textContentType="emailAddress"
+                  textContentType="username"
                   returnKeyType="next"
                   onFocus={() => setFocusedField("email")}
                   onBlur={() => setFocusedField(null)}
@@ -233,14 +237,16 @@ export function DriverLoginScreen({
                   secureTextEntry={!passwordVisible}
                   accessibilityLabel="Password"
                   accessibilityHint="Enter your TrustedRide Certified driver account password."
+                  accessibilityValue={{ text: password ? `${password.length} characters entered` : "No password entered" }}
                   autoCapitalize="none"
                   autoComplete="current-password"
                   autoCorrect={false}
+                  enablesReturnKeyAutomatically
                   textContentType="password"
                   returnKeyType="done"
                   onFocus={() => setFocusedField("password")}
                   onBlur={() => setFocusedField(null)}
-                  onSubmitEditing={onSubmit}
+                  onSubmitEditing={submitIfReady}
                 />
                 <Pressable
                   onPress={onTogglePasswordVisible}
@@ -274,6 +280,7 @@ export function DriverLoginScreen({
               disabled={!canSubmit}
               accessibilityRole="button"
               accessibilityLabel={submitting ? "Signing in" : "Sign in"}
+              accessibilityHint="Authenticates this device with the TrustedRide Certified driver portal."
               accessibilityState={{ disabled: !canSubmit, busy: submitting }}
             >
               {submitting ? (
