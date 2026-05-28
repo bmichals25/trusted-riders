@@ -19,10 +19,12 @@ import {
   groupByDay,
   HOUR_HEIGHT,
   indexCollisionOffset,
+  isActiveScheduleRide,
   isPendingRide,
   itemTop,
   rideCountLabel,
   rideShortLabel,
+  scheduleStatusKey,
   type ScheduledItem,
   TIME_RAIL_WIDTH,
   WEEK_HOUR_HEIGHT,
@@ -49,7 +51,7 @@ export function ScheduleToolbar({
           Schedule
         </Text>
         <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "800", lineHeight: 18 }} numberOfLines={1}>
-          Accepted rides and pending requests
+          Active rides, accepted rides, and pending requests
         </Text>
       </View>
       <ModeControl mode={mode} onChange={onModeChange} />
@@ -388,6 +390,7 @@ function AgendaList({ items, onOpenRide }: { items: ScheduledItem[]; onOpenRide:
 function AgendaRideRow({ item, onPress }: { item: ScheduledItem; onPress: () => void }) {
   const ride = item.ride;
   const pending = isPendingRide(ride);
+  const active = isActiveScheduleRide(ride);
   return (
     <Pressable
       onPress={onPress}
@@ -397,7 +400,7 @@ function AgendaRideRow({ item, onPress }: { item: ScheduledItem; onPress: () => 
         borderRadius: radii.sm,
         backgroundColor: colors.surface,
         borderWidth: 1,
-        borderColor: pending ? colors.amber : colors.slate100,
+        borderColor: pending ? colors.amber : active ? colors.green : colors.slate100,
         padding: spacing.sm,
         flexDirection: "row",
         gap: spacing.sm,
@@ -408,7 +411,7 @@ function AgendaRideRow({ item, onPress }: { item: ScheduledItem; onPress: () => 
         <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "900" }} numberOfLines={1}>
           {item.timeLabel}
         </Text>
-        <View style={{ width: 2, flex: 1, minHeight: 54, borderRadius: radii.pill, backgroundColor: pending ? colors.amberSoft : colors.blueSoft }} />
+        <View style={{ width: 2, flex: 1, minHeight: 54, borderRadius: radii.pill, backgroundColor: pending ? colors.amberSoft : active ? colors.greenSoft : colors.blueSoft }} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
@@ -420,7 +423,7 @@ function AgendaRideRow({ item, onPress }: { item: ScheduledItem; onPress: () => 
               {rideShortLabel(ride)} · {ride.transitType}
             </Text>
           </View>
-          <StatusBadge status={pending ? "pending" : "scheduled"} />
+          <StatusBadge status={scheduleStatusKey(ride)} />
         </View>
         <View style={{ gap: 5 }}>
           <CompactRouteLine color={colors.green} address={ride.pickupAddress} />
@@ -636,30 +639,34 @@ function CalendarEventBlock({
 }) {
   const compact = mode === "week";
   const pending = isPendingRide(item.ride);
+  const active = isActiveScheduleRide(item.ride);
+  const eventColor = pending ? colors.amber : active ? colors.green : colors.blue;
+  const eventSoftColor = pending ? colors.surface : active ? colors.greenSoft : colors.blueSoft;
+  const eventBorderColor = pending ? colors.amber : active ? "rgba(22, 163, 74, 0.24)" : "rgba(37, 99, 235, 0.18)";
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Open ${item.ride.passengerName} ride`}
       style={({ pressed }) => ({
-        backgroundColor: pending ? colors.surface : mode === "day" ? colors.blueSoft : colors.surface,
+        backgroundColor: mode === "day" ? eventSoftColor : colors.surface,
         borderRadius: radii.xs,
         paddingHorizontal: compact ? 5 : spacing.sm,
         paddingVertical: compact ? 5 : spacing.sm,
         gap: compact ? 1 : 3,
         opacity: pressed ? 0.72 : 1,
         borderWidth: 1,
-        borderColor: pending ? colors.amber : mode === "day" ? "rgba(37, 99, 235, 0.18)" : colors.slate100,
+        borderColor: mode === "day" ? eventBorderColor : pending ? colors.amber : active ? colors.greenSoft : colors.slate100,
         borderLeftWidth: pending ? 1 : 3,
-        borderLeftColor: pending ? colors.amber : colors.blue,
+        borderLeftColor: eventColor,
         ...style,
       })}
     >
       <Text style={{ color: colors.primary, fontSize: compact ? 10 : 14, fontWeight: "900" }} numberOfLines={compact ? 1 : 2}>
         {compact ? rideShortLabel(item.ride) : item.ride.passengerName}
       </Text>
-      <Text style={{ color: pending ? colors.amber : colors.blue, fontSize: compact ? 9 : 12, fontWeight: "900" }} numberOfLines={1}>
-        {item.timeLabel}{mode === "day" ? ` · ${pending ? "Pending" : item.ride.transitType}` : ""}
+      <Text style={{ color: pending ? colors.amber : active ? colors.greenStrong : colors.blue, fontSize: compact ? 9 : 12, fontWeight: "900" }} numberOfLines={1}>
+        {item.timeLabel}{mode === "day" ? ` · ${pending ? "Pending" : active ? "Active" : item.ride.transitType}` : ""}
       </Text>
       {mode === "day" ? (
         <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }} numberOfLines={1}>
@@ -672,6 +679,7 @@ function CalendarEventBlock({
 
 function MonthEventBar({ item, selected, onPress }: { item: ScheduledItem; selected: boolean; onPress: () => void }) {
   const pending = isPendingRide(item.ride);
+  const active = isActiveScheduleRide(item.ride);
   return (
     <Pressable
       onPress={onPress}
@@ -680,7 +688,7 @@ function MonthEventBar({ item, selected, onPress }: { item: ScheduledItem; selec
       style={({ pressed }) => ({
         minHeight: pending ? 7 : 5,
         borderRadius: radii.pill,
-        backgroundColor: pending ? "transparent" : selected ? colors.surfaceScrim80 : colors.blue,
+        backgroundColor: pending ? "transparent" : selected ? colors.surfaceScrim80 : active ? colors.green : colors.blue,
         borderWidth: pending ? 1 : 0,
         borderColor: pending ? colors.amber : "transparent",
         opacity: pressed ? 0.72 : 1,

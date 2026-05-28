@@ -1,4 +1,5 @@
 import { type DispatchedRide } from "@/lib/rides";
+import { type StatusKey } from "@/lib/theme";
 
 export type CalendarMode = "list" | "day" | "week" | "month";
 
@@ -186,6 +187,29 @@ export function rideShortLabel(ride: DispatchedRide) {
 
 export function isPendingRide(ride: DispatchedRide) {
   return ride.status === "pending";
+}
+
+export function isActiveScheduleRide(ride: Pick<DispatchedRide, "status">) {
+  return ride.status === "en_route" || ride.status === "picked_up" || ride.status === "in_transit";
+}
+
+export function isCalendarRideStatus(status: DispatchedRide["status"]) {
+  return (
+    status === "pending" ||
+    status === "accepted" ||
+    status === "en_route" ||
+    status === "picked_up" ||
+    status === "in_transit"
+  );
+}
+
+export function scheduleStatusKey(ride: Pick<DispatchedRide, "status">): StatusKey {
+  if (ride.status === "pending") return "pending";
+  if (ride.status === "accepted") return "scheduled";
+  if (ride.status === "en_route") return "enRoute";
+  if (ride.status === "picked_up") return "arrived";
+  if (ride.status === "in_transit") return "inTransit";
+  return "scheduled";
 }
 
 export function formatHour(hour: number) {

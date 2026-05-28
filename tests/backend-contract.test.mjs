@@ -435,6 +435,27 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
   );
 });
 
+test("schedule model includes active rides in calendar views", () => {
+  const scheduleModel = loadTsModule("features/schedule/schedule-model.ts", {
+    "@/lib/rides": {},
+    "@/lib/theme": {},
+  });
+
+  assert.equal(scheduleModel.isCalendarRideStatus("pending"), true);
+  assert.equal(scheduleModel.isCalendarRideStatus("accepted"), true);
+  assert.equal(scheduleModel.isCalendarRideStatus("en_route"), true);
+  assert.equal(scheduleModel.isCalendarRideStatus("picked_up"), true);
+  assert.equal(scheduleModel.isCalendarRideStatus("in_transit"), true);
+  assert.equal(scheduleModel.isCalendarRideStatus("completed"), false);
+  assert.equal(scheduleModel.isCalendarRideStatus("cancelled"), false);
+
+  assert.equal(scheduleModel.scheduleStatusKey({ status: "pending" }), "pending");
+  assert.equal(scheduleModel.scheduleStatusKey({ status: "accepted" }), "scheduled");
+  assert.equal(scheduleModel.scheduleStatusKey({ status: "en_route" }), "enRoute");
+  assert.equal(scheduleModel.scheduleStatusKey({ status: "picked_up" }), "arrived");
+  assert.equal(scheduleModel.scheduleStatusKey({ status: "in_transit" }), "inTransit");
+});
+
 test("fleet normalization maps backend ride shapes into mobile ride models", () => {
   const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
     "./rides": {

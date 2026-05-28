@@ -14,6 +14,7 @@ import {
   buildWeek,
   type CalendarMode,
   dayKey,
+  isCalendarRideStatus,
   mergeRideLists,
   startOfDay,
   toScheduledItem,
@@ -42,7 +43,7 @@ export default function ScheduleScreen() {
 
   const scheduleSourceRides = useMemo(() => mergeRideLists(rides, fetchedRides), [fetchedRides, rides]);
   const calendarRides = useMemo(
-    () => scheduleSourceRides.filter((ride) => ride.status === "accepted" || ride.status === "pending"),
+    () => scheduleSourceRides.filter((ride) => isCalendarRideStatus(ride.status)),
     [scheduleSourceRides],
   );
   const scheduledItems = useMemo(
