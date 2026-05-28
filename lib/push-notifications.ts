@@ -20,6 +20,10 @@ type GpsAskNotificationEvent = {
   messageId: string;
 };
 
+type LocalGpsAskNotificationInput = {
+  messageId: string;
+};
+
 let notificationHandlerConfigured = false;
 
 export function getExpoProjectId(): string | null {
@@ -119,6 +123,31 @@ export function readGpsAskNotificationData(raw: unknown): GpsAskNotificationData
   const messageId = pickString(record, ["message_id", "chat_message_id", "id"])
     ?? pickString(metadata, ["message_id", "chat_message_id", "id"]);
   return messageId ? { messageId } : {};
+}
+
+export async function scheduleLocalGpsAskNotification({
+  messageId,
+}: LocalGpsAskNotificationInput): Promise<void> {
+  if (DEMO_MODE || Platform.OS === "web") return;
+
+  const notifications = getNotificationsModule();
+  if (!notifications) return;
+  configureNotificationHandler(notifications);
+
+  const existingPermission = await notifications.getPermissionsAsync();
+  if (!hasNotificationPermission(existingPermission)) return;
+
+  await notifications.scheduleNotificationAsync({
+    content: {
+      title: "Dispatch is requesting GPS",
+      body: "Tap to approve or deny location sharing.",
+      data: {
+        command: "gps_ask",
+        message_id: messageId,
+      },
+    },
+    trigger: null,
+  });
 }
 
 export function addGpsAskNotificationListeners(

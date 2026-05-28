@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, AppState, type AppStateStatus } from "react-native";
 import {
   fetchRides,
   isFleetApiError,
@@ -21,6 +21,7 @@ import { shouldSuppressRideErrorPanel } from "./fleet-fetch-result";
 import {
   addGpsAskNotificationListeners,
   registerForPushNotifications,
+  scheduleLocalGpsAskNotification,
 } from "./push-notifications";
 import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideStatus } from "./rides";
 import { useLocation } from "./location-context";
@@ -79,6 +80,10 @@ export function isCurrentRideStatus(status: RideStatus): boolean {
   );
 }
 
+function isTerminalRideStatus(status: RideStatus): boolean {
+  return status === "completed" || status === "cancelled";
+}
+
 export function useDispatch() {
   return useContext(DispatchContext);
 }
@@ -105,6 +110,9 @@ export function DispatchProvider({
   const lastChatCommandMessageIdRef = useRef<string | undefined>(undefined);
   const hasSeededChatCommandCursorRef = useRef(false);
   const gpsPromptOpenRef = useRef(false);
+  const queuedGpsPromptRef = useRef<RideChatMessage | null>(null);
+  const locallyNotifiedGpsRequestIdsRef = useRef(new Set<string>());
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const gpsSharingApprovedRef = useRef(false);
   const sentEndpointGpsOffRideIdsRef = useRef(new Set<string>());
   const activeRideIdRef = useRef<number | null>(null);
@@ -317,6 +325,7 @@ export function DispatchProvider({
 
   const promptForGpsRequest = useCallback((message: RideChatMessage) => {
     if (gpsPromptOpenRef.current) return;
+    queuedGpsPromptRef.current = null;
     gpsPromptOpenRef.current = true;
 
     const handleResponse = (approved: boolean) => {
@@ -346,6 +355,32 @@ export function DispatchProvider({
     );
   }, [sendGpsResponse]);
 
+  const handleGpsRequest = useCallback((message: RideChatMessage) => {
+    if (appStateRef.current === "active") {
+      promptForGpsRequest(message);
+      return;
+    }
+
+    queuedGpsPromptRef.current = message;
+    if (locallyNotifiedGpsRequestIdsRef.current.has(message.id)) return;
+    locallyNotifiedGpsRequestIdsRef.current.add(message.id);
+    void scheduleLocalGpsAskNotification({ messageId: message.id }).catch((error) => {
+      console.log("[push] local gps_ask notification failed", error instanceof Error ? error.message : error);
+    });
+  }, [promptForGpsRequest]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      appStateRef.current = nextState;
+      if (nextState !== "active") return;
+      const queuedMessage = queuedGpsPromptRef.current;
+      if (!queuedMessage || gpsPromptOpenRef.current) return;
+      promptForGpsRequest(queuedMessage);
+    });
+
+    return () => subscription.remove();
+  }, [promptForGpsRequest]);
+
   useEffect(() => {
     if (DEMO_MODE) return;
     void registerForPushNotifications().catch((error) => {
@@ -356,7 +391,6 @@ export function DispatchProvider({
   useEffect(() => {
     if (DEMO_MODE) return;
     return addGpsAskNotificationListeners(({ messageId }) => {
-      if (processedChatCommandIdsRef.current.has(messageId)) return;
       if (gpsPromptOpenRef.current) return;
       processedChatCommandIdsRef.current.add(messageId);
       promptForGpsRequest({
@@ -400,7 +434,7 @@ export function DispatchProvider({
         if (gpsPromptOpenRef.current) break;
 
         processedChatCommandIdsRef.current.add(message.id);
-        promptForGpsRequest(message);
+        handleGpsRequest(message);
         break;
       }
     } catch (error) {
@@ -408,7 +442,7 @@ export function DispatchProvider({
     } finally {
       chatCommandPollInFlightRef.current = false;
     }
-  }, [promptForGpsRequest]);
+  }, [handleGpsRequest]);
 
   useEffect(() => {
     void processChatCommands();
@@ -493,10 +527,32 @@ export function preserveTransientlyMissingActiveRide(
   }
 
   const nextHasCurrentRide = nextRides.some((ride) => isCurrentRideStatus(ride.status));
-  const nextHasPreviousActiveRide = nextRides.some((ride) => ride.id === previousActiveRide.id);
-  if (nextHasCurrentRide || nextHasPreviousActiveRide) {
+  if (nextHasCurrentRide) {
     missingActiveRideRefreshesRef.current = 0;
     return nextRides;
+  }
+
+  const nextPreviousActiveRide = nextRides.find((ride) => ride.id === previousActiveRide.id);
+  if (nextPreviousActiveRide) {
+    if (isTerminalRideStatus(nextPreviousActiveRide.status)) {
+      missingActiveRideRefreshesRef.current = 0;
+      return nextRides;
+    }
+
+    if (missingActiveRideRefreshesRef.current >= MAX_TRANSIENT_ACTIVE_RIDE_MISSES) {
+      missingActiveRideRefreshesRef.current = 0;
+      return nextRides;
+    }
+
+    missingActiveRideRefreshesRef.current += 1;
+    console.log(
+      `[dispatch] preserving current ride through transient status regression id=${previousActiveRide.id} previous=${previousActiveRide.status} next=${nextPreviousActiveRide.status}`,
+    );
+    return nextRides.map((ride) =>
+      ride.id === previousActiveRide.id
+        ? { ...ride, status: previousActiveRide.status }
+        : ride,
+    );
   }
 
   if (missingActiveRideRefreshesRef.current >= MAX_TRANSIENT_ACTIVE_RIDE_MISSES) {
@@ -524,9 +580,22 @@ export async function preserveStartupActiveRide(
 
   const returnedRide = nextRides.find((ride) => ride.id === storedActiveRide.id);
   if (returnedRide) {
-    if (!isCurrentRideStatus(returnedRide.status)) {
+    if (isTerminalRideStatus(returnedRide.status)) {
       await clearLastActiveRideSnapshot();
+      return nextRides;
     }
+
+    if (!isCurrentRideStatus(returnedRide.status)) {
+      console.log(
+        `[dispatch] preserving cached current ride through startup status regression id=${storedActiveRide.id} previous=${storedActiveRide.status} next=${returnedRide.status}`,
+      );
+      return nextRides.map((ride) =>
+        ride.id === storedActiveRide.id
+          ? { ...ride, status: storedActiveRide.status }
+          : ride,
+      );
+    }
+
     return nextRides;
   }
 

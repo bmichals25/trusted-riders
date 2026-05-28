@@ -161,6 +161,7 @@ test("chat helpers use the chaperone-scoped backend contract", () => {
 });
 
 test("push notification helpers register Expo tokens and parse gps requests", () => {
+  const scheduledNotifications = [];
   const pushNotifications = loadTsModule("lib/push-notifications.ts", {
     "expo-constants": {
       __esModule: true,
@@ -176,8 +177,15 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
     },
     "expo-notifications": {
       setNotificationHandler: () => {},
+      getPermissionsAsync: async () => ({ granted: true }),
+      scheduleNotificationAsync: async (notification) => {
+        scheduledNotifications.push(notification);
+      },
     },
-    "react-native": { Platform: { OS: "ios" } },
+    "react-native": {
+      NativeModules: { ExpoPushTokenManager: {} },
+      Platform: { OS: "ios" },
+    },
     "./config": { FLEET_API_URL: "https://example.test" },
     "./demo-mode": { DEMO_MODE: false },
     "./fleet-api": { getToken: () => "token" },
@@ -216,6 +224,20 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
     messageId: "m2",
   });
   assert.equal(pushNotifications.readGpsAskNotificationData({ command: "gps_yes" }), null);
+
+  return pushNotifications.scheduleLocalGpsAskNotification({ messageId: "m3" }).then(() => {
+    assert.deepEqual(plain(scheduledNotifications), [{
+      content: {
+        title: "Dispatch is requesting GPS",
+        body: "Tap to approve or deny location sharing.",
+        data: {
+          command: "gps_ask",
+          message_id: "m3",
+        },
+      },
+      trigger: null,
+    }]);
+  });
 });
 
 test("fleet helpers map Suresh statuses and include active ride location context", () => {
@@ -355,11 +377,37 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
 
   preserved = dispatchContext.preserveTransientlyMissingActiveRide(
     preserved,
+    [{ ...activeRide, status: "accepted" }, pendingRide],
+    missingRefreshes,
+  );
+  assert.deepEqual(plain(preserved.map((ride) => `${ride.id}:${ride.status}`)), ["184:in_transit", "200:pending"]);
+  assert.equal(missingRefreshes.current, 3);
+
+  preserved = dispatchContext.preserveTransientlyMissingActiveRide(
+    preserved,
     [{ ...activeRide, status: "completed" }, pendingRide],
     missingRefreshes,
   );
   assert.deepEqual(plain(preserved.map((ride) => `${ride.id}:${ride.status}`)), ["184:completed", "200:pending"]);
   assert.equal(missingRefreshes.current, 0);
+
+  const statusRegressionRefreshes = { current: 0 };
+  preserved = dispatchContext.preserveTransientlyMissingActiveRide(
+    [activeRide, pendingRide],
+    [{ ...activeRide, status: "accepted" }, pendingRide],
+    statusRegressionRefreshes,
+  );
+  assert.deepEqual(plain(preserved.map((ride) => `${ride.id}:${ride.status}`)), ["184:in_transit", "200:pending"]);
+  assert.equal(statusRegressionRefreshes.current, 1);
+
+  const exhaustedStatusRegressionRefreshes = { current: 3 };
+  preserved = dispatchContext.preserveTransientlyMissingActiveRide(
+    [activeRide, pendingRide],
+    [{ ...activeRide, status: "accepted" }, pendingRide],
+    exhaustedStatusRegressionRefreshes,
+  );
+  assert.deepEqual(plain(preserved.map((ride) => `${ride.id}:${ride.status}`)), ["184:accepted", "200:pending"]);
+  assert.equal(exhaustedStatusRegressionRefreshes.current, 0);
 
   const exhaustedMissingRefreshes = { current: 3 };
   preserved = dispatchContext.preserveTransientlyMissingActiveRide(
@@ -373,6 +421,14 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
   storage.set("trustedriders-last-active-ride", JSON.stringify(activeRide));
   const startupPreserved = await dispatchContext.preserveStartupActiveRide([pendingRide], false);
   assert.deepEqual(plain(startupPreserved.map((ride) => ride.id)), ["184", "200"]);
+  assert.deepEqual(
+    plain(await dispatchContext.preserveStartupActiveRide([{ ...activeRide, status: "accepted" }, pendingRide], false).then((rides) => rides.map((ride) => `${ride.id}:${ride.status}`))),
+    ["184:in_transit", "200:pending"],
+  );
+  assert.deepEqual(
+    plain(await dispatchContext.preserveStartupActiveRide([{ ...activeRide, status: "completed" }, pendingRide], false).then((rides) => rides.map((ride) => `${ride.id}:${ride.status}`))),
+    ["184:completed", "200:pending"],
+  );
   assert.deepEqual(
     plain(await dispatchContext.preserveStartupActiveRide([pendingRide], true).then((rides) => rides.map((ride) => ride.id))),
     ["200"],
