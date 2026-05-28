@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron } from "@/components/ui/BackChevron";
@@ -36,6 +37,7 @@ import { colors } from "@/lib/theme";
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
+  const isFocused = useIsFocused();
   const { rideId, riderName, returnTo } = useLocalSearchParams<{
     rideId: string;
     riderName: string;
@@ -67,6 +69,7 @@ export default function ChatScreen() {
   const refreshInFlightRef = useRef(false);
   const lastTypingSentAtRef = useRef(0);
   const lastReadMarkedIdRef = useRef<string | undefined>(undefined);
+  const latestScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lastOperatorMessageId = useMemo(
     () => [...messages].reverse().find((message) => message.sender === "operator")?.id,
@@ -100,7 +103,7 @@ export default function ChatScreen() {
       for (const message of incoming) {
         byId.set(message.id, mapApiMessage(message));
       }
-      return Array.from(byId.values());
+      return Array.from(byId.values()).sort(compareMessagesByCreatedAt);
     });
 
     lastMessageIdRef.current = incoming[incoming.length - 1]?.id ?? lastMessageIdRef.current;
@@ -214,6 +217,7 @@ export default function ChatScreen() {
       text,
       sender: "operator",
       timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+      createdAt: new Date().toISOString(),
       pending: true,
     };
 
@@ -258,6 +262,33 @@ export default function ChatScreen() {
       setIsSending(false);
     }
   }, [clearComposer, inputText, isSending, roomId]);
+
+  const scrollToLatest = useCallback((animated: boolean) => {
+    if (latestScrollTimerRef.current) {
+      clearTimeout(latestScrollTimerRef.current);
+    }
+
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToEnd({ animated });
+      latestScrollTimerRef.current = setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated });
+        latestScrollTimerRef.current = null;
+      }, 80);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isFocused || isInitialLoading || messages.length === 0) return;
+    scrollToLatest(false);
+  }, [isFocused, isInitialLoading, messages.length, scrollToLatest]);
+
+  useEffect(() => {
+    return () => {
+      if (latestScrollTimerRef.current) {
+        clearTimeout(latestScrollTimerRef.current);
+      }
+    };
+  }, []);
 
   const openCheckpoint = useCallback((checkpoint: CheckpointCardData) => {
     impact(ImpactFeedbackStyle.Light);
@@ -369,4 +400,15 @@ export default function ChatScreen() {
     </KeyboardAvoidingView>
     </PageTransition>
   );
+}
+
+function compareMessagesByCreatedAt(a: Message, b: Message) {
+  const aTime = Date.parse(a.createdAt);
+  const bTime = Date.parse(b.createdAt);
+
+  if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+    return a.id.localeCompare(b.id);
+  }
+
+  return aTime - bTime;
 }

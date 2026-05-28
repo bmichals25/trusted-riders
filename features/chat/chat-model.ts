@@ -8,6 +8,7 @@ export type Message = {
   text: string;
   sender: "operator" | "admin";
   timestamp: string;
+  createdAt: string;
   metadata?: Record<string, unknown>;
   checkpoint?: CheckpointCardData;
   pending?: boolean;
@@ -36,6 +37,7 @@ export function mapApiMessage(message: RideChatMessage): Message {
     text: message.text,
     sender: message.sender === "driver" ? "operator" : "admin",
     timestamp,
+    createdAt: message.created_at,
     metadata: message.metadata,
     checkpoint: getCheckpointCardData(message.text, message.metadata, timestamp),
   };
