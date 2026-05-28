@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Image, Pressable, Text, View, useWindowDimensions } from "react-native";
-import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,7 +12,6 @@ import { colors, radii, spacing } from "@/lib/theme";
 
 const BRAND_NAME = "TrustedRide Certified";
 const LOGO_SOURCE = require("../../assets/trustedride_certified_main_logo_transparent.png");
-const LOGO_URI = Image.resolveAssetSource(LOGO_SOURCE).uri;
 const LOGO_ASPECT_RATIO = 1409 / 427;
 const HEADER_ACTIONS_RESERVED_WIDTH = 48;
 const LOGO_OPTICAL_OFFSET_X = -12;
@@ -31,14 +29,8 @@ export function HomeBrandHeader({
   const { impact } = useHaptics();
   const { clearDispatchUnreadMessages, unreadDispatchMessageCount } = useDispatch();
   const { isTracking } = useLocation();
-  const isFocused = useIsFocused();
-  const [logoRevision, setLogoRevision] = useState(0);
   const [liveTrackerOpenRequest, setLiveTrackerOpenRequest] = useState(0);
   const compact = width < 430;
-
-  useEffect(() => {
-    if (isFocused) setLogoRevision((current) => current + 1);
-  }, [isFocused]);
 
   const logoSize = useMemo(() => {
     const centeredAvailableWidth = width - spacing.md * 2 - HEADER_ACTIONS_RESERVED_WIDTH * 2;
@@ -88,8 +80,7 @@ export function HomeBrandHeader({
           }}
         >
           <Image
-            key={`home-logo-${logoRevision}`}
-            source={{ uri: LOGO_URI }}
+            source={LOGO_SOURCE}
             accessibilityIgnoresInvertColors
             resizeMode="contain"
             style={{
