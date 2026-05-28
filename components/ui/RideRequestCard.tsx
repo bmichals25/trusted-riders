@@ -81,7 +81,7 @@ function RequestRoutePoint({ tone, label, address }: { tone: "pickup" | "dropoff
 }
 
 function RequestActionButton({ label, tone, onPress }: { label: string; tone: "primary" | "secondary" | "danger"; onPress: () => void }) {
-  const backgroundColor = tone === "primary" ? colors.primary : tone === "danger" ? colors.errorSoft : colors.surfaceLow;
+  const backgroundColor = tone === "primary" ? colors.green : tone === "danger" ? colors.errorSoft : colors.surfaceLow;
   const color = tone === "primary" ? colors.surface : tone === "danger" ? colors.error : colors.primary;
   return (
     <Pressable
@@ -96,8 +96,8 @@ function RequestActionButton({ label, tone, onPress }: { label: string; tone: "p
         alignItems: "center",
         justifyContent: "center",
         opacity: pressed ? 0.72 : 1,
-        borderWidth: tone === "secondary" ? 1 : 0,
-        borderColor: colors.slate200,
+        borderWidth: tone === "primary" ? 0 : 1,
+        borderColor: tone === "danger" ? colors.errorSoftStrong : colors.slate200,
       })}
     >
       <Text style={{ color, fontSize: 13, fontWeight: "900", textAlign: "center" }}>{label}</Text>
