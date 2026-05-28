@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TrustedRiders Prototype",
+    "name": "TrustedRIde Certified Prototype",
     "slug": "trustedriders-prototype",
     "scheme": "trustedriders",
     "orientation": "portrait",
@@ -13,9 +13,9 @@
       "buildNumber": "22",
       "supportsTablet": false,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "TrustedRiders needs your location to show your position on the map and calculate routes to pickups.",
-        "NSLocationAlwaysUsageDescription": "TrustedRiders needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "TrustedRiders needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
+        "NSLocationWhenInUseUsageDescription": "TrustedRIde Certified needs your location to show your position on the map and calculate routes to pickups.",
+        "NSLocationAlwaysUsageDescription": "TrustedRIde Certified needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "TrustedRIde Certified needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
           "waze"
@@ -48,7 +48,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "TrustedRiders needs always-on location access to navigate to pickups and share your position with dispatch during active rides, even when the app is not open.",
+          "locationAlwaysAndWhenInUsePermission": "TrustedRIde Certified needs always-on location access to navigate to pickups and share your position with dispatch during active rides, even when the app is not open.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }

@@ -92,7 +92,7 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
           Turn on location
         </Text>
         <Text style={s.subtitle}>
-          TrustedRiders needs location access to show your position on the map,
+          TrustedRIde Certified needs location access to show your position on the map,
           navigate to pickups, and share live updates with dispatch during
           active rides.
         </Text>
@@ -102,14 +102,14 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
             <Text style={s.hint}>
               {Platform.OS === "web"
                 ? "Location is blocked for this site. Tap the lock icon in the address bar, set Location to Allow, then try again."
-                : "Location is turned off for TrustedRiders. Open Settings to re-enable it."}
+                : "Location is turned off for TrustedRIde Certified. Open Settings to re-enable it."}
             </Text>
             <Pressable
               style={s.button}
               onPress={Platform.OS === "web" ? onReload : onOpenSettings}
               accessibilityRole="button"
               accessibilityLabel={Platform.OS === "web" ? "Enable tracking" : "Open Settings"}
-              accessibilityHint={Platform.OS === "web" ? "Reloads after you allow location in the browser." : "Opens iOS Settings for TrustedRiders."}
+              accessibilityHint={Platform.OS === "web" ? "Reloads after you allow location in the browser." : "Opens iOS Settings for TrustedRIde Certified."}
             >
               <Text style={s.buttonText}>
                 {Platform.OS === "web" ? "Enable Tracking" : "Open Settings"}

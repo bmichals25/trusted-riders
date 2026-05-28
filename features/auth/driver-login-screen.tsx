@@ -25,6 +25,7 @@ import { colors, radii, spacing } from "@/lib/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+const BRAND_NAME = "TrustedRIde Certified";
 
 export function DriverLoginScreen({
   canSubmit,
@@ -173,19 +174,19 @@ export function DriverLoginScreen({
         <Animated.View style={[s.hero, heroAnimatedStyle]}>
           <Animated.View style={[s.heroKicker, heroKickerAnimatedStyle]}>
             <View style={s.dot} />
-            <Text style={s.kickerText}>TrustedRiders Portal</Text>
+            <Text style={s.kickerText}>TrustedRIde Certified Portal</Text>
           </Animated.View>
 
           <Animated.Image
             source={require("../../assets/TR_favicon.png")}
-            accessibilityLabel="TrustedRiders"
+            accessibilityLabel={BRAND_NAME}
             resizeMode="contain"
             style={[s.heroIcon, heroIconAnimatedStyle]}
           />
 
           <Animated.View style={[s.heroText, heroTextAnimatedStyle]}>
             <Animated.Text style={[s.heroTitle, heroTitleAnimatedStyle]}>
-              TrustedRiders
+              {BRAND_NAME}
             </Animated.Text>
             <Animated.Text style={[s.heroSub, heroSubAnimatedStyle]}>
               Operator authentication
@@ -208,7 +209,7 @@ export function DriverLoginScreen({
               autoComplete="email"
               autoCorrect={false}
               accessibilityLabel="Email"
-              accessibilityHint="Enter the email address assigned to your TrustedRiders driver account."
+              accessibilityHint="Enter the email address assigned to your TrustedRIde Certified driver account."
               keyboardType="email-address"
               textContentType="emailAddress"
               returnKeyType="next"
@@ -235,7 +236,7 @@ export function DriverLoginScreen({
                 onChangeText={onPasswordChange}
                 secureTextEntry={!passwordVisible}
                 accessibilityLabel="Password"
-                accessibilityHint="Enter your TrustedRiders driver account password."
+                accessibilityHint="Enter your TrustedRIde Certified driver account password."
                 autoCapitalize="none"
                 autoComplete="current-password"
                 autoCorrect={false}

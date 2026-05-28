@@ -263,7 +263,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         deferredUpdatesInterval: 10000,
         showsBackgroundLocationIndicator: true,
         foregroundService: {
-          notificationTitle: "TrustedRiders",
+          notificationTitle: "TrustedRIde Certified",
           notificationBody: "Tracking your location during active mission",
           notificationColor: "#2563EB",
         },
