@@ -38,7 +38,7 @@ export function OperatorSummary({
   return (
     <View
       accessible
-      accessibilityLabel={`Chaperone ${name}. On duty. ${hasAlwaysLocationAccess ? "Always location ready." : "Always location required before tracking."} ${isTracking ? "Live location broadcasting." : "Live location paused."}`}
+      accessibilityLabel={`Chaperone ${name}. On duty. ${hasAlwaysLocationAccess ? "Background location ready." : "Background location needs Always permission before live tracking."} ${isTracking ? "Live location broadcasting." : "Live location paused."}`}
       style={{
         marginHorizontal: spacing.md,
         marginBottom: spacing.md,
@@ -76,7 +76,7 @@ export function OperatorSummary({
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <StatusChip label="On duty" tone="good" />
           <StatusChip
-            label={hasAlwaysLocationAccess ? "Always ready" : "Always needed"}
+            label={hasAlwaysLocationAccess ? "Background ready" : "Needs Always"}
             tone={hasAlwaysLocationAccess ? "good" : "warning"}
           />
           <StatusChip label={isTracking ? "Broadcasting" : "Paused"} tone={isTracking ? "good" : "muted"} />

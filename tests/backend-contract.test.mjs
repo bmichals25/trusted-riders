@@ -333,6 +333,10 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
   assert.equal(dispatchContext.isCurrentRideStatus("completed"), false);
   assert.equal(dispatchContext.shouldStopTrackingAfterGpsResponse(false), true);
   assert.equal(dispatchContext.shouldStopTrackingAfterGpsResponse(true), false);
+  assert.equal(dispatchContext.shouldApplyIncomingGpsOff("gps_off", "dispatch"), true);
+  assert.equal(dispatchContext.shouldApplyIncomingGpsOff("gps_off", "admin"), true);
+  assert.equal(dispatchContext.shouldApplyIncomingGpsOff("gps_off", "driver"), false);
+  assert.equal(dispatchContext.shouldApplyIncomingGpsOff("gps_ask", "dispatch"), false);
   assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint(undefined, { id: "184", status: "completed" }), true);
   assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "in_transit" }, { id: "184", status: "completed" }), true);
   assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "completed" }, { id: "184", status: "completed" }), false);

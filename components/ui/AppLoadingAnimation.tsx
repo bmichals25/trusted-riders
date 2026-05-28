@@ -12,7 +12,7 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { colors } from "@/lib/theme";
 
 const LOADING_VIDEO = require("../../assets/trustedride-loading-animation.mp4");
-const HANDOFF_DELAY_MS = 3750;
+const PLAYBACK_FALLBACK_MS = 6500;
 
 export function AppLoadingAnimation({
   exiting = false,
@@ -48,7 +48,7 @@ export function AppLoadingAnimation({
 
     const readyFallbackTimer = setTimeout(() => {
       markReady();
-    }, HANDOFF_DELAY_MS);
+    }, PLAYBACK_FALLBACK_MS);
 
     return () => {
       endSubscription.remove();

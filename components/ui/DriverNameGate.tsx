@@ -21,6 +21,7 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 type StartupPresentationValue = {
+  reloadAppToHome: () => void;
   replayStartupAnimation: () => void;
   startupAnimationVisible: boolean;
   startupAnimationExiting: boolean;
@@ -28,6 +29,7 @@ type StartupPresentationValue = {
 };
 
 const StartupPresentationContext = createContext<StartupPresentationValue>({
+  reloadAppToHome: () => {},
   replayStartupAnimation: () => {},
   startupAnimationVisible: false,
   startupAnimationExiting: false,
@@ -141,14 +143,22 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     setStartupAnimationVisible(true);
     setStartupAnimationKey((key) => key + 1);
   }, []);
+  const reloadAppToHome = useCallback(() => {
+    setStartupAnimationComplete(false);
+    setStartupAnimationReady(false);
+    setStartupAnimationExiting(false);
+    setStartupAnimationVisible(true);
+    setStartupAnimationKey((key) => key + 1);
+  }, []);
   const startupPresentationValue = useMemo<StartupPresentationValue>(
     () => ({
+      reloadAppToHome,
       replayStartupAnimation,
       startupAnimationVisible,
       startupAnimationExiting,
       startupAnimationComplete,
     }),
-    [replayStartupAnimation, startupAnimationComplete, startupAnimationExiting, startupAnimationVisible],
+    [reloadAppToHome, replayStartupAnimation, startupAnimationComplete, startupAnimationExiting, startupAnimationVisible],
   );
 
   const appContent = session ? (

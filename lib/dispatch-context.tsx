@@ -2,8 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { Alert, AppState, type AppStateStatus } from "react-native";
 import {
   fetchRides,
+  clearActiveRideId,
   isFleetApiError,
   isFleetApiRefreshSkippedError,
+  setActiveRideId,
   updateLocation,
   updateRideStatus,
 } from "./fleet-api";
@@ -77,6 +79,10 @@ export function isCurrentRideStatus(status: RideStatus): boolean {
     status === "picked_up" ||
     status === "in_transit"
   );
+}
+
+export function shouldApplyIncomingGpsOff(command: ReturnType<typeof getChatCommandType>, sender: RideChatMessage["sender"]): boolean {
+  return command === "gps_off" && sender !== "driver";
 }
 
 function isTerminalRideStatus(status: RideStatus): boolean {
@@ -266,6 +272,20 @@ export function DispatchProvider({
   }, [isTracking]);
 
   useEffect(() => {
+    if (!isTracking) {
+      void clearActiveRideId();
+      return;
+    }
+
+    const activeRideId = activeRideIdRef.current;
+    if (activeRideId) {
+      void setActiveRideId(activeRideId);
+    } else {
+      void clearActiveRideId();
+    }
+  }, [activeRideInState?.id, isTracking]);
+
+  useEffect(() => {
     if (DEMO_MODE || !gpsSharingApprovedRef.current || !isTracking || !location) return;
 
     const ts = new Date().toISOString();
@@ -432,6 +452,12 @@ export function DispatchProvider({
         if (message.sender === "driver") continue;
 
         const command = getChatCommandType(message.metadata);
+        if (shouldApplyIncomingGpsOff(command, message.sender)) {
+          processedChatCommandIdsRef.current.add(message.id);
+          gpsSharingApprovedRef.current = false;
+          stopTracking();
+          continue;
+        }
         if (command !== "gps_ask") continue;
         if (gpsPromptOpenRef.current) break;
 

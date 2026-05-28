@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { SymbolView } from "expo-symbols";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,8 +23,11 @@ export function RideRequestsScreenContent() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refreshRides();
-    setRefreshing(false);
+    try {
+      await refreshRides();
+    } finally {
+      setRefreshing(false);
+    }
   }, [refreshRides]);
 
   const openChat = useCallback((ride: DispatchedRide) => {
@@ -76,7 +80,7 @@ export function RideRequestsScreenContent() {
             ))
           ) : (
             <FadeInBlock delay={90}>
-              <EmptyRequests />
+              <EmptyRequests refreshing={refreshing} />
             </FadeInBlock>
           )}
         </ScrollView>
@@ -111,18 +115,73 @@ function RideRequestsHeader({ count, topInset }: { count: number; topInset: numb
   );
 }
 
-function EmptyRequests() {
+function EmptyRequests({ refreshing }: { refreshing: boolean }) {
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radii.sm, padding: spacing.lg, gap: spacing.sm, alignItems: "center", marginTop: spacing.lg, ...shadows.soft }}>
-      <View style={{ width: 44, height: 44, borderRadius: radii.pill, backgroundColor: colors.blueSoft, alignItems: "center", justifyContent: "center", marginBottom: 2 }}>
-        <Text style={{ color: colors.blueStrong, fontSize: 18, fontWeight: "900" }}>0</Text>
+    <View
+      accessible
+      accessibilityLabel="No pending ride requests. Pull down to refresh and keep this screen ready for dispatch assignments."
+      style={{
+        backgroundColor: colors.surface,
+        borderRadius: radii.md,
+        borderCurve: "continuous",
+        padding: spacing.lg,
+        gap: spacing.md,
+        alignItems: "center",
+        marginTop: spacing.lg,
+        borderWidth: 1,
+        borderColor: colors.slate100,
+        ...shadows.soft,
+      }}
+    >
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{
+          width: 54,
+          height: 54,
+          borderRadius: radii.lg,
+          backgroundColor: colors.blueSoft,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <SymbolView
+          name="tray.fill"
+          size={25}
+          type="hierarchical"
+          tintColor={colors.blueStrong}
+          weight="semibold"
+        />
       </View>
-      <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "900", textAlign: "center" }}>
-        No pending requests
-      </Text>
-      <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", textAlign: "center", lineHeight: 19 }}>
-        New ride requests will appear here as dispatch sends them.
-      </Text>
+      <View style={{ gap: 6, alignItems: "center" }}>
+        <Text style={{ color: colors.primary, fontSize: 19, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>
+          No pending requests
+        </Text>
+        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", textAlign: "center", lineHeight: 19, maxWidth: 260 }}>
+          New ride requests will appear here as dispatch sends them. Pull down to check again.
+        </Text>
+      </View>
+      <View
+        style={{
+          minHeight: 40,
+          alignSelf: "stretch",
+          borderRadius: radii.sm,
+          backgroundColor: colors.surfaceLow,
+          borderWidth: 1,
+          borderColor: colors.slate100,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: spacing.sm,
+        }}
+      >
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
+          Dispatch watch
+        </Text>
+        <Text style={{ color: refreshing ? colors.blueStrong : colors.greenStrong, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
+          {refreshing ? "Refreshing" : "Ready"}
+        </Text>
+      </View>
     </View>
   );
 }

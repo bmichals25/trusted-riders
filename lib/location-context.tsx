@@ -250,7 +250,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
       setBackgroundPermissionStatus(permission.status);
       if (permission.status !== Location.PermissionStatus.GRANTED) {
-        setError("Always location access is required while live tracking is on.");
+        setError("Allow Always location in iOS Settings so tracking can continue while the phone is locked.");
         return false;
       }
 
@@ -287,6 +287,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       if (isRunning) {
         await Location.stopLocationUpdatesAsync(BACKGROUND_TASK_NAME);
       }
+      await clearActiveRideId();
       backgroundTrackingRef.current = false;
     } catch {
       // Ignore — may not have been started
@@ -399,7 +400,15 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
           const isBackgroundRunning =
             await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME);
           if (!mounted) return;
-          if (isBackgroundRunning) {
+          if (isBackgroundRunning && background.status === Location.PermissionStatus.GRANTED) {
+            backgroundTrackingRef.current = true;
+            shouldTrackRef.current = true;
+            setIsTracking(true);
+            setError(null);
+            if (foreground.status === Location.PermissionStatus.GRANTED && AppState.currentState === "active") {
+              await startWatcher();
+            }
+          } else if (isBackgroundRunning) {
             await Location.stopLocationUpdatesAsync(BACKGROUND_TASK_NAME);
             await clearActiveRideId();
           }
@@ -418,7 +427,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       stopWatcher();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [startWatcher, stopWatcher]);
 
   return (
     <LocationContext.Provider

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { useRouter } from "expo-router";
-import { useNavigation } from "@react-navigation/native";
+import { CommonActions, type NavigationProp, type ParamListBase, useNavigation } from "@react-navigation/native";
 import { Alert, Linking, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,8 +22,7 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<ParamListBase>>();
   const {
     isTracking,
     permissionStatus,
@@ -34,7 +32,7 @@ export default function SettingsScreen() {
     stopTracking,
   } = useLocation();
   const { signOut, session } = useAuth();
-  const { replayStartupAnimation } = useStartupPresentation();
+  const { reloadAppToHome } = useStartupPresentation();
   const [signingOut, setSigningOut] = useState(false);
   const { hapticsEnabled, setHapticsEnabled, selection, notification } = useHaptics();
   const profileName = session?.name ?? "Chaperone";
@@ -42,8 +40,8 @@ export default function SettingsScreen() {
   const backgroundLocationValue = hasAlwaysLocationAccess
     ? "Always"
     : isTracking
-      ? "Required"
-      : "Required to track";
+      ? "Needs Always"
+      : "Needed before live tracking";
 
   const performSignOut = async () => {
     if (signingOut) return;
@@ -76,22 +74,31 @@ export default function SettingsScreen() {
 
   const handleReloadApp = () => {
     selection();
-    replayStartupAnimation();
+    reloadAppToHome();
     requestAnimationFrame(() => {
-      let tabNavigation = navigation.getParent();
-      let tabState = tabNavigation?.getState();
+      let rootNavigation = navigation;
+      let parentNavigation = rootNavigation.getParent<NavigationProp<ParamListBase>>();
 
-      while (tabNavigation && tabState && !tabState.routeNames?.includes("index")) {
-        tabNavigation = tabNavigation.getParent();
-        tabState = tabNavigation?.getState();
+      while (parentNavigation) {
+        rootNavigation = parentNavigation;
+        parentNavigation = rootNavigation.getParent<NavigationProp<ParamListBase>>();
       }
 
-      tabNavigation?.dispatch({
-        type: "JUMP_TO",
-        target: tabState?.key,
-        payload: { name: "index" },
-      });
-      router.replace("/");
+      rootNavigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [
+            {
+              name: "(tabs)",
+              state: {
+                type: "tab",
+                index: 0,
+                routes: [{ name: "index" }, { name: "mission" }, { name: "settings" }],
+              },
+            },
+          ],
+        }),
+      );
     });
   };
 
@@ -135,7 +142,7 @@ export default function SettingsScreen() {
           <FadeInBlock delay={150}>
             <SettingsSection
               kicker="Operations"
-              footer="Location controls affect dispatch visibility during active rides."
+              footer="Tracking stays off until approved by the chaperone or dispatch GPS metadata. Once on, iOS Always access keeps dispatch updated while the phone is locked."
             >
               <ToggleRow
                 label="Live Location"
