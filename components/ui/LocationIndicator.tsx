@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Alert, Modal, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -17,7 +17,13 @@ import { useLocation } from "@/lib/location-context";
 import { colors, radii, spacing } from "@/lib/theme";
 import { LocationDotMarker } from "./LocationDotMarker";
 
-export function LocationIndicator() {
+export function LocationIndicator({
+  backendConnected = true,
+  backendError,
+}: {
+  backendConnected?: boolean;
+  backendError?: string | null;
+}) {
   const { location, isTracking } = useLocation();
   const { impact, selection } = useHaptics();
   const [mapOpen, setMapOpen] = useState(false);
@@ -41,36 +47,173 @@ export function LocationIndicator() {
 
   return (
     <>
-      <Pressable
-        onPress={() => {
-          impact(ImpactFeedbackStyle.Light);
-          setMapOpen(true);
+      <View
+        style={{
+          minHeight: 34,
+          borderRadius: 13,
+          backgroundColor: colors.surfaceLow,
+          flexDirection: "row",
+          alignItems: "center",
+          overflow: "hidden",
         }}
-        accessibilityRole="button"
-        accessibilityLabel={isTracking ? "Location tracking active, tap to view map" : "Location tracking off"}
-        style={{ paddingLeft: 12, paddingRight: 16, paddingVertical: 8, marginRight: 4, flexDirection: "row", alignItems: "center", gap: 6 }}
       >
-        <Animated.View
-          style={[
-            {
-              width: 10,
-              height: 10,
-              borderRadius: 5,
-              backgroundColor: isTracking ? colors.green : colors.slate300,
-            },
-            isTracking ? pulseStyle : undefined,
-          ]}
+        <StatusFlag
+          label={isTracking ? "Enabled" : "Off"}
+          active={isTracking}
+          icon="tracking"
+          activeColor={colors.green}
+          inactiveColor={colors.slate400}
+          pulseStyle={isTracking ? pulseStyle : undefined}
+          accessibilityLabel={isTracking ? "Tracking enabled, tap to view map" : "Tracking off, tap to view map"}
+          onPress={() => {
+            impact(ImpactFeedbackStyle.Light);
+            setMapOpen(true);
+          }}
         />
-        <Text style={{ color: isTracking ? colors.green : colors.slate400, fontSize: 13, fontWeight: "600" }}>
-          {isTracking ? "Live" : "Off"}
-        </Text>
-      </Pressable>
+        <View style={{ width: 1, height: 18, backgroundColor: colors.slate200 }} />
+        <StatusFlag
+          label={backendConnected ? "Connected" : "Disconnected"}
+          active={backendConnected}
+          icon="server"
+          activeColor={colors.blue}
+          inactiveColor={colors.error}
+          accessibilityLabel={backendConnected ? "Connected to backend server" : "Backend server disconnected"}
+          onPress={() => {
+            impact(ImpactFeedbackStyle.Light);
+            Alert.alert(
+              backendConnected ? "Connected" : "Disconnected",
+              backendConnected
+                ? "This device is connected to the TrustedRiders backend server."
+                : backendError ?? "This device is not currently connected to the TrustedRiders backend server.",
+            );
+          }}
+        />
+      </View>
 
       <LocationMapModal
         visible={mapOpen}
         onClose={() => setMapOpen(false)}
       />
     </>
+  );
+}
+
+function StatusFlag({
+  label,
+  active,
+  icon,
+  activeColor,
+  inactiveColor,
+  pulseStyle,
+  accessibilityLabel,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  icon: "tracking" | "server";
+  activeColor: string;
+  inactiveColor: string;
+  pulseStyle?: ReturnType<typeof useAnimatedStyle>;
+  accessibilityLabel: string;
+  onPress: () => void;
+}) {
+  const color = active ? activeColor : inactiveColor;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={({ pressed }) => ({
+        minHeight: 34,
+        paddingLeft: 9,
+        paddingRight: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        backgroundColor: pressed ? colors.surfaceHigh : "transparent",
+        opacity: pressed ? 0.72 : 1,
+      })}
+    >
+      <StatusFlagIcon type={icon} color={color} pulseStyle={pulseStyle} />
+      <Text style={{ color, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function StatusFlagIcon({
+  type,
+  color,
+  pulseStyle,
+}: {
+  type: "tracking" | "server";
+  color: string;
+  pulseStyle?: ReturnType<typeof useAnimatedStyle>;
+}) {
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 16,
+          height: 16,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        pulseStyle,
+      ]}
+    >
+      {type === "tracking" ? <TrackingGlyph color={color} /> : <ServerGlyph color={color} />}
+    </Animated.View>
+  );
+}
+
+function TrackingGlyph({ color }: { color: string }) {
+  return (
+    <View style={{ width: 13, height: 13, alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{
+          position: "absolute",
+          width: 11,
+          height: 11,
+          borderRadius: 6,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          position: "absolute",
+          width: 5,
+          height: 5,
+          borderRadius: 3,
+          backgroundColor: colors.surface,
+        }}
+      />
+      <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: color }} />
+    </View>
+  );
+}
+
+function ServerGlyph({ color }: { color: string }) {
+  return (
+    <View style={{ width: 13, height: 12, gap: 2 }}>
+      {[0, 1].map((row) => (
+        <View
+          key={row}
+          style={{
+            height: 5,
+            borderRadius: 2.5,
+            backgroundColor: color,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            paddingRight: 2,
+          }}
+        >
+          <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: colors.surface }} />
+        </View>
+      ))}
+    </View>
   );
 }
 

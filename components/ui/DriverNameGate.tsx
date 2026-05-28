@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { colors, spacing, radii } from "@/lib/theme";
 import { clearToken, login, restoreToken } from "@/lib/fleet-api";
-import { registerForPushNotifications } from "@/lib/push";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import * as storage from "@/lib/storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -52,6 +52,13 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
+    if (DEMO_MODE) {
+      setEmail("demo@trustedriders.org");
+      setSession({ name: "Jordan Mitchell" });
+      setLoading(false);
+      return;
+    }
+
     // Rehydrate stored credentials on boot. If the token is still present
     // alongside the name, skip the login form and go straight into the app.
     Promise.all([
@@ -62,9 +69,6 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
       if (storedEmail) setEmail(storedEmail);
       if (storedName && storedToken) {
         setSession({ name: storedName });
-        // Re-register the push token on every cold boot so dispatch always
-        // has the current one (tokens can rotate on reinstall or OS restore).
-        void registerForPushNotifications();
       }
       setLoading(false);
     });
@@ -91,21 +95,17 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-    if (!trimmedEmail || !trimmedPassword) return;
+    if (!trimmedEmail || !password) return;
 
     setSubmitting(true);
     setError(null);
     try {
-      const user = await login(trimmedEmail, trimmedPassword);
+      const user = await login(trimmedEmail, password);
       await storage.set(DRIVER_NAME_KEY, user.name);
       await storage.set(DRIVER_EMAIL_KEY, trimmedEmail);
       setSession({ name: user.name });
-      // Ask for notification permission + hand our push token to the backend.
-      // Fire-and-forget — failures don't block entry to the app.
-      void registerForPushNotifications();
-    } catch {
-      setError("Invalid email or password");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to sign in.");
     } finally {
       setSubmitting(false);
     }
@@ -132,7 +132,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   }
 
   if (!session) {
-    const canSubmit = !!email.trim() && !!password.trim() && !submitting;
+    const canSubmit = !!email.trim() && !!password && !submitting;
     const webInputStyle =
       Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null;
 

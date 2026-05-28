@@ -46,14 +46,6 @@
       "expo-router",
       "expo-task-manager",
       [
-        "expo-camera",
-        {
-          "cameraPermission": "TrustedRiders uses the camera to scan another driver's verification QR code.",
-          "barcodeScannerEnabled": true,
-          "recordAudioAndroid": false
-        }
-      ],
-      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "TrustedRiders needs always-on location access to navigate to pickups and share your position with dispatch during active rides, even when the app is not open.",

@@ -1,0 +1,11 @@
+{
+  "name": "trustedriders-scope-board",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "../dispatch/node_modules/.bin/vite --host 0.0.0.0 --port 3004",
+    "build": "../dispatch/node_modules/.bin/vite build",
+    "preview": "../dispatch/node_modules/.bin/vite preview --host 0.0.0.0 --port 3004"
+  }
+}

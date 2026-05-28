@@ -1,17 +1,10 @@
-// API keys for external services.
-// Set EXPO_PUBLIC_GOOGLE_DIRECTIONS_KEY in your environment or .env file.
-// For development, you can hardcode a key here temporarily.
-
-export const GOOGLE_DIRECTIONS_API_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_KEY ?? "";
-
 // Fleet Tracking API (Flask backend) — the single source for backend data.
 // Set EXPO_PUBLIC_FLEET_API_URL when the backend URL rotates.
 export const FLEET_API_URL = (
   process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://trdev.tailff74b1.ts.net"
 ).replace(/\/+$/, "");
 
-// TrustedRiders emergency dispatch line used by the in-app Emergency modals.
+// TrustedRiders dispatch line used by the Admin Chat call button.
 // The 555-prefix default is a placeholder — set EXPO_PUBLIC_DISPATCH_PHONE to
 // the real hotline in E.164 format (e.g. +15551234567) before shipping to
 // real drivers.

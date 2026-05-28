@@ -1,64 +1,55 @@
 # TrustedRiders
 
-Operator-facing mobile app for the TrustedRiders non-emergency medical transport
-dispatch platform. Expo / React Native; iOS-first with a working web preview for
-development.
+Slim V1 chaperone app for TrustedRiders non-emergency medical transport work.
+Expo / React Native; iOS-first with a web preview for day-to-day development.
 
-All production backend data is expected to come from Suresh's Fleet Tracking
-API at `https://trdev.tailff74b1.ts.net`.
+Production backend data comes from Suresh's Fleet Tracking API at:
 
----
+```text
+https://trdev.tailff74b1.ts.net
+```
+
+## Current V1 Scope
+
+- Email/password login, token restore, and sign-out
+- Location permission gate before the app shell opens
+- Home screen with current ride, ride requests, scheduled rides, ride status toast, and pull-to-refresh
+- Ride request accept, decline, and admin chat entry
+- Active mission screen with background location tracking and map-app navigation
+- Admin chat with message polling every 2.5 seconds and dispatch call button
+- Settings with profile readout, location tracking toggle, haptics toggle, and sign-out
+- Fleet API client for login, rides, ride details, status updates for accept/decline, and location updates
+
+Deferred items such as past rides, ride detail pages, push registration, QR verification, emergency actions, mission stage advancement, dispatch web experiments, temporary chat backend, and demo artifacts are intentionally absent from this branch.
 
 ## Prerequisites
 
-- **Node.js 20+** (the dispatch sub-project declares `engines.node ≥ 18`)
-- **npm 10+**
-- **iOS**: Xcode 15+ and a simulator, or a real device with
-  [Expo Go](https://apps.apple.com/us/app/expo-go/id982107779). For production
-  builds, an active Apple Developer Program membership and the EAS CLI.
-- **Android** (optional): Android Studio with an emulator or a real device.
-- **Web** (optional): any modern browser.
+- Node.js 20+
+- npm 10+
+- iOS: Xcode 15+ and a simulator, or a real device with Expo Go
+- Android optional: Android Studio with an emulator or a real device
+- Web optional: any modern browser
 
----
-
-## First-time setup
+## Setup
 
 ```bash
-# From the repo root
 npm install
-
-# Legacy dispatch console only, if you are intentionally testing old relay flows
-cd dispatch && npm install && cd ..
 ```
 
----
-
-## Running the driver app
-
-From the repo root:
+## Run
 
 ```bash
-# Web preview (fastest; most UI renders identically to iOS)
 npm run web
-
-# iOS simulator — opens Metro, then launches the simulator
 npm run ios
-
-# Android emulator
 npm run android
-
-# Or start Metro on its own and pick a target from the menu
 npm start
 ```
 
-Expo serves the bundle at **http://localhost:8081** by default (or 8083 if a
-`--port` flag is set). The web preview renders at that URL.
+Expo serves the bundle at `http://localhost:8081` by default, unless a different port is chosen.
 
-### Sign in
+## Backend URL
 
-The sign-in form authenticates against Suresh's Fleet Tracking Flask backend.
-The app points at the canonical ngrok URL defined in
-[`lib/config.ts`](lib/config.ts):
+The default Fleet API URL is defined in [lib/config.ts](/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/lib/config.ts):
 
 ```ts
 export const FLEET_API_URL =
@@ -66,113 +57,50 @@ export const FLEET_API_URL =
   "https://trdev.tailff74b1.ts.net";
 ```
 
-When the backend URL rotates, restart Metro with the override:
+Override it when needed:
 
 ```bash
 EXPO_PUBLIC_FLEET_API_URL=https://new-backend-url.example npm run ios
 ```
 
-The token is persisted in `AsyncStorage` / `localStorage` so reloads stay
-authenticated for the JWT lifetime (~24h). Signing out from Settings clears
-it.
+## Dispatch Phone
 
-### Emergency dispatch phone
-
-The in-app Emergency modals dial the TrustedRiders dispatch hotline. Set it
-via `EXPO_PUBLIC_DISPATCH_PHONE` in E.164 format (e.g. `+15551234567`). The
-default at [`lib/config.ts`](lib/config.ts) is a 555-prefix placeholder that
-won't actually route, so override before shipping to real drivers:
+Admin chat includes a dispatch call button. Set the phone number via `EXPO_PUBLIC_DISPATCH_PHONE` in E.164 format:
 
 ```bash
-EXPO_PUBLIC_DISPATCH_PHONE=+15551234567 eas build --profile production --platform ios
+EXPO_PUBLIC_DISPATCH_PHONE=+15551234567 npm run ios
 ```
 
----
-
-## Legacy Dispatch Console
-
-The `dispatch/` app is retained for historical/local experiments. The mobile
-app no longer depends on its WebSocket relay.
-
-From the repo root:
-
-```bash
-cd dispatch
-
-# Both the Vite console and the old WebSocket relay
-npm run dev
-
-# Or run them separately
-npm run relay         # node server.js — relay on port 3002
-npx vite --port 3001  # console on http://localhost:3001
-```
-
----
-
-## Type-checking
+## Typecheck
 
 ```bash
 npm run typecheck
 ```
 
----
+## Notable Paths
 
-## Production builds (iOS / TestFlight)
+| Path | Purpose |
+| --- | --- |
+| `app/` | Expo Router screens for home, mission, settings, and chat |
+| `components/ui/` | Shared presentation components |
+| `lib/dispatch-context.tsx` | Ride polling, status toast state, accept/decline, and GPS posting |
+| `lib/fleet-api.ts` | Authenticated Fleet API client |
+| `lib/location-context.tsx` | Foreground and background location tracking |
+| `lib/chat-api.ts` | Backend admin chat list/send helpers |
+| `lib/theme.ts` | Design-system tokens |
+| `assets/` | TrustedRiders brand assets |
 
-EAS is already configured — see [`eas.json`](eas.json) and the `expo.extra.eas`
-entry in [`app.json`](app.json).
+## Production Builds
+
+EAS is configured in [eas.json](/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/eas.json) and [app.json](/Users/benmichals/ClaudeCodeTest/COMPANIES/TRUSTEDRIDERS_April_2026/app.json).
 
 ```bash
-# One-time: install EAS CLI and sign in
 npm install -g eas-cli
 eas login
-
-# Production build for TestFlight
 eas build --profile production --platform ios
-
-# Submit the latest build to App Store Connect
 eas submit --platform ios --latest
 ```
 
-EAS will prompt for your Apple ID, password, and 2FA code on the first build;
-credentials are cached after that. The first TestFlight submission walks you
-through creating the App Store Connect record (bundle id
-`com.trustedriders.prototype`).
-
----
-
-## Notable scripts & paths
-
-| Script / path                              | What it does                                             |
-| ------------------------------------------ | -------------------------------------------------------- |
-| `npm run web` / `ios` / `android`          | Start Metro for the named platform                       |
-| `npm run typecheck`                        | `tsc --noEmit`                                           |
-| `app/`                                     | Expo Router routes (`index`, `mission`, `chat`, …)       |
-| `components/ui/`                           | Shared presentation components                           |
-| `lib/`                                     | Contexts (auth, dispatch, haptics, location), API client |
-| `lib/theme.ts`                             | Design-system tokens — source of truth for DESIGN.md     |
-| `assets/`                                  | Brand logo + icon                                        |
-| `dispatch/`                                | Legacy Vite console + WebSocket relay                    |
-| `DESIGN.md`                                | "Vigilant Command Center" design language                |
-
----
-
-## Design language
-
-See [`DESIGN.md`](DESIGN.md) — the *Vigilant Command Center* rule set. Tight
-radii (4/8 px), tonal layering instead of dividers, dark gradient reserved for
-hero elements and primary actions, editorial hierarchy over consumer-app
-softness.
-
----
-
 ## Permissions
 
-The app requests:
-
-- **Location when-in-use + always** — shown to the user via
-  [`LocationSetupGate`](components/ui/LocationSetupGate.tsx) after sign-in;
-  required for the map, pickup navigation, and live Fleet API updates.
-- **Background location** (iOS `UIBackgroundModes: location`, Android
-  `FOREGROUND_SERVICE_LOCATION`) — used during an active mission to keep
-  the Fleet API updated while the app is in the background.
+The app requests foreground location after sign-in and background location during an active mission so dispatch can keep receiving GPS pings while the app is open, backgrounded, or the phone is locked.

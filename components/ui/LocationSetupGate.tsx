@@ -13,6 +13,7 @@ import * as Location from "expo-location";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { colors, radii, spacing } from "@/lib/theme";
 
 /**
@@ -61,6 +62,10 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
       window.location.reload();
     }
   }, [impact]);
+
+  if (DEMO_MODE) {
+    return <>{children}</>;
+  }
 
   if (permissionStatus === null) {
     return (

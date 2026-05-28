@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useReducedMotion,
@@ -15,6 +16,7 @@ type Props = {
   delay?: number;
   distance?: number;
   duration?: number;
+  exitDelay?: number;
   exitDuration?: number;
   style?: any;
 };
@@ -39,6 +41,7 @@ export function FadeInBlock({
   delay = 0,
   distance = 14,
   duration = 420,
+  exitDelay = 0,
   exitDuration = 220,
   style,
 }: Props) {
@@ -47,6 +50,8 @@ export function FadeInBlock({
   const isFocused = useIsFocused();
 
   useEffect(() => {
+    cancelAnimation(progress);
+
     if (reduced) {
       progress.value = isFocused ? 1 : 0;
       return;
@@ -61,19 +66,22 @@ export function FadeInBlock({
       );
     } else {
       // Screen is being transitioned away — collapse back to hidden state.
-      progress.value = withTiming(0, {
-        duration: exitDuration,
-        easing: Easing.bezier(0.4, 0, 1, 1),
-      });
+      progress.value = withDelay(
+        exitDelay,
+        withTiming(0, {
+          duration: exitDuration,
+          easing: Easing.bezier(0.4, 0, 1, 1),
+        }),
+      );
     }
-  }, [isFocused, delay, duration, exitDuration, progress, reduced]);
+  }, [isFocused, delay, duration, exitDelay, exitDuration, progress, reduced]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
     transform: [{ translateY: (1 - progress.value) * distance }],
   }));
 
-  if (Platform.OS !== "web" || reduced) {
+  if (reduced) {
     return <View style={style}>{children}</View>;
   }
 

@@ -1,5 +1,5 @@
 import { Pressable, Text } from "react-native";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
@@ -11,7 +11,13 @@ import { colors } from "@/lib/theme";
  * tap target with a subtle press fade — matches the "Vigilant Command Center"
  * aesthetic of tight, editorial controls.
  */
-export function BackChevron() {
+export function BackChevron({
+  fallbackHref,
+  preferFallback = false,
+}: {
+  fallbackHref?: Href;
+  preferFallback?: boolean;
+}) {
   const router = useRouter();
   const { impact } = useHaptics();
 
@@ -19,8 +25,13 @@ export function BackChevron() {
     <Pressable
       onPress={() => {
         impact(ImpactFeedbackStyle.Light);
-        if (router.canGoBack()) router.back();
-        else router.replace("/");
+        if (preferFallback && fallbackHref) {
+          router.replace(fallbackHref);
+        } else if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace(fallbackHref ?? "/");
+        }
       }}
       accessibilityRole="button"
       accessibilityLabel="Back"

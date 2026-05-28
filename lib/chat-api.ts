@@ -1,4 +1,6 @@
 import { FLEET_API_URL } from "./config";
+import { demoChatMessages, demoChatStatus } from "./demo-data";
+import { DEMO_MODE } from "./demo-mode";
 import { getToken } from "./fleet-api";
 
 export type ChatSender = "driver" | "dispatch" | "admin" | "system";
@@ -45,6 +47,7 @@ type CreateMessageResponse = RideChatMessage | {
 };
 
 const CHAT_FETCH_TIMEOUT_MS = 8000;
+const DISPATCH_CHAT_ROOM_ID = "dispatch";
 
 async function chatFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
@@ -84,14 +87,25 @@ export async function listRideChatMessages(
   rideId: string,
   afterId?: string,
 ): Promise<RideChatMessage[]> {
-  const query = afterId ? `?after_id=${encodeURIComponent(afterId)}` : "";
+  if (DEMO_MODE) {
+    const messages = demoChatMessages(rideId);
+    if (!afterId) return messages;
+    const index = messages.findIndex((message) => message.id === afterId);
+    return index >= 0 ? messages.slice(index + 1) : messages;
+  }
+
   const data = await chatFetch<ListMessagesResponse>(
-    `/api/chat/rides/${encodeURIComponent(rideId)}/messages${query}`,
+    buildListChatMessagesPath(afterId),
   );
-  return Array.isArray(data) ? data : data.messages;
+  const messages = Array.isArray(data) ? data : data.messages;
+  return messages
+    .map((message) => normalizeChatMessage(message, rideId))
+    .filter(isDisplayableChatMessage);
 }
 
 export async function getRideChatStatus(rideId: string): Promise<RideChatStatus> {
+  if (DEMO_MODE) return demoChatStatus(rideId);
+
   return {
     ride_id: rideId,
     typing: [],
@@ -114,21 +128,34 @@ export async function sendRideChatMessage({
   clientMessageId?: string;
   metadata?: Record<string, unknown>;
 }): Promise<RideChatMessage> {
+  if (DEMO_MODE) {
+    return {
+      id: clientMessageId ?? `demo-${Date.now()}`,
+      ride_id: rideId,
+      text,
+      sender,
+      sender_name: senderName ?? "Jordan",
+      client_message_id: clientMessageId ?? null,
+      metadata: metadata ?? {},
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  const metadataPayload = {
+    ...(metadata ?? {}),
+    ...(rideId && rideId !== DISPATCH_CHAT_ROOM_ID ? { ride_id: rideId } : {}),
+  };
+  const request = buildSendChatMessageRequest({
+    text,
+    clientMessageId,
+    metadata: Object.keys(metadataPayload).length ? metadataPayload : undefined,
+  });
   const data = await chatFetch<CreateMessageResponse>(
-    `/api/chat/rides/${encodeURIComponent(rideId)}/messages`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text,
-        sender,
-        sender_name: senderName,
-        client_message_id: clientMessageId,
-        metadata,
-      }),
-    },
+    request.path,
+    request.init,
   );
-  return "message" in data ? data.message : data;
+  const normalized = normalizeChatMessage(unwrapCreateMessageResponse(data), rideId);
+  return normalized.text.trim() ? normalized : { ...normalized, text };
 }
 
 export async function setRideChatTyping({
@@ -151,4 +178,116 @@ export async function markRideChatRead({
   lastReadMessageId?: string;
 }): Promise<RideChatStatus> {
   return getRideChatStatus(rideId);
+}
+
+export function buildListChatMessagesPath(afterId?: string): string {
+  return afterId
+    ? `/api/chat/messages?after_id=${encodeURIComponent(afterId)}`
+    : "/api/chat/messages";
+}
+
+export function buildSendChatMessageRequest({
+  text,
+  clientMessageId,
+  metadata,
+}: {
+  text: string;
+  clientMessageId?: string;
+  metadata?: Record<string, unknown>;
+}): { path: string; init: RequestInit } {
+  return {
+    path: "/api/chat/messages",
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        client_message_id: clientMessageId,
+        message_metadata: metadata,
+      }),
+    },
+  };
+}
+
+export function normalizeChatMessage(
+  raw: unknown,
+  fallbackRideId = DISPATCH_CHAT_ROOM_ID,
+): RideChatMessage {
+  const record = raw && typeof raw === "object" && !Array.isArray(raw)
+    ? raw as Record<string, unknown>
+    : {};
+  const metadata = record.metadata ?? record.message_metadata;
+  const clientMessageId = typeof record.client_message_id === "string" ? record.client_message_id : null;
+  const sender = typeof record.sender === "string" ? record.sender : "admin";
+  const isEchoedDriverMessage = clientMessageId?.startsWith("driver-") === true;
+  const normalizedSender = isEchoedDriverMessage
+    ? "driver"
+    : isChatSender(sender)
+      ? sender
+      : "admin";
+
+  return {
+    id: String(record.id ?? clientMessageId ?? `${Date.now()}`),
+    ride_id: String(record.ride_id ?? record.rideId ?? fallbackRideId),
+    text: readMessageText(record),
+    sender: normalizedSender,
+    sender_name: isEchoedDriverMessage
+      ? "Driver"
+      : typeof record.sender_name === "string"
+        ? record.sender_name
+        : null,
+    client_message_id: clientMessageId,
+    metadata: metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? metadata as Record<string, unknown>
+      : {},
+    created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+  };
+}
+
+export function unwrapCreateMessageResponse(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+
+  const record = raw as Record<string, unknown>;
+  const wrapped = record.message;
+  return wrapped && typeof wrapped === "object" && !Array.isArray(wrapped)
+    ? wrapped
+    : raw;
+}
+
+export function isDisplayableChatMessage(message: RideChatMessage): boolean {
+  if (message.text.trim()) return true;
+  return message.metadata.type === "mission_command_status";
+}
+
+function readMessageText(record: Record<string, unknown>): string {
+  for (const key of ["text", "message", "content", "body", "message_text"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+
+  return "";
+}
+
+function isChatSender(value: string): value is ChatSender {
+  return value === "driver" || value === "dispatch" || value === "admin" || value === "system";
+}
+
+export function formatChatTimestamp(
+  value: string,
+  options: { locale?: string; timeZone?: string } = {},
+): string {
+  const normalized = normalizeBackendTimestamp(value);
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString(options.locale, {
+    hour: "numeric",
+    minute: "2-digit",
+    ...(options.timeZone ? { timeZone: options.timeZone } : {}),
+  });
+}
+
+function normalizeBackendTimestamp(value: string): string {
+  const trimmed = value.trim();
+  const isoDateTimeWithoutZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
+  return isoDateTimeWithoutZone.test(trimmed) ? `${trimmed}Z` : trimmed;
 }

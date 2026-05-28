@@ -6,8 +6,10 @@ import {
   updateLocation,
   updateRideStatus,
 } from "./fleet-api";
+import { demoRides } from "./demo-data";
+import { DEMO_MODE } from "./demo-mode";
 import { shouldSuppressRideErrorPanel } from "./fleet-fetch-result";
-import { getRideBackendId, type DispatchedRide, type RideStatus } from "./rides";
+import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideStatus } from "./rides";
 import { useLocation } from "./location-context";
 
 export type RideStatusNotice = {
@@ -18,25 +20,17 @@ export type RideStatusNotice = {
   nextStatus: RideStatus;
 };
 
-export type RideAssignmentNotice = {
-  id: string;
-  ride: DispatchedRide;
-};
-
 type DispatchState = {
   rides: DispatchedRide[];
   pendingRides: DispatchedRide[];
   scheduledRides: DispatchedRide[];
   activeRide: DispatchedRide | null;
   backendError: string | null;
+  hasLoadedRides: boolean;
   statusNotice: RideStatusNotice | null;
-  assignmentNotice: RideAssignmentNotice | null;
   dismissStatusNotice: () => void;
-  dismissAssignmentNotice: () => void;
-  injectRide: (ride: DispatchedRide) => void;
   refreshRides: () => Promise<void>;
   acceptRide: (id: string) => void;
-  updateStatus: (id: string, status: RideStatus) => void;
   declineRide: (id: string) => void;
 };
 
@@ -46,16 +40,22 @@ const DispatchContext = createContext<DispatchState>({
   scheduledRides: [],
   activeRide: null,
   backendError: null,
+  hasLoadedRides: false,
   statusNotice: null,
-  assignmentNotice: null,
   dismissStatusNotice: () => {},
-  dismissAssignmentNotice: () => {},
-  injectRide: () => {},
   refreshRides: async () => {},
   acceptRide: () => {},
-  updateStatus: () => {},
   declineRide: () => {},
 });
+
+export function isCurrentRideStatus(status: RideStatus): boolean {
+  return (
+    status === "accepted" ||
+    status === "en_route" ||
+    status === "picked_up" ||
+    status === "in_transit"
+  );
+}
 
 export function useDispatch() {
   return useContext(DispatchContext);
@@ -69,8 +69,8 @@ export function DispatchProvider({
 }) {
   const [rides, setRides] = useState<DispatchedRide[]>([]);
   const [backendError, setBackendError] = useState<string | null>(null);
+  const [hasLoadedRides, setHasLoadedRides] = useState(false);
   const [statusNotice, setStatusNotice] = useState<RideStatusNotice | null>(null);
-  const [assignmentNotice, setAssignmentNotice] = useState<RideAssignmentNotice | null>(null);
   const { location, isTracking } = useLocation();
 
   const hasLoadedRidesRef = useRef(false);
@@ -82,19 +82,32 @@ export function DispatchProvider({
   // Mirrors the current active ride id (as a number, for the backend payload).
   // Null means the driver is online but idle.
   const activeRideIdRef = useRef<number | null>(null);
-  const activeRideInState = rides.find(
-    (r) => r.status === "en_route" || r.status === "picked_up" || r.status === "in_transit"
-  );
+  const activeRideInState = rides.find((r) => isCurrentRideStatus(r.status));
   activeRideIdRef.current = activeRideInState ? getRideBackendId(activeRideInState.id) : null;
 
   const refreshRides = useCallback(async () => {
+    if (DEMO_MODE) {
+      setBackendError(null);
+      ridesRef.current = demoRides;
+      setRides(demoRides);
+      hasLoadedRidesRef.current = true;
+      setHasLoadedRides(true);
+      return;
+    }
+
     let nextRides: DispatchedRide[];
     try {
-      nextRides = await fetchRides();
+      const fetchedRides = await fetchRides();
+      const previousById = new Map(ridesRef.current.map((ride) => [ride.id, ride]));
+      nextRides = fetchedRides.map((ride) => mergeSparseRideDetail(previousById.get(ride.id), ride));
       setBackendError(null);
     } catch (error) {
       if (isFleetApiRefreshSkippedError(error)) {
         setBackendError(null);
+        if (!hasLoadedRidesRef.current) {
+          hasLoadedRidesRef.current = true;
+          setHasLoadedRides(true);
+        }
         return;
       }
       if (isFleetApiError(error)) {
@@ -108,6 +121,7 @@ export function DispatchProvider({
       } else {
         setBackendError("Unable to load driver rides from the backend.");
       }
+      setHasLoadedRides(true);
       return;
     }
 
@@ -124,10 +138,6 @@ export function DispatchProvider({
 
       if (newRide) {
         console.log(`[dispatch] new ride from API id=${newRide.id} status=${newRide.status}`);
-        setAssignmentNotice({
-          id: `${newRide.id}-${Date.now()}`,
-          ride: newRide,
-        });
       }
 
       if (changedRide) {
@@ -156,14 +166,11 @@ export function DispatchProvider({
 
     ridesRef.current = nextRides;
     setRides(nextRides);
+    setHasLoadedRides(true);
   }, []);
 
   const dismissStatusNotice = useCallback(() => {
     setStatusNotice(null);
-  }, []);
-
-  const dismissAssignmentNotice = useCallback(() => {
-    setAssignmentNotice(null);
   }, []);
 
   useEffect(() => {
@@ -178,6 +185,8 @@ export function DispatchProvider({
   // Send GPS when location changes.
   useEffect(() => {
     if (isTracking && location) {
+      if (DEMO_MODE) return;
+
       const ts = new Date().toISOString();
 
       // Also POST to Fleet Tracking API
@@ -197,6 +206,8 @@ export function DispatchProvider({
   // Periodic re-send: on web, location only fires on change — re-send every 10s
   useEffect(() => {
     const interval = setInterval(() => {
+      if (DEMO_MODE) return;
+
       const loc = locationRef.current;
       if (!loc || !isTrackingRef.current) return;
 
@@ -216,35 +227,13 @@ export function DispatchProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const injectRide = useCallback((ride: DispatchedRide) => {
-    setRides((prev) => {
-      if (prev.some((r) => r.id === ride.id)) return prev;
-      const next = [ride, ...prev];
-      ridesRef.current = next;
-      setAssignmentNotice({
-        id: `${ride.id}-${Date.now()}`,
-        ride,
-      });
-      return next;
-    });
-  }, []);
-
   const acceptRide = useCallback((id: string) => {
     setRides((prev) => {
       const next = prev.map((r) => (r.id === id ? { ...r, status: "accepted" as RideStatus } : r));
       ridesRef.current = next;
       return next;
     });
-    void updateRideStatus(id, "accepted");
-  }, []);
-
-  const updateStatus = useCallback((id: string, status: RideStatus) => {
-    setRides((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, status } : r));
-      ridesRef.current = next;
-      return next;
-    });
-    void updateRideStatus(id, status);
+    if (!DEMO_MODE) void updateRideStatus(id, "accepted");
   }, []);
 
   const declineRide = useCallback((id: string) => {
@@ -253,14 +242,12 @@ export function DispatchProvider({
       ridesRef.current = next;
       return next;
     });
-    void updateRideStatus(id, "cancelled");
+    if (!DEMO_MODE) void updateRideStatus(id, "cancelled");
   }, []);
 
   const pendingRides = rides.filter((r) => r.status === "pending");
   const scheduledRides = rides.filter((r) => r.status === "accepted");
-  const activeRide = rides.find(
-    (r) => r.status === "en_route" || r.status === "picked_up" || r.status === "in_transit"
-  ) ?? null;
+  const activeRide = rides.find((r) => isCurrentRideStatus(r.status)) ?? null;
 
   return (
     <DispatchContext.Provider value={{
@@ -269,17 +256,36 @@ export function DispatchProvider({
       scheduledRides,
       activeRide,
       backendError,
+      hasLoadedRides,
       statusNotice,
-      assignmentNotice,
       dismissStatusNotice,
-      dismissAssignmentNotice,
-      injectRide,
       refreshRides,
       acceptRide,
-      updateStatus,
       declineRide,
     }}>
       {children}
     </DispatchContext.Provider>
   );
+}
+
+function mergeSparseRideDetail(previous: DispatchedRide | undefined, next: DispatchedRide): DispatchedRide {
+  if (!previous) return next;
+
+  const nextHasRoute = hasDrawableRoute(next.routeCoords);
+  const previousHasRoute = hasDrawableRoute(previous.routeCoords);
+  const pickupAddress = isPendingAddress(next.pickupAddress) ? previous.pickupAddress : next.pickupAddress;
+  const dropoffAddress = isPendingAddress(next.dropoffAddress) ? previous.dropoffAddress : next.dropoffAddress;
+
+  return {
+    ...next,
+    pickupAddress,
+    dropoffAddress,
+    pickupCoords: next.pickupCoords ?? previous.pickupCoords,
+    dropoffCoords: next.dropoffCoords ?? previous.dropoffCoords,
+    routeCoords: nextHasRoute || !previousHasRoute ? next.routeCoords : previous.routeCoords,
+  };
+}
+
+function isPendingAddress(value: string): boolean {
+  return value.toLowerCase().includes("address pending");
 }

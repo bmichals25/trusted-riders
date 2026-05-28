@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Alert,
   FlatList,
@@ -12,14 +12,25 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from "react-native-reanimated";
 
-import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { BackChevron } from "@/components/ui/BackChevron";
 import { PageTransition } from "@/components/ui/PageTransition";
 import {
   getRideChatStatus,
+  formatChatTimestamp,
   listRideChatMessages,
   markRideChatRead,
   sendRideChatMessage,
@@ -57,12 +68,6 @@ type CheckpointCardData = {
   driverLocationLabel?: string;
   completedMission: boolean;
 };
-
-function formatChatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
 
 function mapApiMessage(message: RideChatMessage): Message {
   const timestamp = formatChatTimestamp(message.created_at);
@@ -168,10 +173,16 @@ function getCheckpointCardData(
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { rideId, riderName } = useLocalSearchParams<{ rideId: string; riderName: string }>();
-  const roomId = rideId || "mission";
-  const chatTitle = rideId ? `Ride ${rideId} Dispatch` : "Dispatch Messages";
-  const contextLabel = riderName ? `${riderName} · ${rideId ? `Ride ${rideId}` : "Mission"}` : "Mission dispatch";
+  const { rideId, riderName, returnTo } = useLocalSearchParams<{
+    rideId: string;
+    riderName: string;
+    returnTo?: string;
+  }>();
+  const roomId = "dispatch";
+  const chatTitle = "Dispatch Messages";
+  const contextLabel = rideId
+    ? `Dispatch + TrustedRider · Ride ${rideId}${riderName ? ` · ${riderName}` : ""}`
+    : "Dispatch + TrustedRider";
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [composerResetKey, setComposerResetKey] = useState(0);
@@ -355,6 +366,10 @@ export default function ChatScreen() {
         sender: "driver",
         senderName: "Driver",
         clientMessageId,
+        metadata: {
+          ...(rideId ? { ride_id: rideId } : {}),
+          ...(riderName ? { rider_name: riderName } : {}),
+        },
       });
       setMessages((prev) => [
         ...prev.filter((message) => message.id !== clientMessageId),
@@ -432,7 +447,11 @@ export default function ChatScreen() {
             paddingHorizontal: 4,
           }}
         >
-          {isLastOperatorMessage && !item.pending ? (isRead ? "Read" : "Sent") : item.timestamp}
+          {item.timestamp === "Not sent"
+            ? "Not sent"
+            : isLastOperatorMessage && !item.pending
+              ? (isRead ? "Read" : "Sent")
+              : item.timestamp}
         </Text>
       </View>
     );
@@ -464,7 +483,16 @@ export default function ChatScreen() {
     <PageTransition>
     <Stack.Screen
       options={{
+        headerShown: true,
+        headerBackVisible: false,
+        headerLeft: () => (
+          <BackChevron
+            fallbackHref={typeof returnTo === "string" ? (returnTo as any) : undefined}
+            preferFallback={typeof returnTo === "string"}
+          />
+        ),
         title: chatTitle,
+        headerTitleAlign: "center",
         headerRight: () => (
           <Pressable
             onPress={callAdmin}
@@ -492,130 +520,130 @@ export default function ChatScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={headerHeight}
     >
-      <FadeInBlock delay={40}>
-      <View style={{
-        paddingHorizontal: spacing.md,
-        paddingVertical: 12,
-        backgroundColor: colors.surfaceLow,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-      }}>
+      <ChatOpeningBlock delay={20} distance={8}>
         <View style={{
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-          backgroundColor: colors.green,
-        }} />
-          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>
-          {contextLabel}
-        </Text>
-      </View>
-      </FadeInBlock>
-
-      <FadeInBlock delay={120} style={{ flex: 1 }}>
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
-        ListFooterComponent={isOtherTyping ? <TypingBubble /> : null}
-        ListEmptyComponent={
-          <View
-            style={{
-              backgroundColor: colors.surfaceLow,
-              borderRadius: radii.md,
-              borderCurve: "continuous",
-              padding: spacing.lg,
-              gap: 6,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", textAlign: "center" }}>
-              {loadError ? "Chat backend unavailable" : "No messages yet"}
-            </Text>
-            <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18 }}>
-              {loadError ?? "Send a message to start the ride chat."}
-            </Text>
-          </View>
-        }
-        contentContainerStyle={{
           paddingHorizontal: spacing.md,
-          paddingTop: spacing.md,
-          paddingBottom: spacing.md,
-        }}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: true })
-        }
-      />
-      </FadeInBlock>
-
-      <FadeInBlock delay={200}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "flex-end",
-          paddingHorizontal: spacing.md,
-          paddingTop: 10,
-          paddingBottom: insets.bottom + 10,
+          paddingVertical: 12,
           backgroundColor: colors.surfaceLow,
+          flexDirection: "row",
+          alignItems: "center",
           gap: 10,
-        }}
-      >
-        <TextInput
-          key={`chat-input-${composerResetKey}`}
-          ref={inputRef}
-          value={inputText}
-          onChangeText={handleInputChange}
-          placeholder="Type a message..."
-          placeholderTextColor={colors.slate400}
-          multiline
-          // @ts-expect-error — web-only react-native-web props to remove
-          // the browser's default focus outline and suppress the Grammarly
-          // overlay that injects a green "G" badge into the input.
-          dataSet={{ gramm: "false", gramm_editor: "false" }}
-          style={[
-            {
-              flex: 1,
-              backgroundColor: colors.surface,
-              borderRadius: 20,
-              paddingHorizontal: 16,
-              paddingTop: 10,
-              paddingBottom: 10,
-              fontSize: 15,
-              color: colors.primary,
-              maxHeight: 100,
-            },
-            // react-native-web only — hides the browser's default focus ring.
-            Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null,
-          ]}
-          onSubmitEditing={sendMessage}
-          // Multiline inputs don't normally fire `onSubmitEditing`, so handle
-          // Enter explicitly. Shift+Enter inserts a newline; plain Enter sends.
-          onKeyPress={(e: any) => {
-            if (e.nativeEvent?.key === "Enter" && !e.nativeEvent?.shiftKey) {
-              if (Platform.OS === "web" && e.preventDefault) {
-                e.preventDefault();
-              }
-              sendMessage();
-            }
+        }}>
+          <View style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: colors.green,
+          }} />
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>
+            {contextLabel}
+          </Text>
+        </View>
+      </ChatOpeningBlock>
+
+      <ChatOpeningBlock delay={70} distance={12} style={{ flex: 1 }}>
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          ListFooterComponent={isOtherTyping ? <TypingBubble /> : null}
+          ListEmptyComponent={
+            <View
+              style={{
+                backgroundColor: colors.surfaceLow,
+                borderRadius: radii.md,
+                borderCurve: "continuous",
+                padding: spacing.lg,
+                gap: 6,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", textAlign: "center" }}>
+                {loadError ? "Chat backend unavailable" : "No messages yet"}
+              </Text>
+              <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18 }}>
+                {loadError ?? "Send a message to start the dispatch chat."}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={{
+            paddingHorizontal: spacing.md,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.md,
           }}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
         />
-        <Pressable
-          onPress={() => { impact(ImpactFeedbackStyle.Light); sendMessage(); }}
+      </ChatOpeningBlock>
+
+      <ChatOpeningBlock delay={120} distance={10}>
+        <View
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: inputText.trim() && !isSending ? colors.primary : colors.slate200,
-            alignItems: "center",
-            justifyContent: "center",
+            flexDirection: "row",
+            alignItems: "flex-end",
+            paddingHorizontal: spacing.md,
+            paddingTop: 10,
+            paddingBottom: insets.bottom + 10,
+            backgroundColor: colors.surfaceLow,
+            gap: 10,
           }}
         >
-          <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "900" }}>↑</Text>
-        </Pressable>
-      </View>
-      </FadeInBlock>
+          <TextInput
+            key={`chat-input-${composerResetKey}`}
+            ref={inputRef}
+            value={inputText}
+            onChangeText={handleInputChange}
+            placeholder="Type a message..."
+            placeholderTextColor={colors.slate400}
+            multiline
+            // @ts-expect-error — web-only react-native-web props to remove
+            // the browser's default focus outline and suppress the Grammarly
+            // overlay that injects a green "G" badge into the input.
+            dataSet={{ gramm: "false", gramm_editor: "false" }}
+            style={[
+              {
+                flex: 1,
+                backgroundColor: colors.surface,
+                borderRadius: 20,
+                paddingHorizontal: 16,
+                paddingTop: 10,
+                paddingBottom: 10,
+                fontSize: 15,
+                color: colors.primary,
+                maxHeight: 100,
+              },
+              // react-native-web only — hides the browser's default focus ring.
+              Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null,
+            ]}
+            onSubmitEditing={sendMessage}
+            // Multiline inputs don't normally fire `onSubmitEditing`, so handle
+            // Enter explicitly. Shift+Enter inserts a newline; plain Enter sends.
+            onKeyPress={(e: any) => {
+              if (e.nativeEvent?.key === "Enter" && !e.nativeEvent?.shiftKey) {
+                if (Platform.OS === "web" && e.preventDefault) {
+                  e.preventDefault();
+                }
+                sendMessage();
+              }
+            }}
+          />
+          <Pressable
+            onPress={() => { impact(ImpactFeedbackStyle.Light); sendMessage(); }}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: inputText.trim() && !isSending ? colors.primary : colors.slate200,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "900" }}>↑</Text>
+          </Pressable>
+        </View>
+      </ChatOpeningBlock>
       <CheckpointDetailModal
         checkpoint={selectedCheckpoint}
         onClose={() => setSelectedCheckpoint(null)}
@@ -623,6 +651,51 @@ export default function ChatScreen() {
     </KeyboardAvoidingView>
     </PageTransition>
   );
+}
+
+function ChatOpeningBlock({
+  children,
+  delay,
+  distance,
+  style,
+}: {
+  children: ReactNode;
+  delay: number;
+  distance: number;
+  style?: any;
+}) {
+  const isFocused = useIsFocused();
+  const reduced = useReducedMotion();
+  const progress = useSharedValue(reduced ? 1 : 0);
+
+  useEffect(() => {
+    cancelAnimation(progress);
+
+    if (reduced) {
+      progress.value = 1;
+      return;
+    }
+
+    if (isFocused) {
+      progress.value = 0;
+      progress.value = withDelay(
+        delay,
+        withTiming(1, {
+          duration: 340,
+          easing: Easing.bezier(0.22, 1, 0.36, 1),
+        }),
+      );
+    }
+  }, [delay, isFocused, progress, reduced]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ translateY: (1 - progress.value) * distance }],
+  }));
+
+  if (reduced) return <View style={style}>{children}</View>;
+
+  return <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>;
 }
 
 function CheckpointUpdateCard({

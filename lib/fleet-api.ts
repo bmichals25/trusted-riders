@@ -7,6 +7,8 @@ import {
   type ApiRequestResult,
 } from "./api-request-throttle";
 import { FLEET_API_URL } from "./config";
+import { demoRides } from "./demo-data";
+import { DEMO_MODE } from "./demo-mode";
 import { shouldSuppressRideFetchError } from "./fleet-fetch-result";
 import {
   getRideBackendId,
@@ -21,6 +23,7 @@ import * as storage from "./storage";
 
 const TOKEN_KEY = "trustedriders-auth-token";
 const ACTIVE_RIDE_KEY = "trustedriders-active-ride";
+const RIDE_DETAIL_STORAGE_PREFIX = "trustedriders-ride-detail";
 
 let token: string | null = null;
 
@@ -57,10 +60,61 @@ export function isFleetApiRefreshSkippedError(error: unknown): error is FleetApi
 
 const FLEET_UPSTREAM_UNAVAILABLE_BACKOFF_MS = 5 * 60 * 1000;
 const RIDE_DETAIL_CACHE_MS = 60 * 1000;
+const PERSISTED_RIDE_DETAIL_CACHE_MS = 24 * 60 * 60 * 1000;
+const VISIBLE_RIDE_STATUSES = new Set<RideStatus>([
+  "pending",
+  "accepted",
+  "en_route",
+  "picked_up",
+  "in_transit",
+]);
 
 const requestThrottles = new Map<string, ApiRequestThrottle>();
 const rideDetailCache = new Map<string, { expiresAt: number; data: Record<string, unknown> | null }>();
 let fleetPausedUntil = 0;
+
+const rideDetailFallbacks: Record<string, Record<string, unknown>> = {
+  // Temporary dev fallback from the backend payload shared for ride 174 while
+  // the live detail endpoint is returning 500s.
+  "174": {
+    ride_id: 174,
+    status: "in_progress",
+    pickup_address: "123 William St, New York, NY 10038, USA",
+    dropoff_address: "456 Greenwich St, New York, NY 10013, USA",
+    start: { lat: 40.709322, lon: -74.007137 },
+    end: { lat: 40.707571, lon: -74.013674 },
+    planned_polyline: "g_nwFxmubMeAcAKMIPq@fB_AxBgBlEWn@M\\lAAZTRPjB|CbCXTINc@pAeCjHpAf@bDdApDjA",
+    planned_route: [
+      { lat: 40.70916, lon: -74.00685 },
+      { lat: 40.70951, lon: -74.00651 },
+      { lat: 40.70957, lon: -74.00644 },
+      { lat: 40.70962, lon: -74.00653 },
+      { lat: 40.70987, lon: -74.00705 },
+      { lat: 40.71019, lon: -74.00766 },
+      { lat: 40.71071, lon: -74.00869 },
+      { lat: 40.71083, lon: -74.00893 },
+      { lat: 40.7109, lon: -74.00908 },
+      { lat: 40.71051, lon: -74.00941 },
+      { lat: 40.71037, lon: -74.00952 },
+      { lat: 40.71027, lon: -74.00961 },
+      { lat: 40.70973, lon: -74.01007 },
+      { lat: 40.70894, lon: -74.01073 },
+      { lat: 40.70881, lon: -74.01084 },
+      { lat: 40.70886, lon: -74.01092 },
+      { lat: 40.70904, lon: -74.01133 },
+      { lat: 40.70971, lon: -74.01283 },
+      { lat: 40.7093, lon: -74.01303 },
+      { lat: 40.70848, lon: -74.01338 },
+      { lat: 40.70759, lon: -74.01376 },
+    ],
+    route_polyline: "gnwFroubM|Ixg@",
+    route: [
+      { lat: 40.709322, lon: -74.007137 },
+      { lat: 40.707571, lon: -74.013674 },
+    ],
+    start_time: "2026-05-20T20:24:00",
+  },
+};
 
 type FleetFetchResult =
   | { result: "sent" | "failed"; res: Response }
@@ -70,6 +124,12 @@ type FleetFetchOptions = {
   minIntervalMs?: number;
   failureBackoffMs?: number;
   throttleKey?: string;
+};
+
+export const LOGIN_FETCH_OPTIONS: FleetFetchOptions = {
+  minIntervalMs: 2000,
+  failureBackoffMs: 0,
+  throttleKey: "POST /api/login",
 };
 
 // One log line per outbound API call. Prints to Metro so the backend team can
@@ -196,24 +256,71 @@ async function fleetFetch(
   }
 }
 
+export function normalizeLoginCredentials(email: string, password: string): {
+  email: string;
+  password: string;
+} {
+  return {
+    email: email.trim(),
+    password,
+  };
+}
+
+export function extractAuthToken(raw: unknown): string | null {
+  const body = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const direct = pickString(body, ["token", "access_token", "accessToken", "jwt"]);
+  if (direct) return direct;
+
+  for (const key of ["data", "auth", "session"]) {
+    const nested = body[key];
+    if (nested && typeof nested === "object") {
+      const tokenValue = extractAuthToken(nested);
+      if (tokenValue) return tokenValue;
+    }
+  }
+
+  return null;
+}
+
 export async function login(email: string, password: string): Promise<FleetUser> {
-  const { res } = await fleetFetch(
+  const credentials = normalizeLoginCredentials(email, password);
+  if (DEMO_MODE) {
+    token = "trustedriders-demo-token";
+    await storage.set(TOKEN_KEY, token);
+    return { name: "Jordan Mitchell", email: credentials.email };
+  }
+
+  const { result, res } = await fleetFetch(
     "POST",
     "/api/login",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(credentials),
     },
-    { minIntervalMs: 2000, throttleKey: "POST /api/login" },
+    LOGIN_FETCH_OPTIONS,
   );
-  if (!res) throw new Error("Fleet API unavailable");
-  if (!res.ok) throw new Error("Invalid credentials");
+  if (!res) {
+    throw new Error(
+      result === "skipped"
+        ? "Please wait a moment before trying again."
+        : "Fleet API unavailable. Check your connection and try again.",
+    );
+  }
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res);
+    throw new Error(message ?? (res.status === 401 ? "Invalid email or password" : "Unable to sign in."));
+  }
   const data = await res.json();
-  token = data.token;
-  const user = normalizeUser(data.user);
+  const authToken = extractAuthToken(data);
+  if (!authToken) {
+    throw new Error("Login response did not include an auth token.");
+  }
+
+  token = authToken;
+  const user = normalizeUser(data.user ?? data.driver ?? data);
   console.log(`[auth] login ok user=${user.email || user.name}`);
-  await storage.set(TOKEN_KEY, data.token);
+  await storage.set(TOKEN_KEY, authToken);
   return user;
 }
 
@@ -237,6 +344,11 @@ export async function clearToken(): Promise<void> {
 // Rehydrate the in-memory token from persistent storage on app boot.
 // Call this once before rendering any authenticated UI.
 export async function restoreToken(): Promise<string | null> {
+  if (DEMO_MODE) {
+    token = "trustedriders-demo-token";
+    return token;
+  }
+
   const stored = await storage.get(TOKEN_KEY);
   if (stored) token = stored;
   return stored;
@@ -259,33 +371,14 @@ export async function getActiveRideId(): Promise<number | null> {
   return Number.isFinite(n) ? n : null;
 }
 
-/**
- * Registered by `lib/push.ts` when push notifications are re-enabled.
- * Currently unused — see `lib/push.ts` for the disabled-state rationale.
- *
- * @deprecated until push.ts is un-stubbed (tracked in commit history).
- */
-export async function registerPushToken(pushToken: string): Promise<boolean> {
-  if (!token) return false;
-  const { res } = await fleetFetch(
-    "POST",
-    "/api/register-push-token",
-    {
-      method: "POST",
-      headers: authHeaders() ?? undefined,
-      body: JSON.stringify({ push_token: pushToken, platform: Platform.OS }),
-    },
-    { minIntervalMs: 60000, throttleKey: "POST /api/register-push-token" },
-  );
-  return !!res?.ok;
-}
-
 export async function updateLocation(loc: {
   lat: number;
   lon: number;
   timestamp: string;
   ride_id: number | null;
 }, source: "foreground" | "periodic" | "background" = "foreground"): Promise<LocationUpdateResult> {
+  if (DEMO_MODE) return "skipped";
+
   if (!token) {
     console.log(`[fleet-api] update_location ${source}: skipped (missing auth token)`);
     return "skipped";
@@ -343,7 +436,7 @@ export async function updateLocation(loc: {
   return result;
 }
 
-function makeLocationPayload(loc: {
+export function makeLocationPayload(loc: {
   lat: number;
   lon: number;
   timestamp: string;
@@ -352,12 +445,22 @@ function makeLocationPayload(loc: {
   lat: number;
   lon: number;
   timestamp: string;
+  ride_id?: number;
 } {
-  return {
+  const payload: {
+    lat: number;
+    lon: number;
+    timestamp: string;
+    ride_id?: number;
+  } = {
     lat: loc.lat,
     lon: loc.lon,
     timestamp: loc.timestamp,
   };
+  if (typeof loc.ride_id === "number" && Number.isFinite(loc.ride_id)) {
+    payload.ride_id = loc.ride_id;
+  }
+  return payload;
 }
 
 function makeClientRequestId(prefix: string): string {
@@ -370,6 +473,8 @@ function tokenFingerprint(value: string | null): string | null {
 }
 
 export async function fetchRides(): Promise<DispatchedRide[]> {
+  if (DEMO_MODE) return demoRides;
+
   const headers = authHeaders();
   if (!headers) {
     throw new FleetApiError(401, "Missing auth token for rides request.", "/api/rides");
@@ -434,8 +539,17 @@ export async function fetchRides(): Promise<DispatchedRide[]> {
         .join(", ") || "none"}`,
     );
 
+    const visibleRawRides = rawRides.filter((ride) => {
+      const summary = ride && typeof ride === "object" ? ride as Record<string, unknown> : {};
+      return shouldHydrateRideSummary(summary);
+    });
+    const skippedCount = rawRides.length - visibleRawRides.length;
+    if (skippedCount > 0) {
+      console.log(`[api] ${path} skipped detail hydration for ${skippedCount} hidden rides`);
+    }
+
     const detailedRides: Array<DispatchedRide | null> = [];
-    for (const ride of rawRides) {
+    for (const ride of visibleRawRides) {
       const summary = ride as Record<string, unknown>;
       const rideId = pickString(summary, ["id", "ride_id", "rideId", "uuid"]);
       const detail = rideId ? await fetchRideDetail(rideId, headers) : null;
@@ -453,6 +567,12 @@ export async function fetchRides(): Promise<DispatchedRide[]> {
     console.log(`[api] failed to parse ${path} response ${String(err)}`);
     throw new FleetApiError(0, "Unable to parse rides response.", path);
   }
+}
+
+function shouldHydrateRideSummary(summary: Record<string, unknown>): boolean {
+  const rawStatus = pickString(summary, ["status", "ride_status"]);
+  const status = rawStatus ? normalizeRideStatus(rawStatus) : "pending";
+  return VISIBLE_RIDE_STATUSES.has(status);
 }
 
 async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Record<string, unknown> | null> {
@@ -477,7 +597,24 @@ async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Re
   );
 
   if (!res?.ok) {
-    rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data: null });
+    // Do not cache transient detail failures. The list endpoint can already
+    // identify the ride, and a later detail retry may have the route/address
+    // fields needed to render the current ride correctly.
+    if (cached?.data) {
+      console.log(`[api] ${path} route detail stale-memory ${describeRoutePayload(cached.data)}`);
+      return cached.data;
+    }
+    const persisted = await readPersistedRideDetail(cacheKey);
+    if (persisted) {
+      console.log(`[api] ${path} route detail persisted ${describeRoutePayload(persisted)}`);
+      rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data: persisted });
+      return persisted;
+    }
+    const fallback = rideDetailFallbacks[cacheKey];
+    if (fallback) {
+      console.log(`[api] ${path} route detail fallback ${describeRoutePayload(fallback)}`);
+      return fallback;
+    }
     return null;
   }
 
@@ -486,9 +623,39 @@ async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Re
     const data = extractRideDetail(body);
     console.log(`[api] ${path} route detail ${describeRoutePayload(data)}`);
     rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data });
+    if (data) void persistRideDetail(cacheKey, data);
     return data;
   } catch {
-    rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data: null });
+    if (cached?.data) return cached.data;
+    const persisted = await readPersistedRideDetail(cacheKey);
+    if (persisted) return persisted;
+    return null;
+  }
+}
+
+async function persistRideDetail(cacheKey: string, data: Record<string, unknown>): Promise<void> {
+  await storage.set(
+    `${RIDE_DETAIL_STORAGE_PREFIX}:${cacheKey}`,
+    JSON.stringify({
+      expiresAt: Date.now() + PERSISTED_RIDE_DETAIL_CACHE_MS,
+      data,
+    }),
+  );
+}
+
+async function readPersistedRideDetail(cacheKey: string): Promise<Record<string, unknown> | null> {
+  const raw = await storage.get(`${RIDE_DETAIL_STORAGE_PREFIX}:${cacheKey}`);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { expiresAt?: unknown; data?: unknown };
+    if (typeof parsed.expiresAt !== "number" || parsed.expiresAt < Date.now()) {
+      await storage.remove(`${RIDE_DETAIL_STORAGE_PREFIX}:${cacheKey}`);
+      return null;
+    }
+    if (!parsed.data || typeof parsed.data !== "object" || Array.isArray(parsed.data)) return null;
+    return parsed.data as Record<string, unknown>;
+  } catch {
     return null;
   }
 }
@@ -513,6 +680,9 @@ export async function updateRideStatus(rideId: string, status: RideStatus): Prom
 
   const backendId = getRideBackendId(rideId);
   const id = encodeURIComponent(String(backendId ?? rideId));
+  // This legacy driver accept/decline endpoint is used by the current backend
+  // but is absent from Suresh's latest OpenAPI. Confirm the replacement before
+  // removing this fallback.
   const path = `/api/rides/${id}/status`;
   const { res } = await fleetFetch(
     "PATCH",
@@ -596,16 +766,15 @@ function normalizeRide(raw: Record<string, unknown>): DispatchedRide | null {
     ]) ||
     "";
   const createdAtRaw = pickString(raw, ["created_at", "createdAt", "start_time", "startTime"]);
-  const createdAt = createdAtRaw ? Date.parse(createdAtRaw) : Date.now();
+  const createdAtDate = parseBackendDate(createdAtRaw);
+  const createdAt = createdAtDate ? createdAtDate.getTime() : Date.now();
 
   return {
     id,
     passengerName,
     passengerPhotoUrl,
-    pickupAddress: pickString(raw, ["pickup_address", "pickupAddress", "pickup"]) || "Pickup address pending",
-    dropoffAddress:
-      pickString(raw, ["dropoff_address", "dropoffAddress", "destination_address", "dropoff"]) ||
-      "Drop-off address pending",
+    pickupAddress: pickRideAddress(raw, "pickup") || "Pickup address pending",
+    dropoffAddress: pickRideAddress(raw, "dropoff") || "Drop-off address pending",
     pickupCoords: pickCoords(raw, "pickup"),
     dropoffCoords: pickCoords(raw, "dropoff"),
     routeCoords: pickRouteCoords(raw),
@@ -652,6 +821,61 @@ function pickNestedRecord(raw: Record<string, unknown>, keys: string[]): Record<
   return null;
 }
 
+function pickRideAddress(raw: Record<string, unknown>, kind: "pickup" | "dropoff"): string | null {
+  const directKeys = kind === "pickup"
+    ? [
+        "pickup_address",
+        "pickupAddress",
+        "pickup",
+        "pickup_location",
+        "pickupLocation",
+        "origin_address",
+        "originAddress",
+        "start_address",
+        "startAddress",
+        "from_address",
+        "fromAddress",
+        "source_address",
+        "sourceAddress",
+      ]
+    : [
+        "dropoff_address",
+        "dropoffAddress",
+        "drop_off_address",
+        "dropOffAddress",
+        "destination_address",
+        "destinationAddress",
+        "dropoff",
+        "destination",
+        "destination_location",
+        "destinationLocation",
+        "end_address",
+        "endAddress",
+        "to_address",
+        "toAddress",
+      ];
+
+  const direct = pickString(raw, directKeys);
+  if (direct) return direct;
+
+  const objectKeys = kind === "pickup"
+    ? ["pickup", "pickup_location", "pickupLocation", "origin", "start", "from", "source"]
+    : ["dropoff", "drop_off", "dropoff_location", "dropoffLocation", "destination", "end", "to"];
+  return pickNestedString(objectKeys.reduce((acc, key) => {
+    const value = raw[key];
+    if (value && typeof value === "object" && !Array.isArray(value)) acc[key] = value;
+    return acc;
+  }, {} as Record<string, unknown>), objectKeys, [
+    "address",
+    "formatted_address",
+    "formattedAddress",
+    "full_address",
+    "fullAddress",
+    "label",
+    "name",
+  ]);
+}
+
 function pickCoords(raw: Record<string, unknown>, prefix: "pickup" | "dropoff"): RideCoordinate | null {
   const routeEndpoint = prefix === "pickup" ? raw.start : raw.end;
   const direct = raw[`${prefix}Coords`] ?? raw[`${prefix}_coords`] ?? routeEndpoint;
@@ -685,6 +909,8 @@ function getRouteCandidates(raw: Record<string, unknown>): Array<{ name: string;
     { name: "route_coords", value: raw.route_coords },
     { name: "plannedRoute", value: raw.plannedRoute },
     { name: "planned_route", value: raw.planned_route },
+    { name: "plannedPolyline", value: raw.plannedPolyline },
+    { name: "planned_polyline", value: raw.planned_polyline },
     { name: "planned_route_geometry", value: raw.planned_route_geometry },
     { name: "plannedRouteGeometry", value: raw.plannedRouteGeometry },
     { name: "routePoints", value: raw.routePoints },
@@ -720,14 +946,14 @@ function toNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function normalizeRideStatus(status: string): RideStatus {
-  const value = status.toLowerCase().replace(/[-\s]/g, "_");
+export function normalizeRideStatus(status: string): RideStatus {
+  const value = status.toLowerCase().replace(/[\/\-\s]+/g, "_");
   if (["requested", "request", "pending", "new"].includes(value)) return "pending";
-  if (["scheduled", "booked", "assigned", "accepted"].includes(value)) return "accepted";
-  if (["active", "in_progress", "en_route", "enroute", "on_way", "released"].includes(value)) return "en_route";
-  if (["picked_up", "pickedup"].includes(value)) return "picked_up";
-  if (["in_transit", "intransit"].includes(value)) return "in_transit";
-  if (["completed", "complete", "done"].includes(value)) return "completed";
+  if (["scheduled", "scheduled_driver_assigned", "booked", "assigned", "accepted"].includes(value)) return "accepted";
+  if (["active", "in_progress", "driver_in_transit", "en_route", "enroute", "on_way", "released"].includes(value)) return "en_route";
+  if (["driver_at_pickup", "picked_up", "pickedup"].includes(value)) return "picked_up";
+  if (["driver_passenger_in_transit", "in_transit", "intransit"].includes(value)) return "in_transit";
+  if (["driver_passenger_at_dropoff", "completed", "complete", "done"].includes(value)) return "completed";
   if (["cancelled", "canceled", "declined"].includes(value)) return "cancelled";
   return "pending";
 }
@@ -750,14 +976,30 @@ function normalizeTripType(value: string | null): "One-Way" | "Round-Trip" {
 
 function formatRideDate(value: string | null): string {
   if (!value) return "Today";
-  const date = new Date(value);
+  const date = parseBackendDate(value);
+  if (!date) return value.split("T")[0] || value;
   if (!Number.isFinite(date.getTime())) return value.split("T")[0] || value;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function formatRideTime(value: string | null): string {
   if (!value) return "Time pending";
-  const date = new Date(value);
+  const date = parseBackendDate(value);
+  if (!date) return value;
   if (!Number.isFinite(date.getTime())) return value;
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function parseBackendDate(value: string | null): Date | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  // The Flask API sends ride timestamps as UTC. Some payloads omit the trailing
+  // "Z" (for example, 2026-05-20T20:24:00), which JavaScript otherwise treats
+  // as local time. Add Z only for ISO date-time values without an explicit zone.
+  const isoDateTimeWithoutZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
+  const normalized = isoDateTimeWithoutZone.test(trimmed) ? `${trimmed}Z` : trimmed;
+  const date = new Date(normalized);
+  return Number.isFinite(date.getTime()) ? date : null;
 }
