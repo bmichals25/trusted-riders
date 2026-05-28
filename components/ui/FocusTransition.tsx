@@ -26,7 +26,7 @@ export function FocusTransition({
 }: Props) {
   const isFocused = useIsFocused();
   const reduced = useReducedMotion();
-  const progress = useSharedValue(1);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
     if (reduced) {
@@ -43,8 +43,11 @@ export function FocusTransition({
   }, [enterDuration, exitDuration, isFocused, progress, reduced]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    opacity: 0.94 + progress.value * 0.06,
-    transform: [{ translateY: (1 - progress.value) * distance }],
+    opacity: 0.9 + progress.value * 0.1,
+    transform: [
+      { translateY: (1 - progress.value) * distance },
+      { scale: 0.992 + progress.value * 0.008 },
+    ],
   }));
 
   if (reduced) {
