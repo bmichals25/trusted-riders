@@ -1,11 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  View,
-} from "react-native";
+import { StyleSheet, View } from "react-native";
+import { AppLoadingAnimation } from "@/components/ui/AppLoadingAnimation";
 import { DriverLoginScreen } from "@/features/auth/driver-login-screen";
-import { colors, spacing } from "@/lib/theme";
 import { clearToken, login, restoreToken } from "@/lib/fleet-api";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import * as storage from "@/lib/storage";
@@ -16,6 +12,7 @@ export type DriverSession = {
 
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
+const STARTUP_VIDEO_DURATION_MS = 4100;
 
 type AuthContextValue = { signOut: () => Promise<void>; session: DriverSession | null };
 const AuthContext = createContext<AuthContextValue>({
@@ -36,7 +33,9 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [authRestoring, setAuthRestoring] = useState(true);
+  const [startupAnimationVisible, setStartupAnimationVisible] = useState(true);
+  const [startupAnimationReady, setStartupAnimationReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +43,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     if (DEMO_MODE) {
       setEmail("demo@trustedriders.org");
       setSession({ name: "Jordan Mitchell" });
-      setLoading(false);
+      setAuthRestoring(false);
       return;
     }
 
@@ -59,14 +58,24 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
       if (storedName && storedToken) {
         setSession({ name: storedName });
       }
-      setLoading(false);
+      setAuthRestoring(false);
     });
   }, []);
 
   useEffect(() => {
-    if (loading || session) return;
+    if (!startupAnimationReady) return;
+
+    const startupTimer = setTimeout(() => {
+      setStartupAnimationVisible(false);
+    }, STARTUP_VIDEO_DURATION_MS);
+
+    return () => clearTimeout(startupTimer);
+  }, [startupAnimationReady]);
+
+  useEffect(() => {
+    if (authRestoring || session) return;
     setPassword("");
-  }, [loading, session]);
+  }, [authRestoring, session]);
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
@@ -97,43 +106,46 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   }, []);
 
   const authValue = useMemo<AuthContextValue>(() => ({ signOut, session }), [signOut, session]);
+  const handleStartupAnimationReady = useCallback(() => {
+    setStartupAnimationReady(true);
+  }, []);
 
-  if (loading) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color={colors.blue} />
-      </View>
-    );
-  }
+  const appContent = session ? (
+    <AuthContext.Provider value={authValue}>{children(session)}</AuthContext.Provider>
+  ) : authRestoring ? null : (
+    <DriverLoginScreen
+      canSubmit={!!email.trim() && !!password && !submitting}
+      email={email}
+      error={error}
+      onEmailChange={setEmail}
+      onPasswordChange={setPassword}
+      onSubmit={handleLogin}
+      onTogglePasswordVisible={() => setPasswordVisible((visible) => !visible)}
+      password={password}
+      passwordVisible={passwordVisible}
+      submitting={submitting}
+    />
+  );
 
-  if (!session) {
-    const canSubmit = !!email.trim() && !!password && !submitting;
-
-    return (
-      <DriverLoginScreen
-        canSubmit={canSubmit}
-        email={email}
-        error={error}
-        onEmailChange={setEmail}
-        onPasswordChange={setPassword}
-        onSubmit={handleLogin}
-        onTogglePasswordVisible={() => setPasswordVisible((visible) => !visible)}
-        password={password}
-        passwordVisible={passwordVisible}
-        submitting={submitting}
-      />
-    );
-  }
-
-  return <AuthContext.Provider value={authValue}>{children(session)}</AuthContext.Provider>;
+  return (
+    <View style={s.root}>
+      {appContent}
+      {startupAnimationVisible ? (
+        <AppLoadingAnimation
+          onReady={handleStartupAnimationReady}
+          style={s.startupOverlay}
+        />
+      ) : null}
+    </View>
+  );
 }
 
 const s = StyleSheet.create({
-  center: {
+  root: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.surfaceLow,
-    padding: spacing.lg,
+  },
+  startupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
   },
 });

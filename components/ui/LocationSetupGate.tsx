@@ -68,11 +68,7 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
   }
 
   if (permissionStatus === null) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color={colors.blue} />
-      </View>
-    );
+    return <>{children}</>;
   }
 
   if (permissionStatus === Location.PermissionStatus.GRANTED) {
