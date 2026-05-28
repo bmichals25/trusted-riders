@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Image, StyleSheet, type StyleProp, View, type ViewStyle } from "react-native";
+import { StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -9,10 +9,9 @@ import Animated, {
 } from "react-native-reanimated";
 import { VideoView, useVideoPlayer } from "expo-video";
 
-import { colors, spacing } from "@/lib/theme";
+import { colors } from "@/lib/theme";
 
 const LOADING_VIDEO = require("../../assets/trustedride-loading-animation.mp4");
-const LOGO = require("../../assets/trustedride_certified_main_logo_transparent.png");
 
 export function AppLoadingAnimation({
   exiting = false,
@@ -43,21 +42,14 @@ export function AppLoadingAnimation({
   }, [onReady]);
 
   useEffect(() => {
-    if (reducedMotion) {
-      player.pause();
-      player.currentTime = 0;
-      markReady();
-      return;
-    }
-
     player.play();
 
     const readyFallbackTimer = setTimeout(() => {
       markReady();
-    }, 900);
+    }, 1200);
 
     return () => clearTimeout(readyFallbackTimer);
-  }, [markReady, player, reducedMotion]);
+  }, [markReady, player]);
 
   useEffect(() => {
     if (!exiting) {
@@ -96,22 +88,16 @@ export function AppLoadingAnimation({
   }));
   return (
     <Animated.View style={[s.screen, style, rootAnimatedStyle]}>
-      {reducedMotion ? (
-        <View style={s.reducedMotionFallback}>
-          <Image source={LOGO} resizeMode="contain" style={s.logo} />
-        </View>
-      ) : (
-        <Animated.View style={[StyleSheet.absoluteFill, videoAnimatedStyle]}>
-          <VideoView
-            player={player}
-            nativeControls={false}
-            contentFit="cover"
-            allowsPictureInPicture={false}
-            onFirstFrameRender={markReady}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
-      )}
+      <Animated.View style={[StyleSheet.absoluteFill, videoAnimatedStyle]}>
+        <VideoView
+          player={player}
+          nativeControls={false}
+          contentFit="cover"
+          allowsPictureInPicture={false}
+          onFirstFrameRender={markReady}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -119,19 +105,7 @@ export function AppLoadingAnimation({
 const s = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "transparent",
-    overflow: "hidden",
-  },
-  reducedMotionFallback: {
-    flex: 1,
-    alignItems: "center",
     backgroundColor: colors.surface,
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-  logo: {
-    width: "82%",
-    maxWidth: 360,
-    height: 120,
+    overflow: "hidden",
   },
 });
