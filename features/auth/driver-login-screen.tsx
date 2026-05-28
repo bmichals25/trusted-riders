@@ -73,14 +73,9 @@ export function DriverLoginScreen({
   };
 
   const heroAnimatedStyle = useAnimatedStyle(() => ({
-    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [40, spacing.md]),
+    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [34, spacing.md]),
     paddingHorizontal: interpolate(keyboardProgress.value, [0, 1], [spacing.xl, spacing.lg]),
-    gap: interpolate(keyboardProgress.value, [0, 1], [14, 8]),
-  }));
-
-  const heroKickerAnimatedStyle = useAnimatedStyle(() => ({
-    paddingHorizontal: interpolate(keyboardProgress.value, [0, 1], [12, 10]),
-    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [6, 5]),
+    gap: interpolate(keyboardProgress.value, [0, 1], [0, 0]),
   }));
 
   const brandPlateAnimatedStyle = useAnimatedStyle(() => ({
@@ -91,15 +86,6 @@ export function DriverLoginScreen({
   const logoAnimatedStyle = useAnimatedStyle(() => ({
     width: interpolate(keyboardProgress.value, [0, 1], [330, 284]),
     height: interpolate(keyboardProgress.value, [0, 1], [100, 86]),
-  }));
-
-  const heroTextAnimatedStyle = useAnimatedStyle(() => ({
-    marginTop: interpolate(keyboardProgress.value, [0, 1], [2, -2]),
-  }));
-
-  const heroSubAnimatedStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(keyboardProgress.value, [0, 1], [12, 10]),
-    letterSpacing: interpolate(keyboardProgress.value, [0, 1], [2.4, 1.8]),
   }));
 
   const formAnimatedStyle = useAnimatedStyle(() => ({
@@ -171,11 +157,6 @@ export function DriverLoginScreen({
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[s.hero, heroAnimatedStyle]}>
-          <Animated.View style={[s.heroKicker, heroKickerAnimatedStyle]}>
-            <View style={s.dot} />
-            <Text style={s.kickerText}>Certified Driver Portal</Text>
-          </Animated.View>
-
           <Animated.View style={[s.brandPlate, brandPlateAnimatedStyle]}>
             <Animated.Image
               source={require("../../assets/trustedride_certified_main_logo_transparent.png")}
@@ -183,12 +164,6 @@ export function DriverLoginScreen({
               resizeMode="contain"
               style={[s.heroLogo, logoAnimatedStyle]}
             />
-          </Animated.View>
-
-          <Animated.View style={heroTextAnimatedStyle}>
-            <Animated.Text style={[s.heroSub, heroSubAnimatedStyle]}>
-              Operator authentication
-            </Animated.Text>
           </Animated.View>
         </Animated.View>
 
@@ -340,28 +315,6 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.surfaceHigh,
   },
-  heroKicker: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(37, 99, 235, 0.09)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radii.xs,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.blue,
-  },
-  kickerText: {
-    color: colors.blue,
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    letterSpacing: 2,
-  },
   brandPlate: {
     alignItems: "center",
     justifyContent: "center",
@@ -369,13 +322,6 @@ const s = StyleSheet.create({
   heroLogo: {
     width: 330,
     height: 100,
-  },
-  heroSub: {
-    color: colors.slate500,
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 2.4,
   },
   form: {
     width: "100%",
