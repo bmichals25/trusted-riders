@@ -14,7 +14,9 @@ import {
   buildWeek,
   type CalendarMode,
   dayKey,
+  isActiveScheduleRide,
   isCalendarRideStatus,
+  isPendingRide,
   mergeRideLists,
   startOfDay,
   toScheduledItem,
@@ -50,6 +52,18 @@ export default function ScheduleScreen() {
     () => calendarRides.map(toScheduledItem).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()),
     [calendarRides],
   );
+  const activeRideCount = useMemo(
+    () => calendarRides.filter((ride) => isActiveScheduleRide(ride)).length,
+    [calendarRides],
+  );
+  const pendingRideCount = useMemo(
+    () => calendarRides.filter((ride) => isPendingRide(ride)).length,
+    [calendarRides],
+  );
+  const nextScheduledItem = useMemo(() => {
+    const now = Date.now();
+    return scheduledItems.find((item) => item.startsAt.getTime() >= now) ?? scheduledItems[0] ?? null;
+  }, [scheduledItems]);
   const selectedDayItems = scheduledItems.filter((item) => item.dayKey === selectedKey);
   const weekDays = useMemo(() => buildWeek(selectedDate), [selectedDate]);
   const weekItems = scheduledItems.filter((item) => weekDays.some((day) => day.key === item.dayKey));
@@ -116,6 +130,9 @@ export default function ScheduleScreen() {
             <ScheduleToolbar
               mode={mode}
               selectedDate={selectedDate}
+              activeCount={activeRideCount}
+              pendingCount={pendingRideCount}
+              nextItem={nextScheduledItem}
               onPrevious={() => stepDate(-1)}
               onNext={() => stepDate(1)}
               onModeChange={selectMode}

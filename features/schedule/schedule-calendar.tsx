@@ -35,12 +35,18 @@ import {
 export function ScheduleToolbar({
   mode,
   selectedDate,
+  activeCount,
+  pendingCount,
+  nextItem,
   onPrevious,
   onNext,
   onModeChange,
 }: {
   mode: CalendarMode;
   selectedDate: Date;
+  activeCount: number;
+  pendingCount: number;
+  nextItem: ScheduledItem | null;
   onPrevious: () => void;
   onNext: () => void;
   onModeChange: (mode: CalendarMode) => void;
@@ -56,6 +62,11 @@ export function ScheduleToolbar({
         </Text>
       </View>
       <ModeControl mode={mode} onChange={onModeChange} />
+      <ScheduleReadinessStrip
+        activeCount={activeCount}
+        pendingCount={pendingCount}
+        nextItem={nextItem}
+      />
 
       {mode === "list" ? (
         <View style={dateStripStyle}>
@@ -82,6 +93,102 @@ export function ScheduleToolbar({
           <DateArrow label="Next date" iconName="chevron.right" onPress={onNext} />
         </View>
       )}
+    </View>
+  );
+}
+
+function ScheduleReadinessStrip({
+  activeCount,
+  pendingCount,
+  nextItem,
+}: {
+  activeCount: number;
+  pendingCount: number;
+  nextItem: ScheduledItem | null;
+}) {
+  const nextRide = nextItem?.ride;
+  return (
+    <View
+      accessible
+      accessibilityLabel={`Schedule summary. ${activeCount} active ${activeCount === 1 ? "ride" : "rides"}. ${pendingCount} pending ${pendingCount === 1 ? "request" : "requests"}. ${nextItem ? `Next ride ${rideShortLabel(nextItem.ride)} at ${nextItem.timeLabel}.` : "No upcoming ride in the schedule."}`}
+      style={{
+        minHeight: 64,
+        borderRadius: radii.md,
+        backgroundColor: colors.primary,
+        padding: spacing.sm,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.sm,
+        ...shadows.soft,
+      }}
+    >
+      <SummaryMetric
+        label="Active"
+        value={String(activeCount)}
+        tone={activeCount ? "green" : "muted"}
+      />
+      <SummaryMetric
+        label="Pending"
+        value={String(pendingCount)}
+        tone={pendingCount ? "amber" : "muted"}
+      />
+      <View
+        style={{
+          flex: 1,
+          minWidth: 0,
+          borderRadius: radii.sm,
+          backgroundColor: "rgba(255,255,255,0.08)",
+          paddingHorizontal: spacing.sm,
+          paddingVertical: 8,
+          gap: 3,
+        }}
+      >
+        <Text style={{ color: colors.slate300, fontSize: 10, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" }} numberOfLines={1}>
+          Next
+        </Text>
+        <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "900", lineHeight: 18 }} numberOfLines={1}>
+          {nextItem ? `${nextItem.timeLabel} · ${rideShortLabel(nextRide!)}` : "Standing by"}
+        </Text>
+        <Text style={{ color: colors.slate300, fontSize: 11, fontWeight: "800", lineHeight: 14 }} numberOfLines={1}>
+          {nextRide ? nextRide.pickupAddress : "No upcoming schedule items"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "green" | "amber" | "muted";
+}) {
+  const valueColor = tone === "green"
+    ? colors.greenLight
+    : tone === "amber"
+      ? colors.amberSoft
+      : colors.slate300;
+  return (
+    <View
+      style={{
+        width: 72,
+        minHeight: 48,
+        borderRadius: radii.sm,
+        backgroundColor: "rgba(255,255,255,0.08)",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 1,
+      }}
+    >
+      <Text style={{ color: valueColor, fontSize: 19, fontWeight: "900", lineHeight: 23 }} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={{ color: colors.slate300, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" }} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
