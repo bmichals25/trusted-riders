@@ -12,6 +12,9 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { colors } from "@/lib/theme";
 
 const LOADING_VIDEO = require("../../assets/trustedride-loading-animation.mp4");
+const LOADING_VIDEO_DURATION_MS = 4010;
+const PRE_END_HANDOFF_MS = 120;
+const SEAMLESS_HANDOFF_MS = LOADING_VIDEO_DURATION_MS - PRE_END_HANDOFF_MS;
 const PLAYBACK_FALLBACK_MS = 6500;
 
 export function AppLoadingAnimation({
@@ -46,12 +49,16 @@ export function AppLoadingAnimation({
     const endSubscription = player.addListener("playToEnd", markReady);
     player.play();
 
+    const seamlessHandoffTimer = setTimeout(() => {
+      markReady();
+    }, SEAMLESS_HANDOFF_MS);
     const readyFallbackTimer = setTimeout(() => {
       markReady();
     }, PLAYBACK_FALLBACK_MS);
 
     return () => {
       endSubscription.remove();
+      clearTimeout(seamlessHandoffTimer);
       clearTimeout(readyFallbackTimer);
     };
   }, [markReady, player]);

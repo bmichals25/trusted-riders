@@ -35,7 +35,6 @@ export function HomeBrandHeader({
   const [logoRevision, setLogoRevision] = useState(0);
   const [liveTrackerOpenRequest, setLiveTrackerOpenRequest] = useState(0);
   const compact = width < 430;
-  const headerHeight = compact ? 72 : 82;
 
   useEffect(() => {
     if (isFocused) setLogoRevision((current) => current + 1);
@@ -50,13 +49,14 @@ export function HomeBrandHeader({
       height: Math.round(logoWidth / LOGO_ASPECT_RATIO),
     };
   }, [compact, width]);
+  const headerHeight = logoSize.height + (compact ? 28 : 34);
 
   return (
     <View
       style={{
         backgroundColor: colors.surface,
         paddingTop: insets.top + 8,
-        paddingBottom: 12,
+        paddingBottom: compact ? 18 : 20,
         paddingHorizontal: spacing.md,
       }}
     >

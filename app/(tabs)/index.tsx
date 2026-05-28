@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { FocusTransition } from "@/components/ui/FocusTransition";
+import { useStartupPresentation } from "@/components/ui/DriverNameGate";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
 import { RideRequestCard } from "@/components/ui/RideRequestCard";
 import { HomeBrandHeader } from "@/features/home/home-brand-header";
@@ -31,14 +32,13 @@ export default function HomeScreen() {
   const { activeRide, pendingRides, scheduledRides, backendError, hasLoadedRides, refreshRides, acceptRide, declineRide } = useDispatch();
   const { error: locationError } = useLocation();
   const { impact, notification } = useHaptics();
+  const { startupAnimationComplete, startupAnimationExiting, startupAnimationVisible } = useStartupPresentation();
   const [refreshing, setRefreshing] = useState(false);
   const homeBottomPadding = 108;
   const shouldShowRideRequests = hasLoadedRides && !backendError && pendingRides.length > 0;
-  const shouldShowUpcomingRides = hasLoadedRides && !backendError && !activeRide && scheduledRides.length > 0;
-  const shouldShowEmptyRides = hasLoadedRides && !backendError && !activeRide && pendingRides.length === 0 && scheduledRides.length === 0;
   const blockExitOnBlur = false;
   const replayHomeEntrance = false;
-  const homeEntranceReady = true;
+  const homeEntranceReady = !startupAnimationVisible || startupAnimationExiting || startupAnimationComplete;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -135,20 +135,7 @@ export default function HomeScreen() {
             </FadeInBlock>
           ) : null}
 
-          {!hasLoadedRides && !backendError ? (
-            <FadeInBlock
-              delay={145}
-              duration={520}
-              distance={16}
-              exitOnBlur={blockExitOnBlur}
-              ready={homeEntranceReady}
-              replayOnFocus={replayHomeEntrance}
-            >
-              <Section title="Current Ride">
-                <LoadingState title="Loading ride information" body="Checking the live backend for current rides and requests." />
-              </Section>
-            </FadeInBlock>
-          ) : activeRide ? (
+          {activeRide ? (
             <FadeInBlock
               delay={145}
               duration={520}
@@ -166,7 +153,46 @@ export default function HomeScreen() {
                 />
               </Section>
             </FadeInBlock>
-          ) : shouldShowUpcomingRides ? (
+          ) : shouldShowRideRequests ? (
+            <FadeInBlock
+              delay={145}
+              duration={520}
+              distance={16}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+            >
+              <Section title="Ride Requests" count={pendingRides.length}>
+                <View style={{ gap: spacing.md }}>
+                  {pendingRides.map((ride, index) => (
+                    <FadeInBlock
+                      key={ride.id}
+                      delay={185 + index * 38}
+                      duration={480}
+                      exitOnBlur={blockExitOnBlur}
+                      ready={homeEntranceReady}
+                      replayOnFocus={replayHomeEntrance}
+                      distance={10}
+                    >
+                      <RideRequestCard
+                        ride={ride}
+                        onOpen={() => openRideRequestDetails(ride)}
+                        onChat={() => openChat(ride)}
+                        onAccept={() => {
+                          notification(NotificationFeedbackType.Success);
+                          acceptRide(ride.id);
+                        }}
+                        onDecline={() => {
+                          impact(ImpactFeedbackStyle.Medium);
+                          confirmDeclineRideRequest(ride, () => declineRide(ride.id));
+                        }}
+                      />
+                    </FadeInBlock>
+                  ))}
+                </View>
+              </Section>
+            </FadeInBlock>
+          ) : hasLoadedRides && !backendError && scheduledRides.length > 0 ? (
             <FadeInBlock
               delay={145}
               duration={520}
@@ -207,7 +233,7 @@ export default function HomeScreen() {
                 </View>
               </Section>
             </FadeInBlock>
-          ) : shouldShowEmptyRides ? (
+          ) : hasLoadedRides && !backendError ? (
             <FadeInBlock
               delay={145}
               duration={520}
@@ -220,9 +246,22 @@ export default function HomeScreen() {
                 <EmptyRideState refreshing={refreshing} onRefresh={onRefresh} />
               </Section>
             </FadeInBlock>
-          ) : null}
+          ) : (
+            <FadeInBlock
+              delay={145}
+              duration={520}
+              distance={16}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+            >
+              <Section title="Current Ride">
+                <LoadingState title="Loading ride information" body="Checking the live backend for current rides and requests." />
+              </Section>
+            </FadeInBlock>
+          )}
 
-          {shouldShowRideRequests ? (
+          {shouldShowRideRequests && activeRide ? (
             activeRide ? (
               <FadeInBlock
                 delay={220}
@@ -236,46 +275,7 @@ export default function HomeScreen() {
                   <RideRequestsBanner count={pendingRides.length} latestRide={pendingRides[0]} onPress={() => openRideRequestDetails(pendingRides[0])} />
                 </View>
               </FadeInBlock>
-            ) : (
-              <FadeInBlock
-                delay={220}
-                duration={500}
-                distance={12}
-                exitOnBlur={blockExitOnBlur}
-                ready={homeEntranceReady}
-                replayOnFocus={replayHomeEntrance}
-              >
-                <Section title="Ride Requests" count={pendingRides.length}>
-                  <View style={{ gap: spacing.md }}>
-                    {pendingRides.map((ride, index) => (
-                      <FadeInBlock
-                        key={ride.id}
-                        delay={260 + index * 38}
-                        duration={480}
-                        exitOnBlur={blockExitOnBlur}
-                        ready={homeEntranceReady}
-                        replayOnFocus={replayHomeEntrance}
-                        distance={10}
-                      >
-                        <RideRequestCard
-                          ride={ride}
-                          onOpen={() => openRideRequestDetails(ride)}
-                          onChat={() => openChat(ride)}
-                          onAccept={() => {
-                            notification(NotificationFeedbackType.Success);
-                            acceptRide(ride.id);
-                          }}
-                          onDecline={() => {
-                            impact(ImpactFeedbackStyle.Medium);
-                            confirmDeclineRideRequest(ride, () => declineRide(ride.id));
-                          }}
-                        />
-                      </FadeInBlock>
-                    ))}
-                  </View>
-                </Section>
-              </FadeInBlock>
-            )
+            ) : null
           ) : null}
         </ScrollView>
       </View>
