@@ -1,5 +1,7 @@
 import { type RefObject, useCallback } from "react";
+import { SymbolView } from "expo-symbols";
 import {
+  ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
@@ -15,23 +17,48 @@ import { colors, radii, spacing } from "@/lib/theme";
 
 export function ChatContextStrip({ label }: { label: string }) {
   return (
-    <View style={{
-      paddingHorizontal: spacing.md,
-      paddingVertical: 12,
-      backgroundColor: colors.surfaceLow,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-    }}>
-      <View style={{
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: colors.green,
-      }} />
-      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700", flex: 1 }} numberOfLines={1}>
-        {label}
-      </Text>
+    <View
+      accessible
+      accessibilityLabel={`${label}. Dispatch link active.`}
+      style={{
+        paddingHorizontal: spacing.md,
+        paddingVertical: 10,
+        backgroundColor: colors.surfaceLow,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.slate100,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: radii.sm,
+          backgroundColor: colors.greenSoft,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <SymbolView
+          name="checkmark.message.fill"
+          size={15}
+          type="hierarchical"
+          tintColor={colors.greenStrong}
+          weight="semibold"
+        />
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={{ color: colors.slate500, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>
+          Dispatch link active
+        </Text>
+      </View>
     </View>
   );
 }
@@ -46,6 +73,7 @@ export function ChatMessageList({
   readMessageIds,
   onCheckpointPress,
   onScrollToLatest,
+  onRetry,
 }: {
   listRef: RefObject<FlatList<Message> | null>;
   messages: Message[];
@@ -56,6 +84,7 @@ export function ChatMessageList({
   readMessageIds: Set<string>;
   onCheckpointPress: (checkpoint: CheckpointCardData) => void;
   onScrollToLatest: () => void;
+  onRetry: () => void;
 }) {
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isOperator = item.sender === "operator";
@@ -131,23 +160,7 @@ export function ChatMessageList({
         isInitialLoading && !loadError ? (
           <ChatLoadingState />
         ) : (
-          <View
-            style={{
-              backgroundColor: colors.surfaceLow,
-              borderRadius: radii.md,
-              borderCurve: "continuous",
-              padding: spacing.lg,
-              gap: 6,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", textAlign: "center" }}>
-              {loadError ? "Chat backend unavailable" : "No messages yet"}
-            </Text>
-            <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center", lineHeight: 18 }}>
-              {loadError ?? "Send a message to start the dispatch chat."}
-            </Text>
-          </View>
+          <ChatUnavailableState loadError={loadError} onRetry={onRetry} />
         )
       }
       contentContainerStyle={{
@@ -164,6 +177,84 @@ export function ChatMessageList({
       onContentSizeChange={onScrollToLatest}
       onLayout={onScrollToLatest}
     />
+  );
+}
+
+function ChatUnavailableState({
+  loadError,
+  onRetry,
+}: {
+  loadError: string | null;
+  onRetry: () => void;
+}) {
+  const title = loadError ? "Chat unavailable" : "No messages yet";
+  const body = loadError ?? "Dispatch messages and ride updates will appear here.";
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${title}. ${body}`}
+      style={{
+        backgroundColor: colors.surfaceLow,
+        borderRadius: radii.md,
+        borderCurve: "continuous",
+        padding: spacing.lg,
+        gap: spacing.md,
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: colors.slate100,
+      }}
+    >
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: radii.lg,
+          backgroundColor: loadError ? colors.errorSoftDark : colors.blueSoft,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <SymbolView
+          name={loadError ? "exclamationmark.bubble.fill" : "message.badge.fill"}
+          size={24}
+          type="hierarchical"
+          tintColor={loadError ? colors.error : colors.blueStrong}
+          weight="semibold"
+        />
+      </View>
+      <View style={{ gap: 6, alignItems: "center" }}>
+        <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900", textAlign: "center" }}>
+          {title}
+        </Text>
+        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", textAlign: "center", lineHeight: 19, maxWidth: 260 }}>
+          {body}
+        </Text>
+      </View>
+      <Pressable
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel={loadError ? "Retry loading chat" : "Refresh chat"}
+        style={({ pressed }) => ({
+          minHeight: 42,
+          minWidth: 120,
+          borderRadius: radii.pill,
+          backgroundColor: pressed ? colors.surfaceHigh : colors.surface,
+          borderWidth: 1,
+          borderColor: colors.slate200,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: spacing.md,
+          opacity: pressed ? 0.72 : 1,
+        })}
+      >
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }}>
+          {loadError ? "Try Again" : "Refresh"}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -297,7 +388,17 @@ export function ChatComposer({
           opacity: canSendMessage ? 1 : 0.72,
         }}
       >
-        <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "900" }}>↑</Text>
+        {isSending ? (
+          <ActivityIndicator color={colors.surface} size="small" />
+        ) : (
+          <SymbolView
+            name="arrow.up"
+            size={18}
+            type="hierarchical"
+            tintColor={colors.surface}
+            weight="bold"
+          />
+        )}
       </Pressable>
     </View>
   );

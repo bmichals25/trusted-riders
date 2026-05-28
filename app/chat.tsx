@@ -8,6 +8,7 @@ import {
   Pressable,
   TextInput,
 } from "react-native";
+import { SymbolView } from "expo-symbols";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useIsFocused } from "@react-navigation/native";
@@ -16,7 +17,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackChevron } from "@/components/ui/BackChevron";
 import { useDispatch } from "@/lib/dispatch-context";
 import { PageTransition } from "@/components/ui/PageTransition";
-import { CallGlyph } from "@/features/chat/chat-accessories";
 import { CheckpointDetailModal } from "@/features/chat/chat-checkpoint";
 import { mapApiMessage, type CheckpointCardData, type Message } from "@/features/chat/chat-model";
 import { ChatOpeningBlock } from "@/features/chat/chat-opening-block";
@@ -358,7 +358,13 @@ export default function ChatScreen() {
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <CallGlyph />
+            <SymbolView
+              name="phone.fill"
+              size={17}
+              type="hierarchical"
+              tintColor={colors.greenLight}
+              weight="semibold"
+            />
           </Pressable>
         ),
       }}
@@ -386,6 +392,9 @@ export default function ChatScreen() {
             if (!isInitialLoading && messages.length > 0) {
               scrollToLatest(false);
             }
+          }}
+          onRetry={() => {
+            void refreshMessages();
           }}
         />
       </ChatOpeningBlock>
