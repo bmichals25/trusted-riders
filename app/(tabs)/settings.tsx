@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import { TabActions } from "@react-navigation/routers";
 import { Alert, Linking, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -23,6 +25,7 @@ import { colors, spacing } from "@/lib/theme";
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const {
     isTracking,
     permissionStatus,
@@ -76,7 +79,8 @@ export default function SettingsScreen() {
     selection();
     replayStartupAnimation();
     requestAnimationFrame(() => {
-      router.replace("/(tabs)");
+      navigation.getParent()?.dispatch(TabActions.jumpTo("index"));
+      router.replace("/");
     });
   };
 

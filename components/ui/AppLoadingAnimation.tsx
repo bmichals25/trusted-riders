@@ -12,7 +12,7 @@ import { VideoView, useVideoPlayer } from "expo-video";
 import { colors } from "@/lib/theme";
 
 const LOADING_VIDEO = require("../../assets/trustedride-loading-animation.mp4");
-const HANDOFF_DELAY_MS = 3980;
+const HANDOFF_DELAY_MS = 3750;
 
 export function AppLoadingAnimation({
   exiting = false,
@@ -70,17 +70,17 @@ export function AppLoadingAnimation({
     }
 
     videoOpacity.value = withTiming(0, {
-      duration: 140,
+      duration: 180,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
     rootOpacity.value = withTiming(0, {
-      duration: 160,
+      duration: 260,
       easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
 
     const completeTimer = setTimeout(() => {
       onExitComplete?.();
-    }, 180);
+    }, 280);
 
     return () => clearTimeout(completeTimer);
   }, [exiting, onExitComplete, reducedMotion, rootOpacity, videoOpacity]);
@@ -109,7 +109,7 @@ export function AppLoadingAnimation({
 const s = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "transparent",
+    backgroundColor: colors.surfaceLow,
     overflow: "hidden",
   },
 });
