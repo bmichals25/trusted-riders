@@ -41,10 +41,14 @@ export function CurrentRideCard({
         <RouteRows ride={ride} />
       </Pressable>
       <View style={{ gap: spacing.sm }}>
-        <PrimaryActionButton label={primaryActionLabelFor(ride.status)} onPress={onOpen} />
+        <PrimaryActionButton
+          label={primaryActionLabelFor(ride.status)}
+          iconName={primaryActionIconFor(ride.status)}
+          onPress={onOpen}
+        />
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <SecondaryActionButton label="Chat" onPress={onChat} />
-          <SecondaryActionButton label="Navigate" onPress={onNavigate} />
+          <SecondaryActionButton label="Chat" iconName="bubble.left.and.bubble.right.fill" onPress={onChat} />
+          <SecondaryActionButton label="Navigate" iconName="location.fill" onPress={onNavigate} />
         </View>
       </View>
     </View>
@@ -56,7 +60,7 @@ export function UpcomingRideCard({ ride, onOpen }: { ride: DispatchedRide; onOpe
     <View style={cardStyle}>
       <RideHeader ride={ride} />
       <RouteRows ride={ride} />
-      <SecondaryActionButton label="View Ride" onPress={onOpen} />
+      <SecondaryActionButton label="View Ride" iconName="doc.text.magnifyingglass" onPress={onOpen} />
     </View>
   );
 }
@@ -83,8 +87,8 @@ export function NextUpcomingRideCard({
         <RouteRows ride={ride} />
       </Pressable>
       <View style={{ gap: spacing.sm }}>
-        <SecondaryActionButton label="View Ride" onPress={onOpen} />
-        <SecondaryActionButton label="Navigate" onPress={onNavigate} />
+        <SecondaryActionButton label="View Ride" iconName="doc.text.magnifyingglass" onPress={onOpen} />
+        <SecondaryActionButton label="Navigate" iconName="location.fill" onPress={onNavigate} />
       </View>
     </View>
   );
@@ -538,7 +542,15 @@ function MapStopMarker({ tone }: { tone: "pickup" | "dropoff" }) {
   );
 }
 
-function PrimaryActionButton({ label, onPress }: { label: string; onPress: () => void }) {
+function PrimaryActionButton({
+  label,
+  iconName,
+  onPress,
+}: {
+  label: string;
+  iconName: SFSymbol;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
@@ -551,15 +563,33 @@ function PrimaryActionButton({ label, onPress }: { label: string; onPress: () =>
         backgroundColor: colors.green,
         alignItems: "center",
         justifyContent: "center",
+        flexDirection: "row",
+        gap: spacing.sm,
+        paddingHorizontal: spacing.md,
         opacity: pressed ? 0.72 : 1,
       })}
     >
+      <SymbolView
+        name={iconName}
+        size={19}
+        type="hierarchical"
+        tintColor={colors.surface}
+        weight="bold"
+      />
       <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "900", textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
 
-function SecondaryActionButton({ label, onPress }: { label: string; onPress: () => void }) {
+function SecondaryActionButton({
+  label,
+  iconName,
+  onPress,
+}: {
+  label: string;
+  iconName: SFSymbol;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
@@ -574,9 +604,19 @@ function SecondaryActionButton({ label, onPress }: { label: string; onPress: () 
         borderColor: colors.slate200,
         alignItems: "center",
         justifyContent: "center",
+        flexDirection: "row",
+        gap: 7,
+        paddingHorizontal: spacing.sm,
         opacity: pressed ? 0.72 : 1,
       })}
     >
+      <SymbolView
+        name={iconName}
+        size={15}
+        type="hierarchical"
+        tintColor={colors.blueStrong}
+        weight="semibold"
+      />
       <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900", textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
@@ -593,6 +633,10 @@ function badgeStatusFor(status: RideStatus): StatusKey {
 
 function primaryActionLabelFor(status: RideStatus) {
   return status === "accepted" ? "Start Ride" : "View Ride";
+}
+
+function primaryActionIconFor(status: RideStatus): SFSymbol {
+  return status === "accepted" ? "play.fill" : "arrow.right.circle.fill";
 }
 
 function initialsFor(name: string) {
