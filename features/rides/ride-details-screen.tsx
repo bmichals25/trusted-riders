@@ -70,13 +70,16 @@ export function RideDetailsScreenContent() {
               <FadeInBlock delay={50}>
                 <RideDetailHero ride={ride} />
               </FadeInBlock>
-              <FadeInBlock delay={95}>
+              <FadeInBlock delay={85}>
+                <RideReadinessStrip ride={ride} />
+              </FadeInBlock>
+              <FadeInBlock delay={115}>
                 <RideDetailMap ride={ride} />
               </FadeInBlock>
-              <FadeInBlock delay={125}>
+              <FadeInBlock delay={145}>
                 <RouteDetailPanel ride={ride} />
               </FadeInBlock>
-              <FadeInBlock delay={155}>
+              <FadeInBlock delay={175}>
                 <TripContextPanel ride={ride} />
               </FadeInBlock>
             </>
@@ -192,6 +195,105 @@ function RideDetailsActionBar({
           </View>
         </View>
       )}
+    </View>
+  );
+}
+
+function RideReadinessStrip({ ride }: { ride: DispatchedRide }) {
+  return (
+    <View
+      accessible
+      accessibilityLabel={`Ride readiness. Status ${rideStatusLabel(ride.status)}. Scheduled ${ride.scheduledDate} at ${ride.scheduledTime}. Vehicle ${ride.transitType}.`}
+      style={{
+        backgroundColor: colors.surface,
+        borderRadius: radii.md,
+        borderCurve: "continuous",
+        borderWidth: 1,
+        borderColor: colors.slate100,
+        padding: spacing.sm,
+        flexDirection: "row",
+        gap: spacing.sm,
+        ...shadows.soft,
+      }}
+    >
+      <ReadinessMetric
+        iconName="checkmark.shield.fill"
+        label="Status"
+        value={rideStatusLabel(ride.status)}
+        tone={ride.status === "pending" ? "warning" : "good"}
+      />
+      <ReadinessMetric
+        iconName="clock.fill"
+        label="Time"
+        value={ride.scheduledTime}
+        tone="neutral"
+      />
+      <ReadinessMetric
+        iconName="car.fill"
+        label="Vehicle"
+        value={ride.transitType}
+        tone="neutral"
+      />
+    </View>
+  );
+}
+
+function ReadinessMetric({
+  iconName,
+  label,
+  value,
+  tone,
+}: {
+  iconName: SFSymbol;
+  label: string;
+  value: string;
+  tone: "good" | "warning" | "neutral";
+}) {
+  const palette = tone === "good"
+    ? { bg: colors.greenSoft, fg: colors.greenStrong }
+    : tone === "warning"
+      ? { bg: colors.amberSoft, fg: colors.amberStrong }
+      : { bg: colors.blueSoft, fg: colors.blueStrong };
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        minHeight: 72,
+        borderRadius: radii.sm,
+        backgroundColor: colors.surfaceLow,
+        padding: spacing.sm,
+        gap: 6,
+      }}
+    >
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{
+          width: 27,
+          height: 27,
+          borderRadius: radii.xs,
+          backgroundColor: palette.bg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <SymbolView
+          name={iconName}
+          size={14}
+          type="hierarchical"
+          tintColor={palette.fg}
+          weight="semibold"
+        />
+      </View>
+      <View style={{ gap: 2 }}>
+        <Text style={{ color: colors.slate500, fontSize: 10, fontWeight: "900", letterSpacing: 0.9, textTransform: "uppercase" }} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900", lineHeight: 17 }} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
