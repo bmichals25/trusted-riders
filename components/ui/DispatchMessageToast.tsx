@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { listRideChatMessages, type RideChatMessage } from "@/lib/chat-api";
+import { useDispatch } from "@/lib/dispatch-context";
 import { NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { colors, radii } from "@/lib/theme";
@@ -30,8 +31,10 @@ export function DispatchMessageToast() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { clearDispatchUnreadMessages, noteIncomingDispatchMessages } = useDispatch();
   const [notice, setNotice] = useState<DispatchMessageNotice | null>(null);
   const lastMessageIdRef = useRef<string | undefined>(undefined);
+  const observedIncomingMessageIdsRef = useRef(new Set<string>());
   const hasInitializedRef = useRef(false);
   const pollingRef = useRef(false);
   const translateY = useRef(new Animated.Value(-120)).current;
@@ -90,17 +93,27 @@ export function DispatchMessageToast() {
         const newestId = latestMessageId(messages);
         if (newestId) lastMessageIdRef.current = newestId;
 
+        const incoming = messages.filter(isIncomingMessage);
+        const newIncoming = incoming.filter((message) => {
+          if (observedIncomingMessageIdsRef.current.has(message.id)) return false;
+          observedIncomingMessageIdsRef.current.add(message.id);
+          return true;
+        });
+
+        if (pathname === "/chat") {
+          clearDispatchUnreadMessages();
+          return;
+        }
+
         if (!hasInitializedRef.current) {
           hasInitializedRef.current = true;
           return;
         }
 
-        if (pathname === "/chat") return;
-
-        const incoming = messages.filter(isIncomingMessage);
-        const latestIncoming = incoming[incoming.length - 1];
+        const latestIncoming = newIncoming[newIncoming.length - 1];
         if (!latestIncoming) return;
 
+        noteIncomingDispatchMessages(newIncoming.length);
         setNotice({
           id: `dispatch-${latestIncoming.id}`,
           senderName: latestIncoming.sender_name || "Dispatch",
@@ -123,7 +136,7 @@ export function DispatchMessageToast() {
       active = false;
       clearInterval(interval);
     };
-  }, [pathname]);
+  }, [clearDispatchUnreadMessages, noteIncomingDispatchMessages, pathname]);
 
   if (!notice) return null;
 

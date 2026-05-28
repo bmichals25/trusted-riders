@@ -38,7 +38,10 @@ type DispatchState = {
   backendError: string | null;
   hasLoadedRides: boolean;
   statusNotice: RideStatusNotice | null;
+  unreadDispatchMessageCount: number;
+  clearDispatchUnreadMessages: () => void;
   dismissStatusNotice: () => void;
+  noteIncomingDispatchMessages: (count: number) => void;
   refreshRides: () => Promise<void>;
   acceptRide: (id: string) => void;
   declineRide: (id: string) => void;
@@ -52,7 +55,10 @@ const DispatchContext = createContext<DispatchState>({
   backendError: null,
   hasLoadedRides: false,
   statusNotice: null,
+  unreadDispatchMessageCount: 0,
+  clearDispatchUnreadMessages: () => {},
   dismissStatusNotice: () => {},
+  noteIncomingDispatchMessages: () => {},
   refreshRides: async () => {},
   acceptRide: () => {},
   declineRide: () => {},
@@ -83,6 +89,7 @@ export function DispatchProvider({
   const [backendError, setBackendError] = useState<string | null>(null);
   const [hasLoadedRides, setHasLoadedRides] = useState(false);
   const [statusNotice, setStatusNotice] = useState<RideStatusNotice | null>(null);
+  const [unreadDispatchMessageCount, setUnreadDispatchMessageCount] = useState(0);
   const { location, isTracking, startTracking, stopTracking } = useLocation();
 
   const hasLoadedRidesRef = useRef(false);
@@ -215,6 +222,15 @@ export function DispatchProvider({
 
   const dismissStatusNotice = useCallback(() => {
     setStatusNotice(null);
+  }, []);
+
+  const clearDispatchUnreadMessages = useCallback(() => {
+    setUnreadDispatchMessageCount(0);
+  }, []);
+
+  const noteIncomingDispatchMessages = useCallback((count: number) => {
+    if (count <= 0) return;
+    setUnreadDispatchMessageCount((current) => current + count);
   }, []);
 
   useEffect(() => {
@@ -404,7 +420,10 @@ export function DispatchProvider({
       backendError,
       hasLoadedRides,
       statusNotice,
+      unreadDispatchMessageCount,
+      clearDispatchUnreadMessages,
       dismissStatusNotice,
+      noteIncomingDispatchMessages,
       refreshRides,
       acceptRide,
       declineRide,

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, View, useWindowDimensions } from "react-native";
+import { Image, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LocationIndicator } from "@/components/ui/LocationIndicator";
+import { useDispatch } from "@/lib/dispatch-context";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
+import { useLocation } from "@/lib/location-context";
 import { colors, radii, spacing } from "@/lib/theme";
 
 const BRAND_NAME = "TrustedRide Certified";
@@ -29,6 +31,8 @@ export function HomeBrandHeader({
   const { width } = useWindowDimensions();
   const router = useRouter();
   const { impact } = useHaptics();
+  const { clearDispatchUnreadMessages, unreadDispatchMessageCount } = useDispatch();
+  const { isTracking } = useLocation();
   const isFocused = useIsFocused();
   const [logoRevision, setLogoRevision] = useState(0);
   const [liveTrackerOpenRequest, setLiveTrackerOpenRequest] = useState(0);
@@ -111,7 +115,7 @@ export function HomeBrandHeader({
             width: dotSize,
             height: dotSize,
             borderRadius: dotSize / 2,
-            backgroundColor: backendConnected ? colors.green : colors.error,
+            backgroundColor: isTracking ? colors.green : colors.slate400,
             borderColor: colors.surface,
             borderWidth: 2,
             zIndex: 3,
@@ -130,8 +134,10 @@ export function HomeBrandHeader({
           }}
         >
           <DispatchChatButton
+            unreadCount={unreadDispatchMessageCount}
             onPress={() => {
               impact(ImpactFeedbackStyle.Light);
+              clearDispatchUnreadMessages();
               router.push("/chat");
             }}
           />
@@ -148,12 +154,17 @@ export function HomeBrandHeader({
   );
 }
 
-function DispatchChatButton({ onPress }: { onPress: () => void }) {
+function DispatchChatButton({ onPress, unreadCount }: { onPress: () => void; unreadCount: number }) {
+  const visibleUnreadCount = Math.min(unreadCount, 99);
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Open dispatch messages"
+      accessibilityLabel={
+        unreadCount > 0
+          ? `Open dispatch messages, ${visibleUnreadCount} unread`
+          : "Open dispatch messages"
+      }
       hitSlop={8}
       style={({ pressed }) => ({
         width: 32,
@@ -166,6 +177,29 @@ function DispatchChatButton({ onPress }: { onPress: () => void }) {
       })}
     >
       <MessageGlyph />
+      {unreadCount > 0 ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: 3,
+            right: -3,
+            minWidth: 18,
+            height: 18,
+            borderRadius: 9,
+            paddingHorizontal: 5,
+            backgroundColor: colors.blue,
+            borderWidth: 2,
+            borderColor: colors.surface,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ color: colors.surface, fontSize: 10, fontWeight: "900", lineHeight: 12 }}>
+            {visibleUnreadCount}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }

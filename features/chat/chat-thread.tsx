@@ -45,6 +45,7 @@ export function ChatMessageList({
   lastOperatorMessageId,
   readMessageIds,
   onCheckpointPress,
+  onScrollToLatest,
 }: {
   listRef: RefObject<FlatList<Message> | null>;
   messages: Message[];
@@ -54,6 +55,7 @@ export function ChatMessageList({
   lastOperatorMessageId?: string;
   readMessageIds: Set<string>;
   onCheckpointPress: (checkpoint: CheckpointCardData) => void;
+  onScrollToLatest: () => void;
 }) {
   const renderMessage = useCallback(({ item }: { item: Message }) => {
     const isOperator = item.sender === "operator";
@@ -159,9 +161,8 @@ export function ChatMessageList({
       maxToRenderPerBatch={10}
       windowSize={9}
       keyboardShouldPersistTaps="handled"
-      onContentSizeChange={() =>
-        listRef.current?.scrollToEnd({ animated: true })
-      }
+      onContentSizeChange={onScrollToLatest}
+      onLayout={onScrollToLatest}
     />
   );
 }

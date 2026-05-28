@@ -14,6 +14,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron } from "@/components/ui/BackChevron";
+import { useDispatch } from "@/lib/dispatch-context";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { CallGlyph } from "@/features/chat/chat-accessories";
 import { CheckpointDetailModal } from "@/features/chat/chat-checkpoint";
@@ -60,6 +61,7 @@ export default function ChatScreen() {
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<CheckpointCardData | null>(null);
   const canSendMessage = inputText.trim().length > 0 && !isSending;
   const { impact } = useHaptics();
+  const { clearDispatchUnreadMessages } = useDispatch();
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
   const draftRef = useRef("");
@@ -69,7 +71,7 @@ export default function ChatScreen() {
   const refreshInFlightRef = useRef(false);
   const lastTypingSentAtRef = useRef(0);
   const lastReadMarkedIdRef = useRef<string | undefined>(undefined);
-  const latestScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestScrollTimerRefs = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const lastOperatorMessageId = useMemo(
     () => [...messages].reverse().find((message) => message.sender === "operator")?.id,
@@ -146,6 +148,7 @@ export default function ChatScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    clearDispatchUnreadMessages();
     if (!lastMessageIdRef.current) {
       setIsInitialLoading(true);
     }
@@ -162,7 +165,7 @@ export default function ChatScreen() {
       active = false;
       clearInterval(timer);
     };
-  }, [refreshMessages]));
+  }, [clearDispatchUnreadMessages, refreshMessages]));
 
   useEffect(() => {
     return () => {
@@ -264,16 +267,18 @@ export default function ChatScreen() {
   }, [clearComposer, inputText, isSending, roomId]);
 
   const scrollToLatest = useCallback((animated: boolean) => {
-    if (latestScrollTimerRef.current) {
-      clearTimeout(latestScrollTimerRef.current);
-    }
+    latestScrollTimerRefs.current.forEach(clearTimeout);
+    latestScrollTimerRefs.current = [];
 
     requestAnimationFrame(() => {
       flatListRef.current?.scrollToEnd({ animated });
-      latestScrollTimerRef.current = setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated });
-        latestScrollTimerRef.current = null;
-      }, 80);
+      for (const delay of [80, 220, 420]) {
+        const timer = setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated });
+          latestScrollTimerRefs.current = latestScrollTimerRefs.current.filter((item) => item !== timer);
+        }, delay);
+        latestScrollTimerRefs.current.push(timer);
+      }
     });
   }, []);
 
@@ -284,9 +289,8 @@ export default function ChatScreen() {
 
   useEffect(() => {
     return () => {
-      if (latestScrollTimerRef.current) {
-        clearTimeout(latestScrollTimerRef.current);
-      }
+      latestScrollTimerRefs.current.forEach(clearTimeout);
+      latestScrollTimerRefs.current = [];
     };
   }, []);
 
@@ -378,6 +382,11 @@ export default function ChatScreen() {
           lastOperatorMessageId={lastOperatorMessageId}
           readMessageIds={readMessageIds}
           onCheckpointPress={openCheckpoint}
+          onScrollToLatest={() => {
+            if (!isInitialLoading && messages.length > 0) {
+              scrollToLatest(false);
+            }
+          }}
         />
       </ChatOpeningBlock>
 
