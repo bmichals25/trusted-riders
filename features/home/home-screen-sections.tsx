@@ -1,6 +1,14 @@
-import { useCallback, useMemo, useRef, type ReactNode } from "react";
-import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { Platform, Pressable, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { LocationRow } from "@/components/ui/LocationRow";
@@ -106,12 +114,81 @@ export function Section({ title, count, children }: { title: string; count?: num
 }
 
 export function LoadingState({ title, body }: { title: string; body: string }) {
+  const reduced = useReducedMotion();
+  const pulse = useSharedValue(0.58);
+
+  useEffect(() => {
+    if (reduced) {
+      pulse.value = 0.72;
+      return;
+    }
+
+    pulse.value = withRepeat(
+      withTiming(1, {
+        duration: 950,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      true,
+    );
+  }, [pulse, reduced]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    opacity: pulse.value,
+  }));
+
   return (
-    <View style={[cardStyle, { alignItems: "center" }]}>
-      <ActivityIndicator color={colors.blue} />
-      <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", textAlign: "center" }}>{title}</Text>
-      <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", textAlign: "center", lineHeight: 18 }}>{body}</Text>
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={`${title}. ${body}`}
+      style={cardStyle}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <SkeletonBlock pulseStyle={pulseStyle} style={{ width: 48, height: 48, borderRadius: 24 }} />
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <SkeletonBlock pulseStyle={pulseStyle} style={{ width: "64%", height: 18, borderRadius: radii.xs }} />
+          <SkeletonBlock pulseStyle={pulseStyle} style={{ width: "82%", height: 13, borderRadius: radii.xs }} />
+        </View>
+        <SkeletonBlock pulseStyle={pulseStyle} style={{ width: 92, height: 34, borderRadius: radii.xs }} />
+      </View>
+
+      <SkeletonBlock pulseStyle={pulseStyle} style={{ height: 170, borderRadius: radii.sm }} />
+
+      <View style={{ gap: spacing.md }}>
+        {[colors.green, colors.blue].map((dotColor, index) => (
+          <View key={dotColor} style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: dotColor }} />
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <SkeletonBlock pulseStyle={pulseStyle} style={{ width: index === 0 ? 70 : 84, height: 11, borderRadius: radii.xs }} />
+              <SkeletonBlock pulseStyle={pulseStyle} style={{ width: index === 0 ? "78%" : "88%", height: 18, borderRadius: radii.xs }} />
+            </View>
+          </View>
+        ))}
+      </View>
+
+      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        {[0, 1, 2].map((item) => (
+          <SkeletonBlock key={item} pulseStyle={pulseStyle} style={{ flex: 1, height: 46, borderRadius: radii.sm }} />
+        ))}
+      </View>
     </View>
+  );
+}
+
+function SkeletonBlock({ pulseStyle, style }: { pulseStyle: any; style: any }) {
+  return (
+    <Animated.View
+      style={[
+        {
+          backgroundColor: colors.slate100,
+          borderColor: colors.slate200,
+          borderWidth: 1,
+        },
+        style,
+        pulseStyle,
+      ]}
+    />
   );
 }
 
