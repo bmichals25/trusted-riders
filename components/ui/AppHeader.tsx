@@ -5,7 +5,7 @@ import { colors, spacing } from "@/lib/theme";
 import { BackChevron } from "./BackChevron";
 import { LocationIndicator } from "./LocationIndicator";
 
-const BRAND_NAME = "TrustedRIde Certified";
+const BRAND_NAME = "TrustedRide Certified";
 
 type Props = {
   title?: string;
@@ -54,25 +54,13 @@ export function AppHeader({
           <View
             accessibilityLabel={BRAND_NAME}
             accessible
-            style={{ flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 0 }}
+            style={{ flexDirection: "row", alignItems: "center", flexShrink: 0 }}
           >
             <Image
-              source={require("../../assets/TR_favicon.png")}
+              source={require("../../assets/trustedride_certified_main_logo_transparent.png")}
               resizeMode="contain"
-              style={{ width: 34, height: 34, flexShrink: 0 }}
+              style={{ width: logoWidth, height: Math.round(logoWidth / 3.3), flexShrink: 0 }}
             />
-            <Text
-              numberOfLines={2}
-              style={{
-                width: logoWidth,
-                color: colors.primary,
-                fontSize: 17,
-                lineHeight: 19,
-                fontWeight: "900",
-              }}
-            >
-              {BRAND_NAME}
-            </Text>
           </View>
         ) : null}
         <View style={{ flex: 1, minWidth: 0 }} />

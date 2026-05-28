@@ -88,8 +88,8 @@ export function LocationIndicator({
             Alert.alert(
               backendConnected ? "Connected" : "Disconnected",
               backendConnected
-                ? "This device is connected to the TrustedRIde Certified backend server."
-                : backendError ?? "This device is not currently connected to the TrustedRIde Certified backend server.",
+                ? "This device is connected to the TrustedRide Certified backend server."
+                : backendError ?? "This device is not currently connected to the TrustedRide Certified backend server.",
             );
           }}
         />

@@ -25,7 +25,7 @@ import { colors, radii, spacing } from "@/lib/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
-const BRAND_NAME = "TrustedRIde Certified";
+const BRAND_NAME = "TrustedRide Certified";
 
 export function DriverLoginScreen({
   canSubmit,
@@ -83,19 +83,18 @@ export function DriverLoginScreen({
     paddingVertical: interpolate(keyboardProgress.value, [0, 1], [6, 5]),
   }));
 
-  const heroIconAnimatedStyle = useAnimatedStyle(() => ({
-    width: interpolate(keyboardProgress.value, [0, 1], [96, 58]),
-    height: interpolate(keyboardProgress.value, [0, 1], [96, 58]),
-    marginTop: interpolate(keyboardProgress.value, [0, 1], [4, 0]),
+  const brandPlateAnimatedStyle = useAnimatedStyle(() => ({
+    width: interpolate(keyboardProgress.value, [0, 1], [354, 300]),
+    height: interpolate(keyboardProgress.value, [0, 1], [124, 96]),
+  }));
+
+  const logoAnimatedStyle = useAnimatedStyle(() => ({
+    width: interpolate(keyboardProgress.value, [0, 1], [330, 284]),
+    height: interpolate(keyboardProgress.value, [0, 1], [100, 86]),
   }));
 
   const heroTextAnimatedStyle = useAnimatedStyle(() => ({
-    gap: interpolate(keyboardProgress.value, [0, 1], [14, 3]),
-  }));
-
-  const heroTitleAnimatedStyle = useAnimatedStyle(() => ({
-    fontSize: interpolate(keyboardProgress.value, [0, 1], [32, 24]),
-    lineHeight: interpolate(keyboardProgress.value, [0, 1], [38, 29]),
+    marginTop: interpolate(keyboardProgress.value, [0, 1], [2, -2]),
   }));
 
   const heroSubAnimatedStyle = useAnimatedStyle(() => ({
@@ -174,20 +173,19 @@ export function DriverLoginScreen({
         <Animated.View style={[s.hero, heroAnimatedStyle]}>
           <Animated.View style={[s.heroKicker, heroKickerAnimatedStyle]}>
             <View style={s.dot} />
-            <Text style={s.kickerText}>TrustedRIde Certified Portal</Text>
+            <Text style={s.kickerText}>Certified Driver Portal</Text>
           </Animated.View>
 
-          <Animated.Image
-            source={require("../../assets/TR_favicon.png")}
-            accessibilityLabel={BRAND_NAME}
-            resizeMode="contain"
-            style={[s.heroIcon, heroIconAnimatedStyle]}
-          />
+          <Animated.View style={[s.brandPlate, brandPlateAnimatedStyle]}>
+            <Animated.Image
+              source={require("../../assets/trustedride_certified_main_logo_transparent.png")}
+              accessibilityLabel={BRAND_NAME}
+              resizeMode="contain"
+              style={[s.heroLogo, logoAnimatedStyle]}
+            />
+          </Animated.View>
 
-          <Animated.View style={[s.heroText, heroTextAnimatedStyle]}>
-            <Animated.Text style={[s.heroTitle, heroTitleAnimatedStyle]}>
-              {BRAND_NAME}
-            </Animated.Text>
+          <Animated.View style={heroTextAnimatedStyle}>
             <Animated.Text style={[s.heroSub, heroSubAnimatedStyle]}>
               Operator authentication
             </Animated.Text>
@@ -209,7 +207,7 @@ export function DriverLoginScreen({
               autoComplete="email"
               autoCorrect={false}
               accessibilityLabel="Email"
-              accessibilityHint="Enter the email address assigned to your TrustedRIde Certified driver account."
+              accessibilityHint="Enter the email address assigned to your TrustedRide Certified driver account."
               keyboardType="email-address"
               textContentType="emailAddress"
               returnKeyType="next"
@@ -236,7 +234,7 @@ export function DriverLoginScreen({
                 onChangeText={onPasswordChange}
                 secureTextEntry={!passwordVisible}
                 accessibilityLabel="Password"
-                accessibilityHint="Enter your TrustedRIde Certified driver account password."
+                accessibilityHint="Enter your TrustedRide Certified driver account password."
                 autoCapitalize="none"
                 autoComplete="current-password"
                 autoCorrect={false}
@@ -331,7 +329,7 @@ const s = StyleSheet.create({
   hero: {
     width: "100%",
     maxWidth: 440,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surface,
     paddingVertical: 40,
     paddingHorizontal: spacing.xl,
     borderTopLeftRadius: radii.md,
@@ -339,12 +337,14 @@ const s = StyleSheet.create({
     borderCurve: "continuous",
     alignItems: "center",
     gap: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.surfaceHigh,
   },
   heroKicker: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(22, 163, 74, 0.16)",
+    backgroundColor: "rgba(37, 99, 235, 0.09)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radii.xs,
@@ -353,32 +353,25 @@ const s = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#86EFAC",
+    backgroundColor: colors.blue,
   },
   kickerText: {
-    color: "#86EFAC",
+    color: colors.blue,
     fontSize: 10,
     fontWeight: "900",
     textTransform: "uppercase",
     letterSpacing: 2,
   },
-  heroIcon: {
-    width: 96,
-    height: 96,
-    marginTop: 4,
-  },
-  heroText: {
+  brandPlate: {
     alignItems: "center",
-    gap: 14,
+    justifyContent: "center",
   },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontSize: 32,
-    fontWeight: "900",
-    letterSpacing: 0,
+  heroLogo: {
+    width: 330,
+    height: 100,
   },
   heroSub: {
-    color: colors.slate400,
+    color: colors.slate500,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",

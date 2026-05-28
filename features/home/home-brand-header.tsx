@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Text, View, useWindowDimensions } from "react-native";
+import { Image, View, useWindowDimensions } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LocationIndicator } from "@/components/ui/LocationIndicator";
 import { colors, spacing } from "@/lib/theme";
 
-const BRAND_NAME = "TrustedRIde Certified";
-const EMBLEM_SOURCE = require("../../assets/TR_favicon.png");
-const EMBLEM_URI = Image.resolveAssetSource(EMBLEM_SOURCE).uri;
+const BRAND_NAME = "TrustedRide Certified";
+const LOGO_SOURCE = require("../../assets/trustedride_certified_main_logo_transparent.png");
+const LOGO_URI = Image.resolveAssetSource(LOGO_SOURCE).uri;
+const LOGO_ASPECT_RATIO = 1409 / 427;
 
 export function HomeBrandHeader({
   backendConnected,
@@ -27,13 +28,13 @@ export function HomeBrandHeader({
     if (isFocused) setLogoRevision((current) => current + 1);
   }, [isFocused]);
 
-  const brandSizing = useMemo(() => {
-    const availableWidth = compact ? width - spacing.md * 2 - 104 : 280;
+  const logoSize = useMemo(() => {
+    const availableWidth = compact ? width - spacing.md * 2 - 96 : 304;
+    const logoWidth = Math.max(210, Math.min(availableWidth, compact ? 252 : 304));
+
     return {
-      emblemSize: compact ? 42 : 48,
-      nameWidth: Math.max(168, Math.min(availableWidth - 52, compact ? 220 : 280)),
-      fontSize: compact ? 21 : 24,
-      lineHeight: compact ? 24 : 27,
+      width: logoWidth,
+      height: Math.round(logoWidth / LOGO_ASPECT_RATIO),
     };
   }, [compact, width]);
 
@@ -59,38 +60,24 @@ export function HomeBrandHeader({
           accessibilityLabel={BRAND_NAME}
           accessible
           style={{
-            minHeight: 54,
+            minHeight: compact ? 72 : 82,
             flexDirection: "row",
             alignItems: "center",
-            gap: 10,
             flexShrink: 1,
             minWidth: 0,
           }}
         >
           <Image
             key={`home-logo-${logoRevision}`}
-            source={{ uri: EMBLEM_URI }}
+            source={{ uri: LOGO_URI }}
             accessibilityIgnoresInvertColors
             resizeMode="contain"
             style={{
-              width: brandSizing.emblemSize,
-              height: brandSizing.emblemSize,
+              width: logoSize.width,
+              height: logoSize.height,
               flexShrink: 0,
             }}
           />
-          <Text
-            numberOfLines={2}
-            style={{
-              width: brandSizing.nameWidth,
-              color: colors.primary,
-              fontSize: brandSizing.fontSize,
-              lineHeight: brandSizing.lineHeight,
-              fontWeight: "900",
-              letterSpacing: 0,
-            }}
-          >
-            {BRAND_NAME}
-          </Text>
         </View>
         <View style={{ alignItems: "flex-end", flexShrink: 0 }}>
           <LocationIndicator backendConnected={backendConnected} backendError={backendError} compact={compact} />
