@@ -26,8 +26,10 @@ export default function SettingsScreen() {
   const {
     isTracking,
     permissionStatus,
+    backgroundPermissionStatus,
     hasAlwaysLocationAccess,
     error: locationError,
+    requestBackgroundPermission,
     startTracking,
     stopTracking,
   } = useLocation();
@@ -39,9 +41,10 @@ export default function SettingsScreen() {
   const foregroundLocationValue = permissionStatus === "granted" ? "Allowed" : permissionStatus ? "Limited" : "Unknown";
   const backgroundLocationDetail = hasAlwaysLocationAccess
     ? "Background: Always"
-    : isTracking
-      ? "Background: Needs Always"
-      : "Always required before tracking";
+    : backgroundPermissionStatus === "denied"
+      ? "Open iOS Settings to allow Always"
+      : "Always required before active tracking";
+  const alwaysPermissionActionValue = backgroundPermissionStatus === "denied" ? "Settings" : "Request";
 
   const performSignOut = async () => {
     if (signingOut) return;
@@ -70,6 +73,15 @@ export default function SettingsScreen() {
   const handleOpenSystemSettings = () => {
     selection();
     void Linking.openSettings();
+  };
+
+  const handlePrepareAlwaysAccess = async () => {
+    selection();
+    if (backgroundPermissionStatus === "denied") {
+      void Linking.openSettings();
+      return;
+    }
+    await requestBackgroundPermission();
   };
 
   const handleReloadApp = () => {
@@ -149,6 +161,16 @@ export default function SettingsScreen() {
                 iconName="iphone"
                 iconTone={hasAlwaysLocationAccess ? "green" : isTracking ? "amber" : "slate"}
               />
+              {!hasAlwaysLocationAccess ? (
+                <ActionRow
+                  label="Always Location Access"
+                  detail="Required only when live ride tracking is active"
+                  value={alwaysPermissionActionValue}
+                  iconName="location.fill"
+                  iconTone="amber"
+                  onPress={handlePrepareAlwaysAccess}
+                />
+              ) : null}
               <ActionRow
                 label="System Location Settings"
                 detail="Open iOS settings for app permissions"

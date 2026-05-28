@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import { SymbolView } from "expo-symbols";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useAnimatedStyle,
@@ -252,12 +253,22 @@ function LocationMapModal({
 }) {
   const insets = useSafeAreaInsets();
   const { impact, selection } = useHaptics();
-  const { location, isTracking, startTracking, stopTracking } = useLocation();
+  const {
+    location,
+    isTracking,
+    hasAlwaysLocationAccess,
+    error: locationError,
+    startTracking,
+    stopTracking,
+  } = useLocation();
   const mapRef = useRef<MapView | null>(null);
 
   const center = location
     ? { latitude: location.latitude, longitude: location.longitude }
     : { latitude: 37.782, longitude: -122.413 };
+  const trackingLabel = isTracking ? "Broadcasting" : "Paused";
+  const backgroundLabel = hasAlwaysLocationAccess ? "Always ready" : "Needs Always";
+  const statusTone = isTracking ? colors.green : colors.slate400;
 
   return (
     <Modal
@@ -275,15 +286,18 @@ function LocationMapModal({
             backgroundColor: colors.surface,
             flexDirection: "row",
             justifyContent: "space-between",
-            alignItems: "center",
+            alignItems: "flex-start",
+            gap: spacing.md,
           }}
         >
-          <View style={{ gap: 2 }}>
-            <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "800" }}>
-              My Location
+          <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+            <Text style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 27 }}>
+              Live Location
             </Text>
-            <Text style={{ color: isTracking ? colors.green : colors.slate400, fontSize: 13, fontWeight: "600" }}>
-              {isTracking ? "Tracking active" : "Tracking off"}
+            <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "800", lineHeight: 18 }} numberOfLines={2}>
+              {isTracking
+                ? "Dispatch is receiving GPS updates for the active ride."
+                : "Tracking stays off until approved by the chaperone or dispatch."}
             </Text>
           </View>
           <Pressable
@@ -294,13 +308,16 @@ function LocationMapModal({
             accessibilityRole="button"
             accessibilityLabel="Close location map"
             style={{
+              minWidth: 54,
+              minHeight: 38,
               paddingHorizontal: 14,
-              paddingVertical: 8,
               backgroundColor: colors.surfaceLow,
               borderRadius: radii.sm,
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>Done</Text>
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }}>Done</Text>
           </Pressable>
         </View>
 
@@ -325,6 +342,51 @@ function LocationMapModal({
               />
             )}
           </MapView>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: spacing.md,
+              right: spacing.md,
+              top: spacing.md,
+              borderRadius: radii.md,
+              backgroundColor: colors.surfaceFrosted,
+              borderWidth: 1,
+              borderColor: colors.ghostBorder,
+              padding: spacing.sm,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: radii.sm,
+                backgroundColor: isTracking ? colors.greenSoft : colors.slate100,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <SymbolView
+                name="location.fill"
+                size={17}
+                type="hierarchical"
+                tintColor={isTracking ? colors.greenStrong : colors.primarySoft}
+                weight="semibold"
+              />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "900" }} numberOfLines={1}>
+                {trackingLabel}
+              </Text>
+              <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800" }} numberOfLines={1}>
+                Background: {backgroundLabel}
+              </Text>
+            </View>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: statusTone }} />
+          </View>
         </View>
 
         <View
@@ -336,6 +398,19 @@ function LocationMapModal({
             gap: spacing.sm,
           }}
         >
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <TelemetryPill
+              label="Tracking"
+              value={trackingLabel}
+              tone={isTracking ? "good" : "muted"}
+            />
+            <TelemetryPill
+              label="Background"
+              value={backgroundLabel}
+              tone={hasAlwaysLocationAccess ? "good" : "warning"}
+            />
+          </View>
+
           <View
             accessible
             accessibilityLabel={backendConnected ? "Server connected" : "Server disconnected"}
@@ -369,6 +444,16 @@ function LocationMapModal({
               {backendConnected ? "Server connected" : backendError ?? "Server disconnected"}
             </Text>
           </View>
+
+          {locationError ? (
+            <Text style={{ color: colors.amberStrong, fontSize: 12, fontWeight: "800", lineHeight: 17 }}>
+              {locationError}
+            </Text>
+          ) : (
+            <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800", lineHeight: 17 }}>
+              Always permission is required when tracking is active so dispatch keeps receiving updates while the phone is locked.
+            </Text>
+          )}
 
           {location && (
             <View style={{ flexDirection: "row", gap: spacing.md }}>
@@ -412,18 +497,56 @@ function LocationMapModal({
             accessibilityRole="button"
             accessibilityLabel={isTracking ? "Stop location tracking" : "Start location tracking"}
             style={{
-              backgroundColor: isTracking ? colors.errorSoft : colors.greenSoft,
+              minHeight: 52,
+              backgroundColor: isTracking ? colors.errorSoft : colors.green,
               borderRadius: radii.sm,
-              paddingVertical: 14,
               alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Text style={{ color: isTracking ? colors.error : colors.green, fontSize: 13, fontWeight: "700" }}>
-              {isTracking ? "Stop Tracking" : "Start Tracking"}
+            <Text style={{ color: isTracking ? colors.error : colors.surface, fontSize: 15, fontWeight: "900" }}>
+              {isTracking ? "Stop Live Tracking" : "Start Live Tracking"}
             </Text>
           </Pressable>
         </View>
       </View>
     </Modal>
+  );
+}
+
+function TelemetryPill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "good" | "warning" | "muted";
+}) {
+  const palette = tone === "good"
+    ? { bg: colors.greenSoft, value: colors.greenStrong }
+    : tone === "warning"
+      ? { bg: colors.amberSoft, value: colors.amberStrong }
+      : { bg: colors.surfaceLow, value: colors.primarySoft };
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        minHeight: 52,
+        borderRadius: radii.sm,
+        backgroundColor: palette.bg,
+        paddingHorizontal: spacing.sm,
+        justifyContent: "center",
+        gap: 2,
+      }}
+    >
+      <Text style={{ color: colors.slate500, fontSize: 10, fontWeight: "900", letterSpacing: 0.9, textTransform: "uppercase" }} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={{ color: palette.value, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
   );
 }

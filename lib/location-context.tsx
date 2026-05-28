@@ -31,6 +31,7 @@ type LocationContextValue = {
   startTracking: () => Promise<boolean>;
   stopTracking: () => void;
   requestPermission: () => Promise<boolean>;
+  requestBackgroundPermission: () => Promise<boolean>;
   startBackgroundTracking: () => Promise<boolean>;
   stopBackgroundTracking: () => Promise<void>;
 };
@@ -45,6 +46,7 @@ const LocationContext = createContext<LocationContextValue>({
   startTracking: async () => false,
   stopTracking: () => {},
   requestPermission: async () => false,
+  requestBackgroundPermission: async () => false,
   startBackgroundTracking: async () => false,
   stopBackgroundTracking: async () => {},
 });
@@ -146,6 +148,43 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const requestBackgroundPermission = useCallback(async () => {
+    try {
+      const foreground = await Location.getForegroundPermissionsAsync();
+      const foregroundGranted = foreground.status === Location.PermissionStatus.GRANTED
+        ? true
+        : await requestPermission();
+
+      if (!foregroundGranted) {
+        setError("Location permission denied");
+        return false;
+      }
+
+      if (Platform.OS === "web") {
+        setBackgroundPermissionStatus(Location.PermissionStatus.GRANTED);
+        setError(null);
+        return true;
+      }
+
+      const current = await Location.getBackgroundPermissionsAsync();
+      const permission = current.status === Location.PermissionStatus.GRANTED
+        ? current
+        : await Location.requestBackgroundPermissionsAsync();
+
+      setBackgroundPermissionStatus(permission.status);
+      if (permission.status !== Location.PermissionStatus.GRANTED) {
+        setError("Always location is not enabled. Open iOS Settings and choose Always before starting live tracking.");
+        return false;
+      }
+
+      setError(null);
+      return true;
+    } catch {
+      setError("Failed to request Always location access");
+      return false;
+    }
+  }, [requestPermission]);
+
   // On web, use the browser Geolocation API directly with maximumAge: 0
   // to force fresh GPS reads (expo-location caches positions)
   const startPoll = useCallback(() => {
@@ -243,14 +282,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
   const startBackgroundTracking = useCallback(async () => {
     try {
-      const current = await Location.getBackgroundPermissionsAsync();
-      const permission = current.status === Location.PermissionStatus.GRANTED
-        ? current
-        : await Location.requestBackgroundPermissionsAsync();
-
-      setBackgroundPermissionStatus(permission.status);
-      if (permission.status !== Location.PermissionStatus.GRANTED) {
-        setError("Allow Always location in iOS Settings so tracking can continue while the phone is locked.");
+      const hasBackgroundPermission = await requestBackgroundPermission();
+      if (!hasBackgroundPermission) {
         return false;
       }
 
@@ -279,7 +312,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setError("Failed to start background tracking");
       return false;
     }
-  }, []);
+  }, [requestBackgroundPermission]);
 
   const stopBackgroundTracking = useCallback(async () => {
     try {
@@ -311,16 +344,6 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    if (Platform.OS !== "web") {
-      const backgroundStarted = await startBackgroundTracking();
-      if (!backgroundStarted) {
-        shouldTrackRef.current = false;
-        setIsTracking(false);
-        stopWatcher();
-        return false;
-      }
-    }
-
     // Get an initial position immediately
     try {
       const current = await Location.getCurrentPositionAsync({
@@ -339,6 +362,11 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     await startWatcher();
     shouldTrackRef.current = true;
     setIsTracking(true);
+
+    if (Platform.OS !== "web") {
+      void startBackgroundTracking();
+    }
+
     return true;
   }, [requestPermission, startBackgroundTracking, startWatcher, stopWatcher]);
 
@@ -445,6 +473,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         startTracking,
         stopTracking,
         requestPermission,
+        requestBackgroundPermission,
         startBackgroundTracking,
         stopBackgroundTracking,
       }}
