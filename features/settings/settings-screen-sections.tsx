@@ -1,4 +1,5 @@
 import React from "react";
+import { SymbolView, type SFSymbol } from "expo-symbols";
 import { Pressable, Switch, Text, View } from "react-native";
 
 import { ImpactFeedbackStyle } from "@/lib/haptics";
@@ -7,12 +8,12 @@ import { colors, radii, shadows, spacing, typography } from "@/lib/theme";
 
 export function SettingsTitle() {
   return (
-    <View style={{ marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.lg, gap: 6 }}>
+    <View style={{ marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md, gap: 6 }}>
       <Text style={{ color: colors.primary, fontSize: 34, fontWeight: "900", lineHeight: 40 }} numberOfLines={1}>
         Settings
       </Text>
       <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }} numberOfLines={2}>
-        Operational preferences for your active driver session.
+        Driver session, location, and device controls.
       </Text>
     </View>
   );
@@ -32,9 +33,9 @@ export function OperatorSummary({ name }: { name: string }) {
       accessibilityLabel={`Chaperone ${name}. On duty.`}
       style={{
         marginHorizontal: spacing.md,
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
         backgroundColor: colors.surface,
-        borderRadius: radii.sm,
+        borderRadius: radii.md,
         borderCurve: "continuous",
         padding: spacing.md,
         flexDirection: "row",
@@ -45,8 +46,8 @@ export function OperatorSummary({ name }: { name: string }) {
     >
       <View
         style={{
-          width: 52,
-          height: 52,
+          width: 54,
+          height: 54,
           borderRadius: radii.sm,
           backgroundColor: colors.primary,
           alignItems: "center",
@@ -67,7 +68,7 @@ export function OperatorSummary({ name }: { name: string }) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.green }} />
           <Text style={{ color: colors.greenStrong, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
-            On duty for live operations
+            On duty
           </Text>
         </View>
       </View>
@@ -75,15 +76,67 @@ export function OperatorSummary({ name }: { name: string }) {
   );
 }
 
-export function SettingsSection({ kicker, children }: { kicker: string; children: React.ReactNode }) {
+export function SettingsSection({
+  kicker,
+  footer,
+  children,
+}: {
+  kicker: string;
+  footer?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.lg, gap: spacing.sm }}>
-      <Text style={{ color: colors.slate500, ...typography.sectionKicker }}>
+    <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.md, gap: spacing.sm }}>
+      <Text style={{ color: colors.slate500, ...typography.sectionKicker, paddingHorizontal: spacing.md }}>
         {kicker}
       </Text>
-      <View style={{ backgroundColor: colors.surface, borderRadius: radii.sm, borderCurve: "continuous", overflow: "hidden", ...shadows.soft }}>
+      <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, borderCurve: "continuous", overflow: "hidden", ...shadows.soft }}>
         {children}
       </View>
+      {footer ? (
+        <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700", lineHeight: 17, paddingHorizontal: spacing.md }}>
+          {footer}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function SettingIcon({
+  name,
+  tone = "blue",
+}: {
+  name: SFSymbol;
+  tone?: "blue" | "green" | "slate" | "amber" | "red";
+}) {
+  const palette = {
+    blue: { bg: colors.blueSoft, fg: colors.blueStrong },
+    green: { bg: colors.greenSoft, fg: colors.greenStrong },
+    slate: { bg: colors.slate100, fg: colors.primarySoft },
+    amber: { bg: colors.amberSoft, fg: colors.amberStrong },
+    red: { bg: colors.errorSoftDark, fg: colors.error },
+  }[tone];
+
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: radii.sm,
+        backgroundColor: palette.bg,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <SymbolView
+        name={name}
+        size={18}
+        type="hierarchical"
+        tintColor={palette.fg}
+        weight="semibold"
+      />
     </View>
   );
 }
@@ -94,6 +147,8 @@ export function ToggleRow({
   value,
   onValueChange,
   critical,
+  iconName,
+  iconTone,
   last,
 }: {
   label: string;
@@ -101,26 +156,31 @@ export function ToggleRow({
   value: boolean;
   onValueChange: (value: boolean) => void;
   critical?: boolean;
+  iconName?: SFSymbol;
+  iconTone?: "blue" | "green" | "slate" | "amber" | "red";
   last?: boolean;
 }) {
   return (
     <View
       style={{
-        padding: spacing.md,
+        paddingVertical: spacing.md,
+        paddingLeft: spacing.md,
+        paddingRight: spacing.sm,
         borderBottomWidth: last ? 0 : 1,
         borderBottomColor: colors.slate100,
         flexDirection: "row",
         justifyContent: "space-between",
         gap: spacing.md,
         alignItems: "center",
-        minHeight: 76,
+        minHeight: 74,
       }}
     >
+      {iconName ? <SettingIcon name={iconName} tone={iconTone ?? (critical ? "blue" : "slate")} /> : null}
       <View style={{ flex: 1, gap: 4 }}>
-        <Text style={{ color: critical ? colors.blueStrong : colors.primary, fontSize: 15, fontWeight: "900" }}>
+        <Text style={{ color: critical ? colors.blueStrong : colors.primary, fontSize: 15, fontWeight: "900" }} numberOfLines={1}>
           {label}
         </Text>
-        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
+        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", lineHeight: 18 }} numberOfLines={2}>
           {description}
         </Text>
       </View>
@@ -138,23 +198,54 @@ export function ToggleRow({
   );
 }
 
-export function ReadoutRow({ label, value, tone = "default", last }: { label: string; value: string; tone?: "default" | "good" | "muted"; last?: boolean }) {
-  const valueColor = tone === "good" ? colors.greenStrong : tone === "muted" ? colors.slate500 : colors.primary;
+export function ReadoutRow({
+  label,
+  value,
+  detail,
+  tone = "default",
+  iconName,
+  iconTone,
+  last,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  tone?: "default" | "good" | "muted" | "warning";
+  iconName?: SFSymbol;
+  iconTone?: "blue" | "green" | "slate" | "amber" | "red";
+  last?: boolean;
+}) {
+  const valueColor = tone === "good"
+    ? colors.greenStrong
+    : tone === "warning"
+      ? colors.amberStrong
+      : tone === "muted"
+        ? colors.slate500
+        : colors.primary;
 
   return (
     <View
+      accessible
+      accessibilityLabel={`${label}. ${value}${detail ? `. ${detail}` : ""}`}
       style={{
         padding: spacing.md,
         borderBottomWidth: last ? 0 : 1,
         borderBottomColor: colors.slate100,
         flexDirection: "row",
-        justifyContent: "space-between",
         gap: spacing.md,
-        minHeight: 56,
+        minHeight: 62,
         alignItems: "center",
       }}
     >
-      <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700" }}>{label}</Text>
+      {iconName ? <SettingIcon name={iconName} tone={iconTone ?? "slate"} /> : null}
+      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+        <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "800" }} numberOfLines={1}>{label}</Text>
+        {detail ? (
+          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "600", lineHeight: 16 }} numberOfLines={2}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
       <Text selectable style={{ color: valueColor, fontSize: 14, fontWeight: "800", flexShrink: 1, textAlign: "right" }} numberOfLines={2}>
         {value}
       </Text>
@@ -162,77 +253,70 @@ export function ReadoutRow({ label, value, tone = "default", last }: { label: st
   );
 }
 
-export function ReloadAppButton({ onReload }: { onReload: () => void }) {
+export function ActionRow({
+  label,
+  value,
+  detail,
+  iconName,
+  iconTone = "slate",
+  destructive,
+  disabled,
+  busy,
+  last,
+  onPress,
+}: {
+  label: string;
+  value?: string;
+  detail?: string;
+  iconName: SFSymbol;
+  iconTone?: "blue" | "green" | "slate" | "amber" | "red";
+  destructive?: boolean;
+  disabled?: boolean;
+  busy?: boolean;
+  last?: boolean;
+  onPress: () => void;
+}) {
   const { impact } = useHaptics();
 
   return (
-    <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.lg, gap: spacing.sm }}>
-      <Text style={{ color: colors.slate500, ...typography.sectionKicker }}>
-        Demo
-      </Text>
       <Pressable
+        disabled={disabled}
         onPress={() => {
-          impact(ImpactFeedbackStyle.Light);
-          onReload();
+          impact(destructive ? ImpactFeedbackStyle.Medium : ImpactFeedbackStyle.Light);
+          onPress();
         }}
         accessibilityRole="button"
-        accessibilityLabel="Reload app"
-        accessibilityHint="Reloads the app so the opening animation plays from the beginning."
+        accessibilityLabel={label}
+        accessibilityHint={detail}
+        accessibilityState={{ disabled, busy }}
         style={({ pressed }) => ({
-          minHeight: 58,
-          borderRadius: radii.sm,
-          borderCurve: "continuous",
-          backgroundColor: pressed ? colors.surfaceHigh : colors.surface,
-          borderWidth: 1,
-          borderColor: colors.slate200,
+          minHeight: 64,
+          padding: spacing.md,
+          borderBottomWidth: last ? 0 : 1,
+          borderBottomColor: destructive ? colors.errorSoftStrong : colors.slate100,
+          backgroundColor: pressed ? (destructive ? colors.errorSoft : colors.surfaceLow) : colors.surface,
+          flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-          ...shadows.soft,
+          gap: spacing.md,
+          opacity: disabled ? 0.65 : 1,
         })}
       >
-        <Text style={{ color: colors.blueStrong, fontSize: 14, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" }}>
-          Reload App
-        </Text>
+        <SettingIcon name={iconName} tone={destructive ? "red" : iconTone} />
+        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+          <Text style={{ color: destructive ? colors.error : colors.primary, fontSize: 15, fontWeight: "900" }} numberOfLines={1}>
+            {busy ? `${label}...` : label}
+          </Text>
+          {detail ? (
+            <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "600", lineHeight: 16 }} numberOfLines={2}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+        {value ? (
+          <Text style={{ color: destructive ? colors.error : colors.blueStrong, fontSize: 13, fontWeight: "800" }} numberOfLines={1}>
+            {value}
+          </Text>
+        ) : null}
       </Pressable>
-      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700", textAlign: "center", lineHeight: 17 }}>
-        Replays the opening animation from a clean app reload.
-      </Text>
-    </View>
-  );
-}
-
-export function SystemFooter({ signingOut, onSignOut }: { signingOut: boolean; onSignOut: () => void }) {
-  const { impact } = useHaptics();
-  return (
-    <View style={{ marginHorizontal: spacing.md, gap: spacing.md, marginBottom: spacing.lg }}>
-      <Pressable
-        disabled={signingOut}
-        onPress={() => {
-          impact(ImpactFeedbackStyle.Medium);
-          onSignOut();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={signingOut ? "Signing out" : "Sign out"}
-        accessibilityState={{ disabled: signingOut, busy: signingOut }}
-        style={({ pressed }) => ({
-          minHeight: 58,
-          borderRadius: radii.sm,
-          borderCurve: "continuous",
-          backgroundColor: pressed || signingOut ? colors.errorSoftStrong : colors.errorSoft,
-          borderWidth: 1,
-          borderColor: colors.errorSoftStrong,
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: signingOut ? 0.7 : 1,
-        })}
-      >
-        <Text style={{ color: colors.error, fontSize: 14, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" }}>
-          {signingOut ? "Signing out" : "Sign Out"}
-        </Text>
-      </Pressable>
-      <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700", textAlign: "center" }}>
-        Ends session and clears token
-      </Text>
-    </View>
   );
 }

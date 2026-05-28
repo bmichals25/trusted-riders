@@ -321,7 +321,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
 
     await startWatcher();
-  }, [requestPermission, startWatcher]);
+    await startBackgroundTracking();
+  }, [requestPermission, startBackgroundTracking, startWatcher]);
 
   const stopTracking = useCallback(() => {
     shouldTrackRef.current = false;
