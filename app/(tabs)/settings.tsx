@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import { useNavigation } from "@react-navigation/native";
-import { TabActions } from "@react-navigation/routers";
 import { Alert, Linking, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -79,7 +78,19 @@ export default function SettingsScreen() {
     selection();
     replayStartupAnimation();
     requestAnimationFrame(() => {
-      navigation.getParent()?.dispatch(TabActions.jumpTo("index"));
+      let tabNavigation = navigation.getParent();
+      let tabState = tabNavigation?.getState();
+
+      while (tabNavigation && tabState && !tabState.routeNames?.includes("index")) {
+        tabNavigation = tabNavigation.getParent();
+        tabState = tabNavigation?.getState();
+      }
+
+      tabNavigation?.dispatch({
+        type: "JUMP_TO",
+        target: tabState?.key,
+        payload: { name: "index" },
+      });
       router.replace("/");
     });
   };
