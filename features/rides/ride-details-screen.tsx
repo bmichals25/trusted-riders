@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { SymbolView, type SFSymbol } from "expo-symbols";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -168,17 +169,17 @@ function RideDetailsActionBar({
     >
       {isPendingRequest ? (
         <>
-          <DetailActionButton label="Accept Request" tone="primary" onPress={onAccept} />
+          <DetailActionButton iconName="checkmark.circle.fill" label="Accept Request" tone="primary" onPress={onAccept} />
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <DetailActionButton label="Chat" tone="secondary" onPress={onChat} />
-            <DetailActionButton label="Decline" tone="danger" onPress={onDecline} />
+            <DetailActionButton iconName="message.fill" label="Chat" tone="secondary" onPress={onChat} />
+            <DetailActionButton iconName="xmark.circle.fill" label="Decline" tone="danger" onPress={onDecline} />
           </View>
         </>
       ) : (
         <View style={{ gap: spacing.sm }}>
-          <DetailActionButton label="Navigate" tone="primary" onPress={onNavigate} />
+          <DetailActionButton iconName="location.fill" label="Navigate" tone="primary" onPress={onNavigate} />
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <DetailActionButton label="Chat" tone="secondary" onPress={onChat} />
+            <DetailActionButton iconName="message.fill" label="Chat" tone="secondary" onPress={onChat} />
           </View>
         </View>
       )}
@@ -208,6 +209,43 @@ function RideDetailMap({ ride }: { ride: DispatchedRide }) {
         {ride.pickupCoords ? <Marker coordinate={ride.pickupCoords} pinColor={colors.green} /> : null}
         {ride.dropoffCoords ? <Marker coordinate={ride.dropoffCoords} pinColor={colors.blue} /> : null}
       </MapView>
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: spacing.sm,
+          right: spacing.sm,
+          bottom: spacing.sm,
+          minHeight: 42,
+          borderRadius: radii.sm,
+          backgroundColor: colors.surfaceFrosted,
+          borderWidth: 1,
+          borderColor: colors.ghostBorder,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: spacing.sm,
+          gap: spacing.sm,
+        }}
+      >
+        <MapLegendPoint color={colors.green} label="Pickup" />
+        <View style={{ width: 18, height: 2, borderRadius: 1, backgroundColor: colors.slate300 }} />
+        <MapLegendPoint color={colors.blue} label="Dropoff" />
+        <View style={{ flex: 1 }} />
+        <Text style={{ color: colors.primarySoft, fontSize: 11, fontWeight: "900" }} numberOfLines={1}>
+          Driving route
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function MapLegendPoint({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }} />
+      <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "900" }} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -319,9 +357,20 @@ function TripContextPanel({ ride }: { ride: DispatchedRide }) {
   );
 }
 
-function DetailActionButton({ label, tone, onPress }: { label: string; tone: "primary" | "secondary" | "danger"; onPress: () => void }) {
+function DetailActionButton({
+  iconName,
+  label,
+  tone,
+  onPress,
+}: {
+  iconName: SFSymbol;
+  label: string;
+  tone: "primary" | "secondary" | "danger";
+  onPress: () => void;
+}) {
   const backgroundColor = tone === "primary" ? colors.green : tone === "danger" ? colors.errorSoft : colors.surface;
   const color = tone === "primary" ? colors.surface : tone === "danger" ? colors.error : colors.primary;
+  const iconColor = color;
   return (
     <Pressable
       onPress={onPress}
@@ -337,8 +386,17 @@ function DetailActionButton({ label, tone, onPress }: { label: string; tone: "pr
         opacity: pressed ? 0.72 : 1,
         borderWidth: tone === "primary" ? 0 : 1,
         borderColor: tone === "danger" ? colors.errorSoftStrong : colors.slate200,
+        flexDirection: "row",
+        gap: 8,
       })}
     >
+      <SymbolView
+        name={iconName}
+        size={16}
+        type="hierarchical"
+        tintColor={iconColor}
+        weight="semibold"
+      />
       <Text style={{ color, fontSize: 14, fontWeight: "900", textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
