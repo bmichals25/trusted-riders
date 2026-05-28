@@ -22,6 +22,7 @@ import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
+import { confirmDeclineRideRequest } from "@/lib/ride-action-confirmation";
 import { type DispatchedRide } from "@/lib/rides";
 import { colors, spacing } from "@/lib/theme";
 
@@ -266,7 +267,7 @@ export default function HomeScreen() {
                           }}
                           onDecline={() => {
                             impact(ImpactFeedbackStyle.Medium);
-                            declineRide(ride.id);
+                            confirmDeclineRideRequest(ride, () => declineRide(ride.id));
                           }}
                         />
                       </FadeInBlock>

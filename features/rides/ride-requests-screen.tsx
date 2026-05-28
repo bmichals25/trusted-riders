@@ -11,6 +11,7 @@ import { RideRequestCard } from "@/components/ui/RideRequestCard";
 import { useDispatch } from "@/lib/dispatch-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
+import { confirmDeclineRideRequest } from "@/lib/ride-action-confirmation";
 import { type DispatchedRide } from "@/lib/rides";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
@@ -73,7 +74,7 @@ export function RideRequestsScreenContent() {
                   }}
                   onDecline={() => {
                     impact(ImpactFeedbackStyle.Medium);
-                    declineRide(ride.id);
+                    confirmDeclineRideRequest(ride, () => declineRide(ride.id));
                   }}
                 />
               </FadeInBlock>

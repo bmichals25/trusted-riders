@@ -13,6 +13,7 @@ import { fetchRides } from "@/lib/fleet-api";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
+import { confirmDeclineRideRequest } from "@/lib/ride-action-confirmation";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate } from "@/lib/rides";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
@@ -98,8 +99,10 @@ export function RideDetailsScreenContent() {
             onChat={() => openChat(ride)}
             onDecline={() => {
               impact(ImpactFeedbackStyle.Medium);
-              declineRide(ride.id);
-              router.back();
+              confirmDeclineRideRequest(ride, () => {
+                declineRide(ride.id);
+                router.back();
+              });
             }}
             onNavigate={() => openNavigation(ride)}
           />
@@ -172,7 +175,13 @@ function RideDetailsActionBar({
           <DetailActionButton iconName="checkmark.circle.fill" label="Accept Request" tone="primary" onPress={onAccept} />
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
             <DetailActionButton iconName="message.fill" label="Chat" tone="secondary" onPress={onChat} />
-            <DetailActionButton iconName="xmark.circle.fill" label="Decline" tone="danger" onPress={onDecline} />
+            <DetailActionButton
+              iconName="xmark.circle.fill"
+              label="Decline"
+              tone="danger"
+              accessibilityHint="Shows a confirmation before declining this request."
+              onPress={onDecline}
+            />
           </View>
         </>
       ) : (
@@ -203,8 +212,22 @@ function RideDetailMap({ ride }: { ride: DispatchedRide }) {
   }
 
   return (
-    <View style={{ height: 230, borderRadius: radii.md, overflow: "hidden", backgroundColor: colors.mapPlaceholder, ...shadows.soft }}>
-      <MapView style={{ flex: 1 }} initialRegion={regionFor(coords)} scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false}>
+    <View
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={`Route map. Pickup ${ride.pickupAddress}. Dropoff ${ride.dropoffAddress}.`}
+      style={{ height: 230, borderRadius: radii.md, overflow: "hidden", backgroundColor: colors.mapPlaceholder, ...shadows.soft }}
+    >
+      <MapView
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{ flex: 1 }}
+        initialRegion={regionFor(coords)}
+        scrollEnabled={false}
+        zoomEnabled={false}
+        rotateEnabled={false}
+        pitchEnabled={false}
+      >
         <Polyline coordinates={coords} strokeWidth={4} strokeColor={colors.blue} />
         {ride.pickupCoords ? <Marker coordinate={ride.pickupCoords} pinColor={colors.green} /> : null}
         {ride.dropoffCoords ? <Marker coordinate={ride.dropoffCoords} pinColor={colors.blue} /> : null}
@@ -260,7 +283,11 @@ function RideDetailHero({ ride }: { ride: DispatchedRide }) {
     : `Ride #${rideNumber} · ${ride.scheduledDate} · ${ride.scheduledTime}`;
 
   return (
-    <View style={{ backgroundColor: colors.primary, borderRadius: radii.md, padding: spacing.md, gap: spacing.lg, ...shadows.floating }}>
+    <View
+      accessible
+      accessibilityLabel={`${isPendingRequest ? "Pending request" : "Current ride"}. ${heroTitle}. ${heroSubtitle}. Trip ${ride.tripType}. Vehicle ${ride.transitType}.`}
+      style={{ backgroundColor: colors.primary, borderRadius: radii.md, padding: spacing.md, gap: spacing.lg, ...shadows.floating }}
+    >
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md }}>
         <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
           <Text style={{ color: colors.slate300, fontSize: 12, fontWeight: "900", letterSpacing: 1.4, textTransform: "uppercase" }}>
@@ -303,7 +330,11 @@ function MetricTile({ label, value }: { label: string; value: string }) {
 
 function RouteDetailPanel({ ride }: { ride: DispatchedRide }) {
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, gap: spacing.md, ...shadows.soft }}>
+    <View
+      accessible
+      accessibilityLabel={`Route. Pickup ${ride.pickupAddress}. Dropoff ${ride.dropoffAddress}.`}
+      style={{ backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, gap: spacing.md, ...shadows.soft }}
+    >
       <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.md }}>
         <Text style={{ color: colors.primary, fontSize: 21, fontWeight: "900" }}>
           Route
@@ -362,11 +393,13 @@ function DetailActionButton({
   label,
   tone,
   onPress,
+  accessibilityHint,
 }: {
   iconName: SFSymbol;
   label: string;
   tone: "primary" | "secondary" | "danger";
   onPress: () => void;
+  accessibilityHint?: string;
 }) {
   const backgroundColor = tone === "primary" ? colors.green : tone === "danger" ? colors.errorSoft : colors.surface;
   const color = tone === "primary" ? colors.surface : tone === "danger" ? colors.error : colors.primary;
@@ -376,6 +409,7 @@ function DetailActionButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => ({
         flex: 1,
         minHeight: tone === "primary" ? 54 : 48,

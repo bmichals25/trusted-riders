@@ -23,7 +23,7 @@ export function RideRequestCard({
       <Pressable
         onPress={onOpen}
         accessibilityRole="button"
-        accessibilityLabel={`Open pending ride request ${requestId}`}
+        accessibilityLabel={`Open pending ride request ${requestId}. Pickup ${ride.pickupAddress}. Dropoff ${ride.dropoffAddress}. Scheduled ${ride.scheduledDate} at ${ride.scheduledTime}.`}
         style={({ pressed }) => ({ gap: spacing.md, opacity: pressed ? 0.76 : 1 })}
       >
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.md }}>
@@ -56,7 +56,7 @@ export function RideRequestCard({
         <RequestActionButton label="Accept request" tone="primary" onPress={onAccept} />
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <RequestActionButton label="Chat" tone="secondary" onPress={onChat} />
-          <RequestActionButton label="Decline" tone="danger" onPress={onDecline} />
+          <RequestActionButton label="Decline" tone="danger" accessibilityHint="Shows a confirmation before declining this request." onPress={onDecline} />
         </View>
       </View>
     </View>
@@ -80,7 +80,17 @@ function RequestRoutePoint({ tone, label, address }: { tone: "pickup" | "dropoff
   );
 }
 
-function RequestActionButton({ label, tone, onPress }: { label: string; tone: "primary" | "secondary" | "danger"; onPress: () => void }) {
+function RequestActionButton({
+  label,
+  tone,
+  accessibilityHint,
+  onPress,
+}: {
+  label: string;
+  tone: "primary" | "secondary" | "danger";
+  accessibilityHint?: string;
+  onPress: () => void;
+}) {
   const backgroundColor = tone === "primary" ? colors.green : tone === "danger" ? colors.errorSoft : colors.surfaceLow;
   const color = tone === "primary" ? colors.surface : tone === "danger" ? colors.error : colors.primary;
   return (
@@ -88,6 +98,7 @@ function RequestActionButton({ label, tone, onPress }: { label: string; tone: "p
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
       style={({ pressed }) => ({
         flex: 1,
         minHeight: 46,
