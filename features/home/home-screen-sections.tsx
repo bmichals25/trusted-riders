@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { SymbolView, type SFSymbol } from "expo-symbols";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import Animated, {
@@ -244,33 +245,51 @@ export function EmptyRideState({
   onRefresh: () => void;
 }) {
   return (
-    <View style={[cardStyle, { gap: spacing.lg }]}>
+    <View
+      accessible
+      accessibilityLabel="Standing by. No current rides or pending requests are assigned. Dispatch updates will appear here automatically. Pull down or tap refresh to check now."
+      style={[cardStyle, { gap: spacing.md }]}
+    >
       <View style={{ flexDirection: "row", gap: spacing.md, alignItems: "flex-start" }}>
         <View
           accessibilityElementsHidden
           importantForAccessibility="no"
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: radii.pill,
+            width: 48,
+            height: 48,
+            borderRadius: radii.sm,
             backgroundColor: colors.blueSoft,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.blue }} />
+          <SymbolView
+            name="antenna.radiowaves.left.and.right"
+            size={22}
+            type="hierarchical"
+            tintColor={colors.blueStrong}
+            weight="semibold"
+          />
         </View>
-        <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
-          <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>
+        <View style={{ flex: 1, minWidth: 0, gap: 7 }}>
+          <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "900", lineHeight: 25 }}>
             Standing by
           </Text>
-          <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>
-            No active rides or pending requests are assigned right now. We will keep checking in the background.
+          <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }} numberOfLines={3}>
+            No current rides or pending requests are assigned. Dispatch updates will appear here automatically.
           </Text>
         </View>
       </View>
 
-      <View style={{ alignItems: "center" }}>
+      <View style={{ gap: spacing.sm }}>
+        <StandbyReadinessRow iconName="checkmark.shield.fill" label="Dispatch watch" value="Active" tone="good" />
+        <StandbyReadinessRow iconName="arrow.clockwise" label="Manual check" value="Pull down anytime" tone="muted" />
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
+        <Text style={{ color: colors.slate500, flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 }}>
+          Keep the app ready for new assignments.
+        </Text>
         <Pressable
           disabled={refreshing}
           onPress={onRefresh}
@@ -278,10 +297,12 @@ export function EmptyRideState({
           accessibilityLabel={refreshing ? "Refreshing rides" : "Refresh rides"}
           accessibilityState={{ disabled: refreshing, busy: refreshing }}
           style={({ pressed }) => ({
-            minWidth: 104,
+            minWidth: 118,
             minHeight: 44,
             borderRadius: radii.pill,
-            backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+            backgroundColor: pressed ? colors.surfaceHigh : colors.surfaceLow,
+            borderWidth: 1,
+            borderColor: colors.slate200,
             alignItems: "center",
             justifyContent: "center",
             paddingHorizontal: spacing.md,
@@ -289,12 +310,71 @@ export function EmptyRideState({
           })}
         >
           {refreshing ? (
-            <ActivityIndicator color={colors.surface} />
+            <ActivityIndicator color={colors.blueStrong} />
           ) : (
-            <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "900" }}>Refresh</Text>
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }}>Refresh</Text>
           )}
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function StandbyReadinessRow({
+  iconName,
+  label,
+  value,
+  tone,
+}: {
+  iconName: SFSymbol;
+  label: string;
+  value: string;
+  tone: "good" | "muted";
+}) {
+  const iconColor = tone === "good" ? colors.greenStrong : colors.primarySoft;
+  const iconBackground = tone === "good" ? colors.greenSoft : colors.slate100;
+  const valueColor = tone === "good" ? colors.greenStrong : colors.slate500;
+
+  return (
+    <View
+      style={{
+        minHeight: 42,
+        borderRadius: radii.sm,
+        backgroundColor: colors.surfaceLow,
+        borderWidth: 1,
+        borderColor: colors.slate100,
+        paddingHorizontal: spacing.sm,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.sm,
+      }}
+    >
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: radii.xs,
+          backgroundColor: iconBackground,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <SymbolView
+          name={iconName}
+          size={15}
+          type="hierarchical"
+          tintColor={iconColor}
+          weight="semibold"
+        />
+      </View>
+      <Text style={{ color: colors.primary, flex: 1, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={{ color: valueColor, fontSize: 12, fontWeight: "900", textAlign: "right" }} numberOfLines={1}>
+        {value}
+      </Text>
     </View>
   );
 }
