@@ -26,6 +26,7 @@ import { colors, radii, spacing } from "@/lib/theme";
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const BRAND_NAME = "TrustedRide Certified";
+type FocusedField = "email" | "password" | null;
 
 export function DriverLoginScreen({
   canSubmit,
@@ -53,6 +54,7 @@ export function DriverLoginScreen({
   const insets = useSafeAreaInsets();
   const passwordInputRef = useRef<TextInput>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [focusedField, setFocusedField] = useState<FocusedField>(null);
   const reduced = useReducedMotion();
   const keyboardProgress = useSharedValue(0);
   const webInputStyle =
@@ -156,116 +158,140 @@ export function DriverLoginScreen({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={[s.hero, heroAnimatedStyle]}>
-          <Animated.View style={[s.brandPlate, brandPlateAnimatedStyle]}>
-            <Animated.Image
-              source={require("../../assets/trustedride_certified_main_logo_transparent.png")}
-              accessibilityLabel={BRAND_NAME}
-              resizeMode="contain"
-              style={[s.heroLogo, logoAnimatedStyle]}
-            />
-          </Animated.View>
-        </Animated.View>
-
-        <Animated.View style={[s.form, formAnimatedStyle]}>
-          <Text style={s.sectionKicker}>Sign In</Text>
-
-          <Animated.View style={[s.field, fieldAnimatedStyle]}>
-            <Text nativeID="driver-email-label" style={s.fieldLabel}>Email</Text>
-            <AnimatedTextInput
-              style={[s.input, inputAnimatedStyle, webInputStyle]}
-              placeholder="driver@trustedriders.org"
-              placeholderTextColor={colors.slate400}
-              value={email}
-              onChangeText={onEmailChange}
-              autoCapitalize="none"
-              autoComplete="email"
-              autoCorrect={false}
-              accessibilityLabel="Email"
-              accessibilityHint="Enter the email address assigned to your TrustedRide Certified driver account."
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordInputRef.current?.focus()}
-              blurOnSubmit={false}
-              autoFocus
-            />
-          </Animated.View>
-
-          <Animated.View style={[s.field, fieldAnimatedStyle]}>
-            <Text nativeID="driver-password-label" style={s.fieldLabel}>Password</Text>
-            <View style={s.passwordField}>
-              <AnimatedTextInput
-                ref={passwordInputRef}
-                style={[
-                  s.input,
-                  s.passwordInput,
-                  inputAnimatedStyle,
-                  webInputStyle,
-                ]}
-                placeholder=""
-                placeholderTextColor={colors.slate400}
-                value={password}
-                onChangeText={onPasswordChange}
-                secureTextEntry={!passwordVisible}
-                accessibilityLabel="Password"
-                accessibilityHint="Enter your TrustedRide Certified driver account password."
-                autoCapitalize="none"
-                autoComplete="current-password"
-                autoCorrect={false}
-                textContentType="password"
-                returnKeyType="done"
-                onSubmitEditing={onSubmit}
+        <View style={s.credentialCard}>
+          <Animated.View style={[s.hero, heroAnimatedStyle]}>
+            <Animated.View style={[s.brandPlate, brandPlateAnimatedStyle]}>
+              <Animated.Image
+                source={require("../../assets/trustedride_certified_main_logo_transparent.png")}
+                accessibilityLabel={BRAND_NAME}
+                resizeMode="contain"
+                style={[s.heroLogo, logoAnimatedStyle]}
               />
-              <Pressable
-                onPress={onTogglePasswordVisible}
-                accessibilityRole="button"
-                accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
-                accessibilityHint="Toggles password visibility"
-                hitSlop={8}
-                style={({ pressed }) => [
-                  s.passwordToggle,
-                  pressed ? s.passwordTogglePressed : null,
+            </Animated.View>
+          </Animated.View>
+
+          <Animated.View style={[s.form, formAnimatedStyle]}>
+            <View style={s.formHeader}>
+              <Text style={s.sectionKicker}>Sign In</Text>
+              <View style={s.formSignal} />
+            </View>
+
+            <Animated.View style={[s.field, fieldAnimatedStyle]}>
+              <Text nativeID="driver-email-label" style={s.fieldLabel}>Email</Text>
+              <View style={[s.inputShell, focusedField === "email" ? s.inputShellFocused : null]}>
+                <View style={[s.inputRail, focusedField === "email" ? s.inputRailFocused : null]} />
+                <AnimatedTextInput
+                  style={[s.input, inputAnimatedStyle, webInputStyle]}
+                  placeholder="driver@trustedriders.org"
+                  placeholderTextColor={colors.slate400}
+                  value={email}
+                  onChangeText={onEmailChange}
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  accessibilityLabel="Email"
+                  accessibilityHint="Enter the email address assigned to your TrustedRide Certified driver account."
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  returnKeyType="next"
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  blurOnSubmit={false}
+                  autoFocus
+                />
+              </View>
+            </Animated.View>
+
+            <Animated.View style={[s.field, fieldAnimatedStyle]}>
+              <Text nativeID="driver-password-label" style={s.fieldLabel}>Password</Text>
+              <View
+                style={[
+                  s.inputShell,
+                  s.passwordField,
+                  focusedField === "password" ? s.inputShellFocused : null,
                 ]}
               >
-                <EyeGlyph visible={passwordVisible} />
-              </Pressable>
-            </View>
+                <View
+                  style={[
+                    s.inputRail,
+                    focusedField === "password" ? s.inputRailFocused : null,
+                  ]}
+                />
+                <AnimatedTextInput
+                  ref={passwordInputRef}
+                  style={[
+                    s.input,
+                    s.passwordInput,
+                    inputAnimatedStyle,
+                    webInputStyle,
+                  ]}
+                  placeholder=""
+                  placeholderTextColor={colors.slate400}
+                  value={password}
+                  onChangeText={onPasswordChange}
+                  secureTextEntry={!passwordVisible}
+                  accessibilityLabel="Password"
+                  accessibilityHint="Enter your TrustedRide Certified driver account password."
+                  autoCapitalize="none"
+                  autoComplete="current-password"
+                  autoCorrect={false}
+                  textContentType="password"
+                  returnKeyType="done"
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  onSubmitEditing={onSubmit}
+                />
+                <Pressable
+                  onPress={onTogglePasswordVisible}
+                  accessibilityRole="button"
+                  accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+                  accessibilityHint="Toggles password visibility"
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    s.passwordToggle,
+                    pressed ? s.passwordTogglePressed : null,
+                  ]}
+                >
+                  <EyeGlyph visible={passwordVisible} />
+                </Pressable>
+              </View>
+            </Animated.View>
+
+            {error ? (
+              <Text accessibilityRole="alert" style={s.error}>
+                {error}
+              </Text>
+            ) : null}
+
+            <AnimatedPressable
+              style={[
+                s.primaryButton,
+                primaryButtonAnimatedStyle,
+                canSubmit ? s.primaryButtonReady : s.primaryButtonDisabled,
+              ]}
+              onPress={onSubmit}
+              disabled={!canSubmit}
+              accessibilityRole="button"
+              accessibilityLabel={submitting ? "Signing in" : "Sign in"}
+              accessibilityState={{ disabled: !canSubmit, busy: submitting }}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Text style={s.primaryButtonText}>Sign In</Text>
+                  <Text style={s.primaryButtonArrow}>→</Text>
+                </>
+              )}
+            </AnimatedPressable>
+
+            <Animated.View style={[s.footer, footerAnimatedStyle]} pointerEvents="none">
+              <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
+              <Text style={s.footerText}>Encrypted</Text>
+            </Animated.View>
           </Animated.View>
-
-          {error ? (
-            <Text accessibilityRole="alert" style={s.error}>
-              {error}
-            </Text>
-          ) : null}
-
-          <AnimatedPressable
-            style={[
-              s.primaryButton,
-              primaryButtonAnimatedStyle,
-              !canSubmit && s.primaryButtonDisabled,
-            ]}
-            onPress={onSubmit}
-            disabled={!canSubmit}
-            accessibilityRole="button"
-            accessibilityLabel={submitting ? "Signing in" : "Sign in"}
-            accessibilityState={{ disabled: !canSubmit, busy: submitting }}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Text style={s.primaryButtonText}>Sign In</Text>
-                <Text style={s.primaryButtonArrow}>→</Text>
-              </>
-            )}
-          </AnimatedPressable>
-
-          <Animated.View style={[s.footer, footerAnimatedStyle]} pointerEvents="none">
-            <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
-            <Text style={s.footerText}>Encrypted</Text>
-          </Animated.View>
-        </Animated.View>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -301,15 +327,25 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.sm,
   },
-  hero: {
+  credentialCard: {
     width: "100%",
     maxWidth: 440,
     backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderCurve: "continuous",
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(148, 163, 184, 0.22)",
+    shadowColor: colors.primary,
+    shadowOpacity: 0.1,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 16 },
+  },
+  hero: {
+    width: "100%",
+    backgroundColor: colors.surface,
     paddingVertical: 40,
     paddingHorizontal: spacing.xl,
-    borderTopLeftRadius: radii.md,
-    borderTopRightRadius: radii.md,
-    borderCurve: "continuous",
     alignItems: "center",
     gap: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -325,38 +361,66 @@ const s = StyleSheet.create({
   },
   form: {
     width: "100%",
-    maxWidth: 440,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceLowest,
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.xl,
-    borderBottomLeftRadius: radii.md,
-    borderBottomRightRadius: radii.md,
-    borderCurve: "continuous",
     gap: spacing.md,
   },
+  formHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  formSignal: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.blue,
+  },
   sectionKicker: {
-    color: colors.slate400,
-    fontSize: 11,
+    color: colors.primary,
+    fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
-    letterSpacing: 2.8,
-    marginBottom: 2,
+    letterSpacing: 2.2,
   },
   field: {
     gap: 8,
   },
   fieldLabel: {
-    color: colors.primary,
+    color: colors.primarySoft,
     fontSize: 11,
     fontWeight: "900",
     textTransform: "uppercase",
     letterSpacing: 2.2,
-    paddingLeft: 2,
+    paddingLeft: 1,
+  },
+  inputShell: {
+    width: "100%",
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.24)",
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  inputShellFocused: {
+    borderColor: "rgba(37, 99, 235, 0.55)",
+    backgroundColor: "#FFFFFF",
+  },
+  inputRail: {
+    alignSelf: "stretch",
+    width: 4,
+    backgroundColor: colors.surfaceHigh,
+  },
+  inputRailFocused: {
+    backgroundColor: colors.blue,
   },
   input: {
-    width: "100%",
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radii.sm,
+    flex: 1,
+    backgroundColor: "transparent",
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 15,
@@ -364,7 +428,6 @@ const s = StyleSheet.create({
     color: colors.primary,
   },
   passwordField: {
-    position: "relative",
     justifyContent: "center",
   },
   passwordInput: {
@@ -372,7 +435,7 @@ const s = StyleSheet.create({
   },
   passwordToggle: {
     position: "absolute",
-    right: 8,
+    right: 6,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -428,8 +491,11 @@ const s = StyleSheet.create({
     minHeight: 56,
     marginTop: 6,
   },
+  primaryButtonReady: {
+    backgroundColor: colors.blueStrong,
+  },
   primaryButtonDisabled: {
-    opacity: 0.35,
+    backgroundColor: "#AEB5C0",
   },
   primaryButtonText: {
     color: "#FFFFFF",
