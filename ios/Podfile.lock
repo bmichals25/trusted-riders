@@ -1,5 +1,7 @@
 PODS:
-  - EXConstants (55.0.15):
+  - EXApplication (55.0.15):
+    - ExpoModulesCore
+  - EXConstants (55.0.16):
     - ExpoModulesCore
   - Expo (55.0.19):
     - ExpoModulesCore
@@ -85,6 +87,8 @@ PODS:
     - React-Core
     - React-runtimescheduler
     - ReactCommon
+  - ExpoNotifications (55.0.23):
+    - ExpoModulesCore
   - ExpoRouter (55.0.13):
     - ExpoModulesCore
     - RNScreens
@@ -2261,6 +2265,7 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - EXApplication (from `../node_modules/expo-application/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - Expo (from `../node_modules/expo`)
   - ExpoAsset (from `../node_modules/expo-asset/ios`)
@@ -2277,6 +2282,7 @@ DEPENDENCIES:
   - "ExpoLogBox (from `../node_modules/@expo/log-box`)"
   - ExpoModulesCore (from `../node_modules/expo/node_modules/expo-modules-core`)
   - ExpoModulesJSI (from `../node_modules/expo/node_modules/expo-modules-core`)
+  - ExpoNotifications (from `../node_modules/expo-notifications/ios`)
   - ExpoRouter (from `../node_modules/expo-router/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
   - ExpoTaskManager (from `../node_modules/expo-task-manager/ios`)
@@ -2375,6 +2381,8 @@ SPEC REPOS:
     - SDWebImageWebPCoder
 
 EXTERNAL SOURCES:
+  EXApplication:
+    :path: "../node_modules/expo-application/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
   Expo:
@@ -2407,6 +2415,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo/node_modules/expo-modules-core"
   ExpoModulesJSI:
     :path: "../node_modules/expo/node_modules/expo-modules-core"
+  ExpoNotifications:
+    :path: "../node_modules/expo-notifications/ios"
   ExpoRouter:
     :path: "../node_modules/expo-router/ios"
   ExpoSymbols:
@@ -2580,7 +2590,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  EXConstants: 5caf448ff399f60be9d1053e77aed32e39411900
+  EXApplication: 82a44fa8236bb644a805ee21e64054eeb01d22ea
+  EXConstants: dadbeba983acc30f855a919658a2b34fbd86615d
   Expo: 8d901a968aee7a848334798753b63c4a8bf08bd4
   ExpoAsset: f56ed740b6a127da2bfd90832cf688ae309d4410
   ExpoDomWebView: 2b2fbd9a07de8790569257cbf9dfdaa31cf95c70
@@ -2596,6 +2607,7 @@ SPEC CHECKSUMS:
   ExpoLogBox: 617da77cbc083627692b2ea050a3666808aef2cd
   ExpoModulesCore: 088468ce2605ce08b704105945c2232e73a7b9ee
   ExpoModulesJSI: 9b60671a31c30bc8e24b25632e7cb475a84b9016
+  ExpoNotifications: 61c46aa5df088ff0ad41de0504a86a92333aec55
   ExpoRouter: e2c56f80102b153c5f8c887b38094ef936c266a2
   ExpoSymbols: 8b63e859ba013df1f2fc666f535fddb3d5270569
   ExpoTaskManager: 7c2660c3c0bd0ed863e1536e59e11b71ac1490c6
