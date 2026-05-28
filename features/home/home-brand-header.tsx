@@ -17,8 +17,6 @@ const LOGO_URI = Image.resolveAssetSource(LOGO_SOURCE).uri;
 const LOGO_ASPECT_RATIO = 1409 / 427;
 const HEADER_ACTIONS_RESERVED_WIDTH = 48;
 const LOGO_OPTICAL_OFFSET_X = -12;
-const LOGO_DOT_OFFSET_X = 130;
-const LOGO_DOT_OFFSET_Y = -4;
 
 export function HomeBrandHeader({
   backendConnected,
@@ -38,10 +36,6 @@ export function HomeBrandHeader({
   const [liveTrackerOpenRequest, setLiveTrackerOpenRequest] = useState(0);
   const compact = width < 430;
   const headerHeight = compact ? 72 : 82;
-  const innerHeaderWidth = width - spacing.md * 2;
-  const dotSize = 12;
-  const liveDotLeft = innerHeaderWidth / 2 + LOGO_OPTICAL_OFFSET_X + LOGO_DOT_OFFSET_X - dotSize / 2;
-  const liveDotTop = headerHeight / 2 + LOGO_DOT_OFFSET_Y - dotSize / 2;
 
   useEffect(() => {
     if (isFocused) setLogoRevision((current) => current + 1);
@@ -107,21 +101,6 @@ export function HomeBrandHeader({
           />
         </Pressable>
         <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            left: liveDotLeft,
-            top: liveDotTop,
-            width: dotSize,
-            height: dotSize,
-            borderRadius: dotSize / 2,
-            backgroundColor: isTracking ? colors.green : colors.slate400,
-            borderColor: colors.surface,
-            borderWidth: 2,
-            zIndex: 3,
-          }}
-        />
-        <View
           style={{
             position: "absolute",
             right: 0,
@@ -131,8 +110,37 @@ export function HomeBrandHeader({
             justifyContent: "center",
             flexDirection: "row",
             zIndex: 2,
+            gap: spacing.sm,
           }}
         >
+          <Pressable
+            onPress={() => {
+              impact(ImpactFeedbackStyle.Light);
+              setLiveTrackerOpenRequest((request) => request + 1);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={isTracking ? "Live location tracking is on" : "Live location tracking is off"}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              width: 28,
+              height: 40,
+              borderRadius: radii.pill,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.72 : 1,
+            })}
+          >
+            <View
+              style={{
+                width: 13,
+                height: 13,
+                borderRadius: 6.5,
+                backgroundColor: isTracking ? colors.green : colors.slate400,
+                borderColor: colors.surface,
+                borderWidth: 2,
+              }}
+            />
+          </Pressable>
           <DispatchChatButton
             unreadCount={unreadDispatchMessageCount}
             onPress={() => {
