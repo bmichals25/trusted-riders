@@ -22,10 +22,6 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label hidden>Schedule</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "calendar", selected: "calendar.badge.clock" }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="messages" disableAutomaticContentInsets>
-        <NativeTabs.Trigger.Label hidden>Messages</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: "message", selected: "message.fill" }} />
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label hidden>Settings</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />

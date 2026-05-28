@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -26,13 +26,12 @@ export function LocationIndicator({
   backendError?: string | null;
   compact?: boolean;
 }) {
-  const { location, isTracking } = useLocation();
-  const { impact, selection } = useHaptics();
+  const { impact } = useHaptics();
   const [mapOpen, setMapOpen] = useState(false);
   const pulseOpacity = useSharedValue(1);
 
   useEffect(() => {
-    if (isTracking) {
+    if (backendConnected) {
       pulseOpacity.value = withRepeat(
         withTiming(0.3, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
         -1,
@@ -41,123 +40,62 @@ export function LocationIndicator({
     } else {
       pulseOpacity.value = 1;
     }
-  }, [isTracking]);
+  }, [backendConnected]);
 
   const pulseStyle = useAnimatedStyle(() => ({
     opacity: pulseOpacity.value,
   }));
+  const statusColor = backendConnected ? colors.green : colors.error;
+  const statusLabel = backendConnected ? "Live" : "Offline";
 
   return (
     <>
-      <View
-        style={{
-          minHeight: 44,
-          borderRadius: 13,
-          backgroundColor: colors.surfaceLow,
+      <Pressable
+        onPress={() => {
+          impact(ImpactFeedbackStyle.Light);
+          setMapOpen(true);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`${statusLabel} status, tap to view map`}
+        accessibilityHint={backendConnected ? "Opens the map with server connection status." : backendError ?? "Opens the map with server connection status."}
+        hitSlop={8}
+        style={({ pressed }) => ({
+          minHeight: 40,
+          minWidth: compact ? 40 : 74,
+          paddingLeft: compact ? 10 : 12,
+          paddingRight: compact ? 10 : 14,
+          borderRadius: 999,
+          backgroundColor: pressed ? colors.surfaceHigh : colors.surfaceLow,
           flexDirection: "row",
           alignItems: "center",
-          overflow: "hidden",
+          justifyContent: "center",
+          gap: 7,
           alignSelf: compact ? "flex-start" : "auto",
-        }}
+          opacity: pressed ? 0.72 : 1,
+        })}
       >
-        <StatusFlag
-          label={isTracking ? "Enabled" : "Off"}
-          active={isTracking}
-          icon="tracking"
-          activeColor={colors.green}
-          inactiveColor={colors.slate400}
-          pulseStyle={isTracking ? pulseStyle : undefined}
-          accessibilityLabel={isTracking ? "Tracking enabled, tap to view map" : "Tracking off, tap to view map"}
-          compact={compact}
-          onPress={() => {
-            impact(ImpactFeedbackStyle.Light);
-            setMapOpen(true);
-          }}
-        />
-        <View style={{ width: 1, height: 18, backgroundColor: colors.slate200 }} />
-        <StatusFlag
-          label={backendConnected ? "Connected" : "Disconnected"}
-          active={backendConnected}
-          icon="server"
-          activeColor={colors.blue}
-          inactiveColor={colors.error}
-          accessibilityLabel={backendConnected ? "Connected to backend server" : "Backend server disconnected"}
-          compact={compact}
-          onPress={() => {
-            impact(ImpactFeedbackStyle.Light);
-            Alert.alert(
-              backendConnected ? "Connected" : "Disconnected",
-              backendConnected
-                ? "This device is connected to the TrustedRide Certified backend server."
-                : backendError ?? "This device is not currently connected to the TrustedRide Certified backend server.",
-            );
-          }}
-        />
-      </View>
+        <LiveDot color={statusColor} pulseStyle={backendConnected ? pulseStyle : undefined} />
+        {compact ? null : (
+          <Text style={{ color: statusColor, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
+            {statusLabel}
+          </Text>
+        )}
+      </Pressable>
 
       <LocationMapModal
         visible={mapOpen}
         onClose={() => setMapOpen(false)}
+        backendConnected={backendConnected}
+        backendError={backendError}
       />
     </>
   );
 }
 
-function StatusFlag({
-  label,
-  active,
-  icon,
-  activeColor,
-  inactiveColor,
-  pulseStyle,
-  accessibilityLabel,
-  onPress,
-  compact,
-}: {
-  label: string;
-  active: boolean;
-  icon: "tracking" | "server";
-  activeColor: string;
-  inactiveColor: string;
-  pulseStyle?: ReturnType<typeof useAnimatedStyle>;
-  accessibilityLabel: string;
-  onPress: () => void;
-  compact?: boolean;
-}) {
-  const color = active ? activeColor : inactiveColor;
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => ({
-        minHeight: 44,
-        minWidth: compact ? 44 : undefined,
-        paddingLeft: compact ? 10 : 9,
-        paddingRight: compact ? 10 : 10,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 5,
-        backgroundColor: pressed ? colors.surfaceHigh : "transparent",
-        opacity: pressed ? 0.72 : 1,
-      })}
-    >
-      <StatusFlagIcon type={icon} color={color} pulseStyle={pulseStyle} />
-      {compact ? null : (
-        <Text style={{ color, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>
-          {label}
-        </Text>
-      )}
-    </Pressable>
-  );
-}
-
-function StatusFlagIcon({
-  type,
+function LiveDot({
   color,
   pulseStyle,
 }: {
-  type: "tracking" | "server";
   color: string;
   pulseStyle?: ReturnType<typeof useAnimatedStyle>;
 }) {
@@ -173,20 +111,11 @@ function StatusFlagIcon({
         pulseStyle,
       ]}
     >
-      {type === "tracking" ? <TrackingGlyph color={color} /> : <ServerGlyph color={color} />}
-    </Animated.View>
-  );
-}
-
-function TrackingGlyph({ color }: { color: string }) {
-  return (
-    <View style={{ width: 13, height: 13, alignItems: "center", justifyContent: "center" }}>
       <View
         style={{
-          position: "absolute",
           width: 11,
           height: 11,
-          borderRadius: 6,
+          borderRadius: 5.5,
           backgroundColor: color,
         }}
       />
@@ -195,35 +124,11 @@ function TrackingGlyph({ color }: { color: string }) {
           position: "absolute",
           width: 5,
           height: 5,
-          borderRadius: 3,
+          borderRadius: 2.5,
           backgroundColor: colors.surface,
         }}
       />
-      <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: color }} />
-    </View>
-  );
-}
-
-function ServerGlyph({ color }: { color: string }) {
-  return (
-    <View style={{ width: 13, height: 12, gap: 2 }}>
-      {[0, 1].map((row) => (
-        <View
-          key={row}
-          style={{
-            height: 5,
-            borderRadius: 2.5,
-            backgroundColor: color,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            paddingRight: 2,
-          }}
-        >
-          <View style={{ width: 2, height: 2, borderRadius: 1, backgroundColor: colors.surface }} />
-        </View>
-      ))}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -335,7 +240,17 @@ function GearGlyph() {
   );
 }
 
-function LocationMapModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function LocationMapModal({
+  visible,
+  onClose,
+  backendConnected,
+  backendError,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  backendConnected: boolean;
+  backendError?: string | null;
+}) {
   const insets = useSafeAreaInsets();
   const { impact, selection } = useHaptics();
   const { location, isTracking, startTracking, stopTracking } = useLocation();
@@ -421,6 +336,40 @@ function LocationMapModal({ visible, onClose }: { visible: boolean; onClose: () 
             gap: spacing.sm,
           }}
         >
+          <View
+            accessible
+            accessibilityLabel={backendConnected ? "Server connected" : "Server disconnected"}
+            style={{
+              minHeight: 42,
+              borderRadius: radii.sm,
+              backgroundColor: backendConnected ? colors.greenSoft : colors.errorSoft,
+              paddingHorizontal: spacing.md,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: backendConnected ? colors.green : colors.error,
+              }}
+            />
+            <Text
+              style={{
+                color: backendConnected ? colors.green : colors.error,
+                fontSize: 13,
+                fontWeight: "800",
+                flex: 1,
+              }}
+              numberOfLines={2}
+            >
+              {backendConnected ? "Server connected" : backendError ?? "Server disconnected"}
+            </Text>
+          </View>
+
           {location && (
             <View style={{ flexDirection: "row", gap: spacing.md }}>
               <View style={{ flex: 1, backgroundColor: colors.surfaceLow, borderRadius: radii.sm, padding: spacing.sm, gap: 2 }}>
