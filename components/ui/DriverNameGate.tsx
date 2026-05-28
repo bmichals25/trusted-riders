@@ -12,7 +12,7 @@ export type DriverSession = {
 
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
-const STARTUP_REVEAL_DELAY_MS = 3300;
+const STARTUP_REVEAL_DELAY_MS = 120;
 
 type AuthContextValue = { signOut: () => Promise<void>; session: DriverSession | null };
 const AuthContext = createContext<AuthContextValue>({

@@ -42,13 +42,17 @@ export function AppLoadingAnimation({
   }, [onReady]);
 
   useEffect(() => {
+    const endSubscription = player.addListener("playToEnd", markReady);
     player.play();
 
     const readyFallbackTimer = setTimeout(() => {
       markReady();
-    }, 1200);
+    }, 4800);
 
-    return () => clearTimeout(readyFallbackTimer);
+    return () => {
+      endSubscription.remove();
+      clearTimeout(readyFallbackTimer);
+    };
   }, [markReady, player]);
 
   useEffect(() => {
@@ -94,7 +98,6 @@ export function AppLoadingAnimation({
           nativeControls={false}
           contentFit="cover"
           allowsPictureInPicture={false}
-          onFirstFrameRender={markReady}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
