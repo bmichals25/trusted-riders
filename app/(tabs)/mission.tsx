@@ -77,13 +77,16 @@ export default function ScheduleScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      refreshRides(),
-      fetchRides().then(setFetchedRides).catch((error) => {
-        console.log("[mission] direct ride fetch skipped", error instanceof Error ? error.message : error);
-      }),
-    ]);
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        refreshRides(),
+        fetchRides().then(setFetchedRides).catch((error) => {
+          console.log("[mission] direct ride fetch skipped", error instanceof Error ? error.message : error);
+        }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [refreshRides]);
 
   useEffect(() => {

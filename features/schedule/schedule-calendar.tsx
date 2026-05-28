@@ -70,7 +70,7 @@ export function ScheduleToolbar({
         </View>
       ) : (
         <View style={dateStripStyle}>
-          <DateArrow label="Previous date" glyph="‹" onPress={onPrevious} />
+          <DateArrow label="Previous date" iconName="chevron.left" onPress={onPrevious} />
           <View style={{ flex: 1, minWidth: 0, alignItems: "center" }}>
             <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "900", lineHeight: 22 }} numberOfLines={1}>
               {formatHeaderDate(selectedDate, mode)}
@@ -79,7 +79,7 @@ export function ScheduleToolbar({
               {dateSubtitle(selectedDate, mode)}
             </Text>
           </View>
-          <DateArrow label="Next date" glyph="›" onPress={onNext} />
+          <DateArrow label="Next date" iconName="chevron.right" onPress={onNext} />
         </View>
       )}
     </View>
@@ -265,12 +265,13 @@ export function ScheduleNotice({ title, body }: { title: string; body: string })
   );
 }
 
-function DateArrow({ label, glyph, onPress }: { label: string; glyph: string; onPress: () => void }) {
+function DateArrow({ label, iconName, onPress }: { label: string; iconName: "chevron.left" | "chevron.right"; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint="Changes the schedule date range"
       hitSlop={10}
       style={({ pressed }) => ({
         width: 44,
@@ -282,9 +283,13 @@ function DateArrow({ label, glyph, onPress }: { label: string; glyph: string; on
         opacity: pressed ? 0.62 : 1,
       })}
     >
-      <Text style={{ color: colors.blue, fontSize: 28, fontWeight: "700", lineHeight: 29 }}>
-        {glyph}
-      </Text>
+      <SymbolView
+        name={iconName}
+        size={18}
+        type="hierarchical"
+        tintColor={colors.blue}
+        weight="bold"
+      />
     </Pressable>
   );
 }
@@ -458,7 +463,7 @@ function AgendaRideRow({ item, onPress }: { item: ScheduledItem; onPress: () => 
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${ride.passengerName} ride`}
+      accessibilityLabel={`Open ${ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Pending request" : active ? "Active ride" : "Scheduled ride"}. Pickup ${ride.pickupAddress}. Dropoff ${ride.dropoffAddress}.`}
       style={({ pressed }) => ({
         borderRadius: radii.sm,
         backgroundColor: colors.surface,
@@ -535,6 +540,7 @@ function WeekCalendar({
               key={day.key}
               onPress={() => onSelectDate(day.date)}
               accessibilityRole="button"
+              accessibilityLabel={`Select ${formatAgendaDate(day.date)}`}
               accessibilityState={{ selected }}
               style={({ pressed }) => ({
                 flex: 1,
@@ -710,7 +716,7 @@ function CalendarEventBlock({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${item.ride.passengerName} ride`}
+      accessibilityLabel={`Open ${item.ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Pending request" : active ? "Active ride" : "Scheduled ride"}.`}
       style={({ pressed }) => ({
         backgroundColor: mode === "day" ? eventSoftColor : colors.surface,
         borderRadius: radii.xs,
@@ -747,7 +753,7 @@ function MonthEventBar({ item, selected, onPress }: { item: ScheduledItem; selec
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${item.ride.passengerName} ride`}
+      accessibilityLabel={`Open ${item.ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Pending request" : active ? "Active ride" : "Scheduled ride"}.`}
       style={({ pressed }) => ({
         minHeight: pending ? 7 : 5,
         borderRadius: radii.pill,
