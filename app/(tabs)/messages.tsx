@@ -1,6 +1,6 @@
-import { useCallback } from "react";
+import { useLayoutEffect } from "react";
 import { Text, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { getLastNonChatHref } from "@/lib/navigation-memory";
 import { colors, spacing } from "@/lib/theme";
@@ -8,10 +8,10 @@ import { colors, spacing } from "@/lib/theme";
 export default function MessagesTabScreen() {
   const router = useRouter();
 
-  useFocusEffect(useCallback(() => {
+  useLayoutEffect(() => {
     const returnTo = getLastNonChatHref();
     router.push({ pathname: "/chat", params: { returnTo } });
-  }, [router]));
+  }, [router]);
 
   return (
     <View
