@@ -60,7 +60,7 @@ export function RideDetailsScreenContent() {
         <ScrollView
           style={{ flex: 1 }}
           contentInsetAdjustmentBehavior="never"
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: ride ? insets.bottom + (isPendingRequest ? 178 : 112) : insets.bottom + 28, gap: spacing.md }}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: ride ? insets.bottom + 178 : insets.bottom + 28, gap: spacing.md }}
         >
           {ride ? (
             <>
@@ -174,9 +174,11 @@ function RideDetailsActionBar({
           </View>
         </>
       ) : (
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <DetailActionButton label="Chat" tone="secondary" onPress={onChat} />
+        <View style={{ gap: spacing.sm }}>
           <DetailActionButton label="Navigate" tone="primary" onPress={onNavigate} />
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <DetailActionButton label="Chat" tone="secondary" onPress={onChat} />
+          </View>
         </View>
       )}
     </View>
@@ -211,6 +213,13 @@ function RideDetailMap({ ride }: { ride: DispatchedRide }) {
 
 function RideDetailHero({ ride }: { ride: DispatchedRide }) {
   const isPendingRequest = ride.status === "pending";
+  const rideNumber = normalizeRideId(ride.id);
+  const passengerNameIsFallback = normalizeRideId(ride.passengerName) === rideNumber;
+  const heroTitle = passengerNameIsFallback ? `Ride #${rideNumber}` : ride.passengerName;
+  const heroSubtitle = passengerNameIsFallback
+    ? `${ride.scheduledDate} · ${ride.scheduledTime} · ${ride.transitType}`
+    : `Ride #${rideNumber} · ${ride.scheduledDate} · ${ride.scheduledTime}`;
+
   return (
     <View style={{ backgroundColor: colors.primary, borderRadius: radii.md, padding: spacing.md, gap: spacing.lg, ...shadows.floating }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md }}>
@@ -218,11 +227,11 @@ function RideDetailHero({ ride }: { ride: DispatchedRide }) {
           <Text style={{ color: colors.slate300, fontSize: 12, fontWeight: "900", letterSpacing: 1.4, textTransform: "uppercase" }}>
             {isPendingRequest ? "Pending Request" : "Current Ride"}
           </Text>
-          <Text style={{ color: colors.surface, fontSize: 33, fontWeight: "900", lineHeight: 38 }} numberOfLines={1}>
-            Ride #{normalizeRideId(ride.id)}
+          <Text style={{ color: colors.surface, fontSize: 33, fontWeight: "900", lineHeight: 38 }} numberOfLines={2}>
+            {heroTitle}
           </Text>
           <Text style={{ color: colors.slate300, fontSize: 15, fontWeight: "800" }} numberOfLines={1}>
-            {ride.scheduledDate} · {ride.scheduledTime} · {ride.transitType}
+            {heroSubtitle}
           </Text>
         </View>
         <View style={{ backgroundColor: isPendingRequest ? colors.amberSoft : colors.blueSoft, borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 8 }}>
@@ -310,7 +319,7 @@ function TripContextPanel({ ride }: { ride: DispatchedRide }) {
 }
 
 function DetailActionButton({ label, tone, onPress }: { label: string; tone: "primary" | "secondary" | "danger"; onPress: () => void }) {
-  const backgroundColor = tone === "primary" ? colors.primary : tone === "danger" ? colors.errorSoft : colors.surface;
+  const backgroundColor = tone === "primary" ? colors.green : tone === "danger" ? colors.errorSoft : colors.surface;
   const color = tone === "primary" ? colors.surface : tone === "danger" ? colors.error : colors.primary;
   return (
     <Pressable
@@ -375,7 +384,7 @@ function navigationUrlForRide(ride: DispatchedRide) {
 }
 
 function normalizeRideId(value?: string) {
-  return String(value ?? "").replace(/^ride-?/i, "");
+  return String(value ?? "").trim().replace(/^(?:ride[\s_-]*#?|#)/i, "").trim();
 }
 
 function regionFor(coords: RideCoordinate[]) {
