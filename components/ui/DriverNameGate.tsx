@@ -20,8 +20,24 @@ const AuthContext = createContext<AuthContextValue>({
   session: null,
 });
 
+type StartupPresentationValue = {
+  startupAnimationVisible: boolean;
+  startupAnimationExiting: boolean;
+  startupAnimationComplete: boolean;
+};
+
+const StartupPresentationContext = createContext<StartupPresentationValue>({
+  startupAnimationVisible: false,
+  startupAnimationExiting: false,
+  startupAnimationComplete: true,
+});
+
 export function useAuth(): AuthContextValue {
   return useContext(AuthContext);
+}
+
+export function useStartupPresentation(): StartupPresentationValue {
+  return useContext(StartupPresentationContext);
 }
 
 /**
@@ -37,6 +53,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const [startupAnimationVisible, setStartupAnimationVisible] = useState(true);
   const [startupAnimationExiting, setStartupAnimationExiting] = useState(false);
   const [startupAnimationReady, setStartupAnimationReady] = useState(false);
+  const [startupAnimationComplete, setStartupAnimationComplete] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,7 +129,16 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   }, []);
   const handleStartupAnimationExitComplete = useCallback(() => {
     setStartupAnimationVisible(false);
+    setStartupAnimationComplete(true);
   }, []);
+  const startupPresentationValue = useMemo<StartupPresentationValue>(
+    () => ({
+      startupAnimationVisible,
+      startupAnimationExiting,
+      startupAnimationComplete,
+    }),
+    [startupAnimationComplete, startupAnimationExiting, startupAnimationVisible],
+  );
 
   const appContent = session ? (
     <AuthContext.Provider value={authValue}>{children(session)}</AuthContext.Provider>
@@ -132,17 +158,19 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   );
 
   return (
-    <View style={s.root}>
-      {appContent}
-      {startupAnimationVisible ? (
-        <AppLoadingAnimation
-          exiting={startupAnimationExiting}
-          onExitComplete={handleStartupAnimationExitComplete}
-          onReady={handleStartupAnimationReady}
-          style={s.startupOverlay}
-        />
-      ) : null}
-    </View>
+    <StartupPresentationContext.Provider value={startupPresentationValue}>
+      <View style={s.root}>
+        {appContent}
+        {startupAnimationVisible ? (
+          <AppLoadingAnimation
+            exiting={startupAnimationExiting}
+            onExitComplete={handleStartupAnimationExitComplete}
+            onReady={handleStartupAnimationReady}
+            style={s.startupOverlay}
+          />
+        ) : null}
+      </View>
+    </StartupPresentationContext.Provider>
   );
 }
 

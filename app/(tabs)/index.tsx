@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { FocusTransition } from "@/components/ui/FocusTransition";
+import { useStartupPresentation } from "@/components/ui/DriverNameGate";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
 import { RideRequestCard } from "@/components/ui/RideRequestCard";
 import { HomeBrandHeader } from "@/features/home/home-brand-header";
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const { activeRide, pendingRides, backendError, hasLoadedRides, refreshRides, acceptRide, declineRide } = useDispatch();
   const { error: locationError } = useLocation();
   const { impact, notification } = useHaptics();
+  const { startupAnimationComplete } = useStartupPresentation();
   const homeScrollRef = useRef<ScrollView>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [homeViewportHeight, setHomeViewportHeight] = useState(0);
@@ -39,6 +41,8 @@ export default function HomeScreen() {
   const shouldShowEmptyRides = hasLoadedRides && !backendError && !activeRide && pendingRides.length === 0;
   const blockExitOnBlur = false;
   const replayHomeEntrance = true;
+  const homeEntranceReplayKey = startupAnimationComplete ? "startup-complete" : "startup-covered";
+  const homeEntranceReady = startupAnimationComplete;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -77,7 +81,9 @@ export default function HomeScreen() {
           distance={8}
           duration={460}
           exitOnBlur={blockExitOnBlur}
+          ready={homeEntranceReady}
           replayOnFocus={replayHomeEntrance}
+          replayKey={homeEntranceReplayKey}
         >
           <HomeBrandHeader backendConnected={!backendError} backendError={backendError} />
         </FadeInBlock>
@@ -111,30 +117,67 @@ export default function HomeScreen() {
           }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
         >
-          <FadeInBlock delay={70} duration={480} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+          <FadeInBlock
+            delay={70}
+            duration={480}
+            exitOnBlur={blockExitOnBlur}
+            ready={homeEntranceReady}
+            replayOnFocus={replayHomeEntrance}
+            replayKey={homeEntranceReplayKey}
+          >
             <LocationPermissionBanner />
           </FadeInBlock>
 
           {backendError ? (
-            <FadeInBlock delay={110} duration={480} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+            <FadeInBlock
+              delay={110}
+              duration={480}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+              replayKey={homeEntranceReplayKey}
+            >
               <Notice tone="error" title="Backend rides unavailable" body={backendError} />
             </FadeInBlock>
           ) : null}
 
           {locationError ? (
-            <FadeInBlock delay={130} duration={480} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+            <FadeInBlock
+              delay={130}
+              duration={480}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+              replayKey={homeEntranceReplayKey}
+            >
               <Notice tone="warning" title="Location warning" body={locationError} />
             </FadeInBlock>
           ) : null}
 
           {!hasLoadedRides && !backendError ? (
-            <FadeInBlock delay={145} duration={520} distance={16} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+            <FadeInBlock
+              delay={145}
+              duration={520}
+              distance={16}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+              replayKey={homeEntranceReplayKey}
+            >
               <Section title="Current Ride">
                 <LoadingState title="Loading ride information" body="Checking the live backend for current rides and requests." />
               </Section>
             </FadeInBlock>
           ) : activeRide ? (
-            <FadeInBlock delay={145} duration={520} distance={16} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+            <FadeInBlock
+              delay={145}
+              duration={520}
+              distance={16}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+              replayKey={homeEntranceReplayKey}
+            >
               <Section title="Current Ride">
                 <CurrentRideCard
                   ride={activeRide}
@@ -145,7 +188,15 @@ export default function HomeScreen() {
               </Section>
             </FadeInBlock>
           ) : shouldShowEmptyRides ? (
-            <FadeInBlock delay={145} duration={520} distance={16} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+            <FadeInBlock
+              delay={145}
+              duration={520}
+              distance={16}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+              replayKey={homeEntranceReplayKey}
+            >
               <Section title="Current Ride">
                 <EmptyRideState />
               </Section>
@@ -154,13 +205,29 @@ export default function HomeScreen() {
 
           {shouldShowRideRequests ? (
             activeRide ? (
-              <FadeInBlock delay={220} duration={500} distance={12} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+              <FadeInBlock
+                delay={220}
+                duration={500}
+                distance={12}
+                exitOnBlur={blockExitOnBlur}
+                ready={homeEntranceReady}
+                replayOnFocus={replayHomeEntrance}
+                replayKey={homeEntranceReplayKey}
+              >
                 <View style={{ marginHorizontal: spacing.md }}>
                   <RideRequestsBanner count={pendingRides.length} latestRide={pendingRides[0]} onPress={() => openRideRequestDetails(pendingRides[0])} />
                 </View>
               </FadeInBlock>
             ) : (
-              <FadeInBlock delay={220} duration={500} distance={12} exitOnBlur={blockExitOnBlur} replayOnFocus={replayHomeEntrance}>
+              <FadeInBlock
+                delay={220}
+                duration={500}
+                distance={12}
+                exitOnBlur={blockExitOnBlur}
+                ready={homeEntranceReady}
+                replayOnFocus={replayHomeEntrance}
+                replayKey={homeEntranceReplayKey}
+              >
                 <Section title="Ride Requests" count={pendingRides.length}>
                   <View style={{ gap: spacing.md }}>
                     {pendingRides.map((ride, index) => (
@@ -169,7 +236,9 @@ export default function HomeScreen() {
                         delay={260 + index * 38}
                         duration={480}
                         exitOnBlur={blockExitOnBlur}
+                        ready={homeEntranceReady}
                         replayOnFocus={replayHomeEntrance}
+                        replayKey={homeEntranceReplayKey}
                         distance={10}
                       >
                         <RideRequestCard

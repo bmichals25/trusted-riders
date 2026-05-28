@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Image, StyleSheet, type StyleProp, View, type ViewStyle } from "react-native";
 import Animated, {
   Easing,
@@ -27,6 +27,7 @@ export function AppLoadingAnimation({
   style?: StyleProp<ViewStyle>;
 }) {
   const reducedMotion = useReducedMotion();
+  const readyCalledRef = useRef(false);
   const rootOpacity = useSharedValue(1);
   const videoOpacity = useSharedValue(1);
   const scrimOpacity = useSharedValue(0);
@@ -37,16 +38,28 @@ export function AppLoadingAnimation({
     videoPlayer.keepScreenOnWhilePlaying = false;
   });
 
+  const markReady = useCallback(() => {
+    if (readyCalledRef.current) return;
+    readyCalledRef.current = true;
+    onReady?.();
+  }, [onReady]);
+
   useEffect(() => {
     if (reducedMotion) {
       player.pause();
       player.currentTime = 0;
-      onReady?.();
+      markReady();
       return;
     }
 
     player.play();
-  }, [onReady, player, reducedMotion]);
+
+    const readyFallbackTimer = setTimeout(() => {
+      markReady();
+    }, 900);
+
+    return () => clearTimeout(readyFallbackTimer);
+  }, [markReady, player, reducedMotion]);
 
   useEffect(() => {
     if (!exiting) {
@@ -108,7 +121,7 @@ export function AppLoadingAnimation({
             nativeControls={false}
             contentFit="cover"
             allowsPictureInPicture={false}
-            onFirstFrameRender={onReady}
+            onFirstFrameRender={markReady}
             style={StyleSheet.absoluteFill}
           />
         </Animated.View>

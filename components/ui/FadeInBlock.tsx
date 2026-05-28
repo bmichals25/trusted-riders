@@ -20,6 +20,8 @@ type Props = {
   exitDuration?: number;
   exitOnBlur?: boolean;
   replayOnFocus?: boolean;
+  replayKey?: string | number | boolean;
+  ready?: boolean;
   style?: any;
 };
 
@@ -47,6 +49,8 @@ export function FadeInBlock({
   exitDuration = 220,
   exitOnBlur = true,
   replayOnFocus = false,
+  replayKey,
+  ready = true,
   style,
 }: Props) {
   const progress = useSharedValue(0);
@@ -55,6 +59,11 @@ export function FadeInBlock({
 
   useEffect(() => {
     cancelAnimation(progress);
+
+    if (!ready) {
+      progress.value = 0;
+      return;
+    }
 
     if (reduced) {
       progress.value = isFocused || !exitOnBlur ? 1 : 0;
@@ -82,7 +91,7 @@ export function FadeInBlock({
         }),
       );
     }
-  }, [isFocused, delay, duration, exitDelay, exitDuration, exitOnBlur, progress, reduced, replayOnFocus]);
+  }, [isFocused, delay, duration, exitDelay, exitDuration, exitOnBlur, progress, ready, reduced, replayOnFocus, replayKey]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
