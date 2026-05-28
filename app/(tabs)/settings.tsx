@@ -37,11 +37,11 @@ export default function SettingsScreen() {
   const { hapticsEnabled, setHapticsEnabled, selection, notification } = useHaptics();
   const profileName = session?.name ?? "Chaperone";
   const foregroundLocationValue = permissionStatus === "granted" ? "Allowed" : permissionStatus ? "Limited" : "Unknown";
-  const backgroundLocationValue = hasAlwaysLocationAccess
-    ? "Always"
+  const backgroundLocationDetail = hasAlwaysLocationAccess
+    ? "Background: Always"
     : isTracking
-      ? "Needs Always"
-      : "Needed before live tracking";
+      ? "Background: Needs Always"
+      : "Background ready check before tracking";
 
   const performSignOut = async () => {
     if (signingOut) return;
@@ -144,7 +144,7 @@ export default function SettingsScreen() {
               <ReadoutRow
                 label="iOS Location"
                 value={foregroundLocationValue}
-                detail={`Always access: ${backgroundLocationValue}`}
+                detail={backgroundLocationDetail}
                 tone={hasAlwaysLocationAccess ? "good" : isTracking ? "warning" : "muted"}
                 iconName="iphone"
                 iconTone={hasAlwaysLocationAccess ? "green" : isTracking ? "amber" : "slate"}

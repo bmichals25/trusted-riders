@@ -76,7 +76,7 @@ export function OperatorSummary({
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <StatusChip label="On duty" tone="good" />
           <StatusChip
-            label={hasAlwaysLocationAccess ? "Background ready" : "Needs Always"}
+            label={hasAlwaysLocationAccess ? "Always ready" : "Needs Always"}
             tone={hasAlwaysLocationAccess ? "good" : "warning"}
           />
           <StatusChip label={isTracking ? "Broadcasting" : "Paused"} tone={isTracking ? "good" : "muted"} />
@@ -109,6 +109,7 @@ function StatusChip({
         flexDirection: "row",
         alignItems: "center",
         gap: 6,
+        flexShrink: 0,
       }}
     >
       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.dot }} />
@@ -234,8 +235,8 @@ export function ToggleRow({
         accessibilityHint={description}
         accessibilityValue={{ text: value ? "On" : "Off" }}
         accessibilityState={{ checked: value }}
-        trackColor={{ false: colors.slate200, true: colors.blueSoft }}
-        thumbColor={value ? colors.blueStrong : colors.surface}
+        trackColor={{ false: colors.slate200, true: colors.greenSoft }}
+        thumbColor={value ? colors.greenStrong : colors.surface}
       />
     </View>
   );
