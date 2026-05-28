@@ -270,15 +270,7 @@ export function EmptyRideState({
         </View>
       </View>
 
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ color: colors.primarySoft, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1 }}>
-            Dispatch sync
-          </Text>
-          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", marginTop: 3 }}>
-            Pull down or tap refresh for the latest assignments.
-          </Text>
-        </View>
+      <View style={{ alignItems: "center" }}>
         <Pressable
           disabled={refreshing}
           onPress={onRefresh}

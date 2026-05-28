@@ -13,19 +13,27 @@
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
+  "expo": {
+    "doctor": {
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
+      }
+    }
+  },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
-    "expo": "~55.0.19",
+    "expo": "~55.0.26",
     "expo-constants": "~55.0.15",
+    "expo-font": "~55.0.8",
     "expo-haptics": "~55.0.14",
-    "expo-linear-gradient": "~55.0.13",
-    "expo-linking": "~55.0.14",
-    "expo-location": "~55.1.8",
+    "expo-linear-gradient": "~55.0.14",
+    "expo-linking": "~55.0.15",
+    "expo-location": "~55.1.10",
     "expo-notifications": "~55.0.23",
-    "expo-router": "~55.0.13",
-    "expo-status-bar": "~55.0.5",
-    "expo-symbols": "~55.0.7",
-    "expo-task-manager": "~55.0.15",
+    "expo-router": "~55.0.16",
+    "expo-status-bar": "~55.0.6",
+    "expo-symbols": "~55.0.9",
+    "expo-task-manager": "~55.0.16",
     "expo-video": "~55.0.17",
     "ios-haptics": "^0.1.4",
     "leaflet": "^1.9.4",

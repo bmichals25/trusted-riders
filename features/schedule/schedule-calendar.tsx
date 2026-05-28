@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SymbolView } from "expo-symbols";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -176,7 +177,9 @@ export function CalendarSurface({
           onLayout={(event) => setCalendarViewportHeight(event.nativeEvent.layout.height)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
         >
-          {mode === "list" ? (
+          {visibleRideCount === 0 ? (
+            <ScheduleEmptyState mode={mode} minHeight={Math.max(260, calendarViewportHeight - spacing.md)} />
+          ) : mode === "list" ? (
             <AgendaList items={listItems} onOpenRide={onOpenRide} />
           ) : mode === "day" ? (
             <DayCalendar items={dayItems} selectedKey={selectedKey} todayKey={todayKey} hours={dayTimelineHours} onOpenRide={onOpenRide} />
@@ -186,6 +189,66 @@ export function CalendarSurface({
             <MonthCalendar days={monthDays} items={monthItems} todayKey={todayKey} selectedKey={selectedKey} onSelectDate={onSelectDate} onOpenRide={onOpenRide} />
           )}
         </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+function ScheduleEmptyState({ mode, minHeight }: { mode: CalendarMode; minHeight: number }) {
+  const title = mode === "list"
+    ? "No scheduled rides"
+    : mode === "day"
+      ? "No rides this day"
+      : mode === "week"
+        ? "No rides this week"
+        : "No rides this month";
+  const body = mode === "list"
+    ? "Pull to refresh when dispatch assigns new work."
+    : "Pull to refresh, or switch views to check another part of the schedule.";
+
+  return (
+    <View
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={`${title}. ${body}`}
+      style={{
+        minHeight,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.xl,
+        gap: spacing.sm,
+      }}
+    >
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{
+          width: 54,
+          height: 54,
+          borderRadius: radii.lg,
+          backgroundColor: colors.surfaceLow,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 1,
+          borderColor: colors.slate100,
+        }}
+      >
+        <SymbolView
+          name="calendar.badge.clock"
+          size={25}
+          type="hierarchical"
+          tintColor={colors.slate500}
+          weight="semibold"
+        />
+      </View>
+      <View style={{ gap: 5, alignItems: "center" }}>
+        <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900", lineHeight: 23, textAlign: "center" }}>
+          {title}
+        </Text>
+        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", lineHeight: 19, textAlign: "center", maxWidth: 260 }}>
+          {body}
+        </Text>
       </View>
     </View>
   );
