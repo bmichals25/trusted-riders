@@ -97,70 +97,75 @@ export function ChatMessageList({
   onScrollToLatest: () => void;
   onRetry: () => void;
 }) {
-  const renderMessage = useCallback(({ item }: { item: Message }) => {
+  const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
     const isOperator = item.sender === "operator";
     const isLastOperatorMessage = item.id === lastOperatorMessageId;
     const isRead = readMessageIds.has(item.id);
     const checkpoint = item.checkpoint;
+    const previousMessage = index > 0 ? messages[index - 1] : undefined;
+    const showDateSeparator = shouldShowDateSeparator(previousMessage, item);
     return (
-      <View
-        accessible={!checkpoint}
-        accessibilityLabel={!checkpoint ? messageAccessibilityLabel(item, isOperator, isLastOperatorMessage, isRead) : undefined}
-        style={{
-          alignSelf: isOperator ? "flex-end" : "flex-start",
-          maxWidth: checkpoint ? "86%" : "78%",
-          marginBottom: 8,
-        }}
-      >
-        {checkpoint ? (
-          <CheckpointUpdateCard
-            data={checkpoint}
-            isOperator={isOperator}
-            onPress={() => onCheckpointPress(checkpoint)}
-          />
-        ) : (
-          <View
-            style={{
-              backgroundColor: isOperator ? colors.primary : colors.surfaceLow,
-              borderRadius: 16,
-              borderBottomRightRadius: isOperator ? 4 : 16,
-              borderBottomLeftRadius: isOperator ? 16 : 4,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-            }}
-          >
-            <Text
-              style={{
-                color: isOperator ? colors.surface : colors.primary,
-                opacity: item.pending ? 0.72 : 1,
-                fontSize: 15,
-                fontWeight: "500",
-                lineHeight: 21,
-              }}
-            >
-              {item.text}
-            </Text>
-          </View>
-        )}
-        <Text
+      <>
+        {showDateSeparator ? <MessageDateSeparator date={item.createdAt} /> : null}
+        <View
+          accessible={!checkpoint}
+          accessibilityLabel={!checkpoint ? messageAccessibilityLabel(item, isOperator, isLastOperatorMessage, isRead) : undefined}
           style={{
-            color: colors.slate400,
-            fontSize: 10,
-            fontWeight: "600",
-            marginTop: 4,
             alignSelf: isOperator ? "flex-end" : "flex-start",
-            paddingHorizontal: 4,
+            maxWidth: checkpoint ? "86%" : "78%",
+            marginBottom: 8,
           }}
         >
-          {item.timestamp === "Not sent"
-            ? "Not sent"
-            : isLastOperatorMessage && !item.pending
-              ? (isRead ? "Read" : "Sent")
-              : item.timestamp}
-        </Text>
-      </View>
+          {checkpoint ? (
+            <CheckpointUpdateCard
+              data={checkpoint}
+              isOperator={isOperator}
+              onPress={() => onCheckpointPress(checkpoint)}
+            />
+          ) : (
+            <View
+              style={{
+                backgroundColor: isOperator ? colors.primary : colors.surfaceLow,
+                borderRadius: 16,
+                borderBottomRightRadius: isOperator ? 4 : 16,
+                borderBottomLeftRadius: isOperator ? 16 : 4,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: isOperator ? colors.surface : colors.primary,
+                  opacity: item.pending ? 0.72 : 1,
+                  fontSize: 15,
+                  fontWeight: "500",
+                  lineHeight: 21,
+                }}
+              >
+                {item.text}
+              </Text>
+            </View>
+          )}
+          <Text
+            style={{
+              color: colors.slate400,
+              fontSize: 10,
+              fontWeight: "600",
+              marginTop: 4,
+              alignSelf: isOperator ? "flex-end" : "flex-start",
+              paddingHorizontal: 4,
+            }}
+          >
+            {item.timestamp === "Not sent"
+              ? "Not sent"
+              : isLastOperatorMessage && !item.pending
+                ? (isRead ? "Read" : "Sent")
+                : item.timestamp}
+          </Text>
+        </View>
+      </>
     );
-  }, [lastOperatorMessageId, onCheckpointPress, readMessageIds]);
+  }, [lastOperatorMessageId, messages, onCheckpointPress, readMessageIds]);
 
   return (
     <FlatList
@@ -187,9 +192,36 @@ export function ChatMessageList({
       maxToRenderPerBatch={10}
       windowSize={9}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       onContentSizeChange={onScrollToLatest}
       onLayout={onScrollToLatest}
     />
+  );
+}
+
+function MessageDateSeparator({ date }: { date?: string }) {
+  return (
+    <View
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={messageDateLabel(date)}
+      style={{
+        alignSelf: "center",
+        minHeight: 26,
+        borderRadius: radii.pill,
+        backgroundColor: colors.surfaceLow,
+        borderWidth: 1,
+        borderColor: colors.slate100,
+        paddingHorizontal: 10,
+        justifyContent: "center",
+        marginTop: spacing.xs,
+        marginBottom: spacing.sm,
+      }}
+    >
+      <Text style={{ color: colors.slate500, fontSize: 11, fontWeight: "900" }}>
+        {messageDateLabel(date)}
+      </Text>
+    </View>
   );
 }
 
@@ -465,6 +497,38 @@ function messageAccessibilityLabel(
         : message.timestamp;
 
   return `${sender}. ${message.text}. ${delivery}.`;
+}
+
+function shouldShowDateSeparator(previous: Message | undefined, current: Message) {
+  if (!previous) return true;
+  return messageDateKey(previous.createdAt) !== messageDateKey(current.createdAt);
+}
+
+function messageDateKey(value?: string) {
+  const date = parseMessageDate(value);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function messageDateLabel(value?: string) {
+  const date = parseMessageDate(value);
+  const today = startOfLocalDay(new Date());
+  const target = startOfLocalDay(date);
+  const diffDays = Math.round((today.getTime() - target.getTime()) / 86_400_000);
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+}
+
+function parseMessageDate(value?: string) {
+  const parsed = value ? new Date(value) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
+
+function startOfLocalDay(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
 }
 
 const styles = StyleSheet.create({
