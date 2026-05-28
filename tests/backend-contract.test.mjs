@@ -160,6 +160,64 @@ test("chat helpers use the chaperone-scoped backend contract", () => {
   );
 });
 
+test("push notification helpers register Expo tokens and parse gps requests", () => {
+  const pushNotifications = loadTsModule("lib/push-notifications.ts", {
+    "expo-constants": {
+      __esModule: true,
+      default: {
+        expoConfig: {
+          extra: {
+            eas: {
+              projectId: "project-123",
+            },
+          },
+        },
+      },
+    },
+    "expo-notifications": {
+      setNotificationHandler: () => {},
+    },
+    "react-native": { Platform: { OS: "ios" } },
+    "./config": { FLEET_API_URL: "https://example.test" },
+    "./demo-mode": { DEMO_MODE: false },
+    "./fleet-api": { getToken: () => "token" },
+  });
+
+  assert.equal(pushNotifications.getExpoProjectId(), "project-123");
+  assert.deepEqual(plain(pushNotifications.buildPushTokenRegistrationRequest({
+    expoPushToken: "ExponentPushToken[abc]",
+    projectId: "project-123",
+    platform: "ios",
+  })), {
+    path: "/api/push_tokens",
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        expo_push_token: "ExponentPushToken[abc]",
+        push_token: "ExponentPushToken[abc]",
+        token: "ExponentPushToken[abc]",
+        provider: "expo",
+        platform: "ios",
+        project_id: "project-123",
+      }),
+    },
+  });
+  assert.deepEqual(plain(pushNotifications.readGpsAskNotificationData({
+    command: "gps_ask",
+    message_id: "m1",
+  })), {
+    messageId: "m1",
+  });
+  assert.deepEqual(plain(pushNotifications.readGpsAskNotificationData({
+    message_metadata: { command: "gps_ask" },
+    chat_message_id: "m2",
+  })), {
+    messageId: "m2",
+  });
+  assert.equal(pushNotifications.readGpsAskNotificationData({ command: "gps_yes" }), null);
+});
+
 test("fleet helpers map Suresh statuses and include active ride location context", () => {
   const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
     "./rides": {

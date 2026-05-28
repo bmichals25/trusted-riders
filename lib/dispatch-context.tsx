@@ -18,6 +18,10 @@ import {
 import { demoRides } from "./demo-data";
 import { DEMO_MODE } from "./demo-mode";
 import { shouldSuppressRideErrorPanel } from "./fleet-fetch-result";
+import {
+  addGpsAskNotificationListeners,
+  registerForPushNotifications,
+} from "./push-notifications";
 import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideStatus } from "./rides";
 import { useLocation } from "./location-context";
 import * as storage from "./storage";
@@ -341,6 +345,32 @@ export function DispatchProvider({
       ],
     );
   }, [sendGpsResponse]);
+
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    void registerForPushNotifications().catch((error) => {
+      console.log("[push] registration failed", error instanceof Error ? error.message : error);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    return addGpsAskNotificationListeners(({ messageId }) => {
+      if (processedChatCommandIdsRef.current.has(messageId)) return;
+      if (gpsPromptOpenRef.current) return;
+      processedChatCommandIdsRef.current.add(messageId);
+      promptForGpsRequest({
+        id: messageId,
+        ride_id: "dispatch",
+        text: "",
+        sender: "dispatch",
+        sender_name: "Dispatch",
+        client_message_id: null,
+        metadata: { command: "gps_ask" },
+        created_at: new Date().toISOString(),
+      });
+    });
+  }, [promptForGpsRequest]);
 
   const processChatCommands = useCallback(async () => {
     if (DEMO_MODE || chatCommandPollInFlightRef.current) return;

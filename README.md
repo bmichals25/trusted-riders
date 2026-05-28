@@ -16,9 +16,9 @@ https://trdev.tailff74b1.ts.net
 - Home screen with current ride, ride requests, scheduled rides, ride status toast, and pull-to-refresh
 - Ride request accept, decline, and admin chat entry
 - Active mission screen with background location tracking and map-app navigation
-- Admin chat with message polling every 2.5 seconds and dispatch call button
+- Admin chat with message polling every 2.5 seconds, dispatch call button, and GPS push request handling
 - Settings with profile readout, location tracking toggle, haptics toggle, and sign-out
-- Fleet API client for login, rides, ride details, status updates for accept/decline, and chat GPS command replies
+- Fleet API client for login, rides, ride details, status updates for accept/decline, push token registration, and chat GPS command replies
 
 Deferred items such as past rides, ride detail pages, push registration, QR verification, emergency actions, mission stage advancement, dispatch web experiments, temporary chat backend, and demo artifacts are intentionally absent from this branch.
 

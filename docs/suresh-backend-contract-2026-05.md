@@ -47,6 +47,46 @@ approved `gps_yes`, location coordinates are sent through the normal
 coordinate posting remain off until dispatch requests access through `gps_ask`
 and the TrustedRider approves the popup.
 
+## Push Notifications
+
+Mobile registers an Expo push token after sign-in by posting to:
+
+```http
+POST /api/push_tokens
+```
+
+The body includes redundant token keys so the backend can adopt whichever field
+name it prefers:
+
+```json
+{
+  "expo_push_token": "ExponentPushToken[...]",
+  "push_token": "ExponentPushToken[...]",
+  "token": "ExponentPushToken[...]",
+  "provider": "expo",
+  "platform": "ios",
+  "project_id": "..."
+}
+```
+
+Dispatch GPS requests may also be delivered as push notifications. The app
+listens for notification data shaped like either:
+
+```json
+{ "command": "gps_ask", "message_id": "chat-message-id" }
+```
+
+or:
+
+```json
+{
+  "message_metadata": { "command": "gps_ask" },
+  "chat_message_id": "chat-message-id"
+}
+```
+
+When received, the app shows the same GPS approval popup used by chat polling.
+
 ## Accept / Decline Gap
 
 The app still uses the legacy endpoint below for TrustedRider accept/decline:
