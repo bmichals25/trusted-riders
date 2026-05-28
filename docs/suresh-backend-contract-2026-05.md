@@ -37,8 +37,8 @@ GPS request flow:
 
 - Dispatch sends `{ "command": "gps_ask" }`.
 - Mobile prompts the TrustedRider to approve or deny turning on local tracking.
-- Mobile starts local tracking and replies with `{ "command": "gps_yes" }` when
-  approved.
+- Mobile starts foreground and background location tracking, then replies with
+  `{ "command": "gps_yes" }` only after iOS grants Always/background access.
 - Mobile does not send a chat response when the request is denied; it only keeps
   local tracking off.
 

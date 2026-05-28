@@ -28,10 +28,10 @@ type LocationContextValue = {
   backgroundPermissionStatus: Location.PermissionStatus | null;
   hasAlwaysLocationAccess: boolean;
   error: string | null;
-  startTracking: () => Promise<void>;
+  startTracking: () => Promise<boolean>;
   stopTracking: () => void;
   requestPermission: () => Promise<boolean>;
-  startBackgroundTracking: () => Promise<void>;
+  startBackgroundTracking: () => Promise<boolean>;
   stopBackgroundTracking: () => Promise<void>;
 };
 
@@ -42,10 +42,10 @@ const LocationContext = createContext<LocationContextValue>({
   backgroundPermissionStatus: null,
   hasAlwaysLocationAccess: false,
   error: null,
-  startTracking: async () => {},
+  startTracking: async () => false,
   stopTracking: () => {},
   requestPermission: async () => false,
-  startBackgroundTracking: async () => {},
+  startBackgroundTracking: async () => false,
   stopBackgroundTracking: async () => {},
 });
 
@@ -250,12 +250,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
       setBackgroundPermissionStatus(permission.status);
       if (permission.status !== Location.PermissionStatus.GRANTED) {
-        setError("Background location permission denied");
-        return;
+        setError("Always location access is required while live tracking is on.");
+        return false;
       }
 
       const isRunning = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME);
-      if (isRunning) return;
+      if (isRunning) {
+        backgroundTrackingRef.current = true;
+        setError(null);
+        return true;
+      }
 
       await Location.startLocationUpdatesAsync(BACKGROUND_TASK_NAME, {
         accuracy: Location.Accuracy.Balanced,
@@ -269,8 +273,11 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         },
       });
       backgroundTrackingRef.current = true;
+      setError(null);
+      return true;
     } catch {
       setError("Failed to start background tracking");
+      return false;
     }
   }, []);
 
@@ -300,10 +307,16 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
 
     if (!granted) {
       setError("Location permission denied");
-      return;
+      return false;
     }
-    shouldTrackRef.current = true;
-    setIsTracking(true);
+
+    const backgroundStarted = Platform.OS === "web" ? true : await startBackgroundTracking();
+    if (!backgroundStarted) {
+      shouldTrackRef.current = false;
+      setIsTracking(false);
+      stopWatcher();
+      return false;
+    }
 
     // Get an initial position immediately
     try {
@@ -321,8 +334,10 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
     }
 
     await startWatcher();
-    await startBackgroundTracking();
-  }, [requestPermission, startBackgroundTracking, startWatcher]);
+    shouldTrackRef.current = true;
+    setIsTracking(true);
+    return true;
+  }, [requestPermission, startBackgroundTracking, startWatcher, stopWatcher]);
 
   const stopTracking = useCallback(() => {
     shouldTrackRef.current = false;

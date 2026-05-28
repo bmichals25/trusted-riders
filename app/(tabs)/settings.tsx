@@ -26,7 +26,6 @@ export default function SettingsScreen() {
   const {
     isTracking,
     permissionStatus,
-    backgroundPermissionStatus,
     hasAlwaysLocationAccess,
     error: locationError,
     startTracking,
@@ -39,11 +38,9 @@ export default function SettingsScreen() {
   const foregroundLocationValue = permissionStatus === "granted" ? "Allowed" : permissionStatus ? "Limited" : "Unknown";
   const backgroundLocationValue = hasAlwaysLocationAccess
     ? "Always"
-    : backgroundPermissionStatus === "granted"
-      ? "Enabled"
-      : isTracking
-        ? "Required"
-        : "Not enabled";
+    : isTracking
+      ? "Required"
+      : "Required to track";
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -68,10 +65,12 @@ export default function SettingsScreen() {
   const handleLocationToggle = async (enabled: boolean) => {
     selection();
     if (enabled) {
-      await startTracking();
-      void sendGpsCommandMessage("gps_yes").catch((error) => {
-        console.log("[settings] gps_yes command failed", error instanceof Error ? error.message : error);
-      });
+      const trackingStarted = await startTracking();
+      if (trackingStarted) {
+        void sendGpsCommandMessage("gps_yes").catch((error) => {
+          console.log("[settings] gps_yes command failed", error instanceof Error ? error.message : error);
+        });
+      }
     } else {
       stopTracking();
       void sendGpsCommandMessage("gps_off").catch((error) => {
@@ -124,9 +123,9 @@ export default function SettingsScreen() {
                 label="iOS Location"
                 value={foregroundLocationValue}
                 detail={`Always access: ${backgroundLocationValue}`}
-                tone={hasAlwaysLocationAccess ? "good" : "warning"}
+                tone={hasAlwaysLocationAccess ? "good" : isTracking ? "warning" : "muted"}
                 iconName="iphone"
-                iconTone={hasAlwaysLocationAccess ? "green" : "amber"}
+                iconTone={hasAlwaysLocationAccess ? "green" : isTracking ? "amber" : "slate"}
               />
               <ActionRow
                 label="System Location Settings"

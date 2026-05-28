@@ -303,6 +303,11 @@ export function DispatchProvider({
     gpsSharingApprovedRef.current = approved;
 
     if (approved) {
+      const trackingStarted = await startTracking();
+      if (!trackingStarted) {
+        gpsSharingApprovedRef.current = false;
+        return;
+      }
       await sendRideChatMessage({
         rideId: "dispatch",
         text: "",
@@ -311,7 +316,6 @@ export function DispatchProvider({
         clientMessageId: `driver-gps-${requestMessageId}-${Date.now()}`,
         metadata: { command: "gps_yes" },
       });
-      await startTracking();
     } else if (shouldStopTrackingAfterGpsResponse(approved)) {
       stopTracking();
     }

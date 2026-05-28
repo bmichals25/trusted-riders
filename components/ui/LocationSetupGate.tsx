@@ -14,7 +14,6 @@ import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { DEMO_MODE } from "@/lib/demo-mode";
-import { sendGpsCommandMessage } from "@/lib/chat-api";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
 /**
@@ -25,11 +24,8 @@ import { colors, radii, shadows, spacing } from "@/lib/theme";
  */
 export function LocationSetupGate({ children }: { children: React.ReactNode }) {
   const {
-    backgroundPermissionStatus,
     permissionStatus,
     requestPermission,
-    startBackgroundTracking,
-    startTracking,
   } = useLocation();
   const { impact } = useHaptics();
   const [requesting, setRequesting] = useState(false);
@@ -37,22 +33,9 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
   const onEnable = useCallback(async () => {
     impact(ImpactFeedbackStyle.Light);
     setRequesting(true);
-    const granted = await requestPermission();
+    await requestPermission();
     setRequesting(false);
-    if (granted) {
-      await startTracking();
-      void sendGpsCommandMessage("gps_yes").catch((error) => {
-        console.log("[location-setup] gps_yes command failed", error instanceof Error ? error.message : error);
-      });
-    }
-  }, [impact, requestPermission, startTracking]);
-
-  const onEnableAlways = useCallback(async () => {
-    impact(ImpactFeedbackStyle.Light);
-    setRequesting(true);
-    await startBackgroundTracking();
-    setRequesting(false);
-  }, [impact, startBackgroundTracking]);
+  }, [impact, requestPermission]);
 
   const onOpenSettings = useCallback(() => {
     impact(ImpactFeedbackStyle.Light);
@@ -134,22 +117,6 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
           </Pressable>
         )}
 
-        {Platform.OS !== "web" &&
-        backgroundPermissionStatus !== null &&
-        backgroundPermissionStatus !== Location.PermissionStatus.GRANTED &&
-        !blocked ? (
-          <Pressable
-            style={[s.secondaryButton, requesting && s.buttonDisabled]}
-            onPress={onEnableAlways}
-            disabled={requesting}
-            accessibilityRole="button"
-            accessibilityLabel="Allow always later"
-            accessibilityHint="Continues without background location permission for now."
-            accessibilityState={{ disabled: requesting }}
-          >
-            <Text style={s.secondaryButtonText}>Allow Always Later</Text>
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
@@ -221,24 +188,6 @@ const s = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
-  },
-  secondaryButton: {
-    width: "100%",
-    borderRadius: radii.sm,
-    padding: spacing.md,
-    alignItems: "center",
-    minHeight: 48,
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    backgroundColor: colors.surface,
-  },
-  secondaryButtonText: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
   },
   buttonText: {
     color: colors.surface,

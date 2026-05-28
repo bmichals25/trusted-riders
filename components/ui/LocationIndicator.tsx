@@ -400,10 +400,12 @@ function LocationMapModal({
                   console.log("[location] gps_off command failed", error instanceof Error ? error.message : error);
                 });
               } else {
-                void startTracking().then(() => {
-                  void sendGpsCommandMessage("gps_yes").catch((error) => {
-                    console.log("[location] gps_yes command failed", error instanceof Error ? error.message : error);
-                  });
+                void startTracking().then((trackingStarted) => {
+                  if (trackingStarted) {
+                    void sendGpsCommandMessage("gps_yes").catch((error) => {
+                      console.log("[location] gps_yes command failed", error instanceof Error ? error.message : error);
+                    });
+                  }
                 });
               }
             }}
