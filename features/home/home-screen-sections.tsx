@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import Animated, {
   Easing,
@@ -45,6 +45,45 @@ export function CurrentRideCard({
           <SecondaryActionButton label="Chat" onPress={onChat} />
           <SecondaryActionButton label="Navigate" onPress={onNavigate} />
         </View>
+      </View>
+    </View>
+  );
+}
+
+export function UpcomingRideCard({ ride, onOpen }: { ride: DispatchedRide; onOpen: () => void }) {
+  return (
+    <View style={cardStyle}>
+      <RideHeader ride={ride} />
+      <RouteRows ride={ride} />
+      <SecondaryActionButton label="View Ride" onPress={onOpen} />
+    </View>
+  );
+}
+
+export function NextUpcomingRideCard({
+  ride,
+  onOpen,
+  onNavigate,
+}: {
+  ride: DispatchedRide;
+  onOpen: () => void;
+  onNavigate: () => void;
+}) {
+  return (
+    <View style={cardStyle}>
+      <Pressable
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={`Open next upcoming ride for ${ride.passengerName}`}
+        style={({ pressed }) => ({ gap: spacing.md, opacity: pressed ? 0.78 : 1 })}
+      >
+        <RideHeader ride={ride} />
+        <RideMiniMap ride={ride} />
+        <RouteRows ride={ride} />
+      </Pressable>
+      <View style={{ gap: spacing.sm }}>
+        <SecondaryActionButton label="View Ride" onPress={onOpen} />
+        <SecondaryActionButton label="Navigate" onPress={onNavigate} />
       </View>
     </View>
   );
@@ -197,15 +236,73 @@ function SkeletonBlock({ pulseStyle, style }: { pulseStyle: any; style: any }) {
   );
 }
 
-export function EmptyRideState() {
+export function EmptyRideState({
+  refreshing,
+  onRefresh,
+}: {
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
   return (
-    <View style={[cardStyle, { alignItems: "center" }]}>
-      <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "900", textAlign: "center" }}>
-        No rides right now
-      </Text>
-      <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", textAlign: "center", lineHeight: 18 }}>
-        You do not have a current ride or any pending ride requests.
-      </Text>
+    <View style={[cardStyle, { gap: spacing.lg }]}>
+      <View style={{ flexDirection: "row", gap: spacing.md, alignItems: "flex-start" }}>
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: radii.pill,
+            backgroundColor: colors.blueSoft,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.blue }} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
+          <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>
+            Standing by
+          </Text>
+          <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>
+            No active rides or pending requests are assigned right now. We will keep checking in the background.
+          </Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ color: colors.primarySoft, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1 }}>
+            Dispatch sync
+          </Text>
+          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", marginTop: 3 }}>
+            Pull down or tap refresh for the latest assignments.
+          </Text>
+        </View>
+        <Pressable
+          disabled={refreshing}
+          onPress={onRefresh}
+          accessibilityRole="button"
+          accessibilityLabel={refreshing ? "Refreshing rides" : "Refresh rides"}
+          accessibilityState={{ disabled: refreshing, busy: refreshing }}
+          style={({ pressed }) => ({
+            minWidth: 104,
+            minHeight: 44,
+            borderRadius: radii.pill,
+            backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: spacing.md,
+            opacity: refreshing ? 0.72 : 1,
+          })}
+        >
+          {refreshing ? (
+            <ActivityIndicator color={colors.surface} />
+          ) : (
+            <Text style={{ color: colors.surface, fontSize: 13, fontWeight: "900" }}>Refresh</Text>
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }

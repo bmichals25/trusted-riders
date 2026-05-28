@@ -13,9 +13,11 @@ import {
   EmptyRideState,
   LoadingState,
   navigationUrlForRide,
+  NextUpcomingRideCard,
   Notice,
   RideRequestsBanner,
   Section,
+  UpcomingRideCard,
 } from "@/features/home/home-screen-sections";
 import { useDispatch } from "@/lib/dispatch-context";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
@@ -26,7 +28,7 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { activeRide, pendingRides, backendError, hasLoadedRides, refreshRides, acceptRide, declineRide } = useDispatch();
+  const { activeRide, pendingRides, scheduledRides, backendError, hasLoadedRides, refreshRides, acceptRide, declineRide } = useDispatch();
   const { error: locationError } = useLocation();
   const { impact, notification } = useHaptics();
   const { startupAnimationComplete } = useStartupPresentation();
@@ -38,7 +40,8 @@ export default function HomeScreen() {
   const homeScrollableContentHeight = Math.max(0, homeContentHeight - homeBottomPadding);
   const homeCanScroll = homeScrollableContentHeight > homeViewportHeight + 2;
   const shouldShowRideRequests = hasLoadedRides && !backendError && pendingRides.length > 0;
-  const shouldShowEmptyRides = hasLoadedRides && !backendError && !activeRide && pendingRides.length === 0;
+  const shouldShowUpcomingRides = hasLoadedRides && !backendError && !activeRide && scheduledRides.length > 0;
+  const shouldShowEmptyRides = hasLoadedRides && !backendError && !activeRide && pendingRides.length === 0 && scheduledRides.length === 0;
   const blockExitOnBlur = false;
   const replayHomeEntrance = true;
   const homeEntranceReplayKey = startupAnimationComplete ? "startup-complete" : "startup-covered";
@@ -187,6 +190,49 @@ export default function HomeScreen() {
                 />
               </Section>
             </FadeInBlock>
+          ) : shouldShowUpcomingRides ? (
+            <FadeInBlock
+              delay={145}
+              duration={520}
+              distance={16}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+              replayKey={homeEntranceReplayKey}
+            >
+              <Section title="Upcoming Rides" count={scheduledRides.length}>
+                <View style={{ gap: spacing.md }}>
+                  {scheduledRides.map((ride, index) => {
+                    const isNextUpcomingRide = index === 0;
+                    return (
+                      <FadeInBlock
+                        key={ride.id}
+                        delay={185 + index * 38}
+                        duration={480}
+                        exitOnBlur={blockExitOnBlur}
+                        ready={homeEntranceReady}
+                        replayOnFocus={replayHomeEntrance}
+                        replayKey={homeEntranceReplayKey}
+                        distance={10}
+                      >
+                        {isNextUpcomingRide ? (
+                          <NextUpcomingRideCard
+                            ride={ride}
+                            onOpen={() => openRideDetails(ride)}
+                            onNavigate={() => openNavigation(ride)}
+                          />
+                        ) : (
+                          <UpcomingRideCard
+                            ride={ride}
+                            onOpen={() => openRideDetails(ride)}
+                          />
+                        )}
+                      </FadeInBlock>
+                    );
+                  })}
+                </View>
+              </Section>
+            </FadeInBlock>
           ) : shouldShowEmptyRides ? (
             <FadeInBlock
               delay={145}
@@ -198,7 +244,7 @@ export default function HomeScreen() {
               replayKey={homeEntranceReplayKey}
             >
               <Section title="Current Ride">
-                <EmptyRideState />
+                <EmptyRideState refreshing={refreshing} onRefresh={onRefresh} />
               </Section>
             </FadeInBlock>
           ) : null}
