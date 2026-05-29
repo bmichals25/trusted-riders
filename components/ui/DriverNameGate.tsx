@@ -13,6 +13,11 @@ export type DriverSession = {
 const DRIVER_NAME_KEY = "trustedriders-driver-name";
 const DRIVER_EMAIL_KEY = "trustedriders-driver-email";
 const STARTUP_REVEAL_DELAY_MS = 0;
+// Absolute backstop: reveal the app even if the startup overlay never reports
+// ready (e.g. the loading video fails to load/decode in a production build).
+// Without this, a stuck overlay keeps homeEntranceReady false forever and the
+// home content stays hidden behind it.
+const STARTUP_REVEAL_HARD_TIMEOUT_MS = 8000;
 
 type AuthContextValue = { signOut: () => Promise<void>; session: DriverSession | null };
 const AuthContext = createContext<AuthContextValue>({
@@ -95,6 +100,19 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
 
     return () => clearTimeout(startupTimer);
   }, [startupAnimationReady]);
+
+  // Backstop the startup overlay: if it never reports ready (failed video
+  // load/decode in a production build), force the reveal anyway so the app is
+  // never permanently stuck behind the loading animation.
+  useEffect(() => {
+    const hardTimer = setTimeout(() => {
+      setStartupAnimationReady(true);
+      setStartupAnimationComplete(true);
+      setStartupAnimationExiting(true);
+    }, STARTUP_REVEAL_HARD_TIMEOUT_MS);
+
+    return () => clearTimeout(hardTimer);
+  }, [startupAnimationKey]);
 
   useEffect(() => {
     if (authRestoring || session) return;
