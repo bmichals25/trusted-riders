@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, type AppStateStatus } from "react-native";
 import {
   fetchRides,
@@ -36,7 +36,7 @@ export type RideStatusNotice = {
   nextStatus: RideStatus;
 };
 
-type DispatchState = {
+type DispatchData = {
   rides: DispatchedRide[];
   pendingRides: DispatchedRide[];
   scheduledRides: DispatchedRide[];
@@ -45,6 +45,9 @@ type DispatchState = {
   hasLoadedRides: boolean;
   statusNotice: RideStatusNotice | null;
   unreadDispatchMessageCount: number;
+};
+
+type DispatchActions = {
   clearDispatchUnreadMessages: () => void;
   dismissStatusNotice: () => void;
   noteIncomingDispatchMessages: (count: number) => void;
@@ -53,7 +56,9 @@ type DispatchState = {
   declineRide: (id: string) => void;
 };
 
-const DispatchContext = createContext<DispatchState>({
+type DispatchState = DispatchData & DispatchActions;
+
+const DispatchDataContext = createContext<DispatchData>({
   rides: [],
   pendingRides: [],
   scheduledRides: [],
@@ -62,6 +67,9 @@ const DispatchContext = createContext<DispatchState>({
   hasLoadedRides: false,
   statusNotice: null,
   unreadDispatchMessageCount: 0,
+});
+
+const DispatchActionsContext = createContext<DispatchActions>({
   clearDispatchUnreadMessages: () => {},
   dismissStatusNotice: () => {},
   noteIncomingDispatchMessages: () => {},
@@ -89,8 +97,16 @@ function isTerminalRideStatus(status: RideStatus): boolean {
   return status === "completed" || status === "cancelled";
 }
 
-export function useDispatch() {
-  return useContext(DispatchContext);
+export function useDispatchData() {
+  return useContext(DispatchDataContext);
+}
+
+export function useDispatchActions() {
+  return useContext(DispatchActionsContext);
+}
+
+export function useDispatch(): DispatchState {
+  return { ...useDispatchData(), ...useDispatchActions() };
 }
 
 export function DispatchProvider({
@@ -499,12 +515,12 @@ export function DispatchProvider({
     if (!DEMO_MODE) void updateRideStatus(id, "cancelled");
   }, []);
 
-  const pendingRides = rides.filter((r) => r.status === "pending");
-  const scheduledRides = rides.filter((r) => r.status === "accepted");
+  const pendingRides = useMemo(() => rides.filter((r) => r.status === "pending"), [rides]);
+  const scheduledRides = useMemo(() => rides.filter((r) => r.status === "accepted"), [rides]);
   const activeRide = activeRideInState;
 
-  return (
-    <DispatchContext.Provider value={{
+  const dataValue = useMemo<DispatchData>(
+    () => ({
       rides,
       pendingRides,
       scheduledRides,
@@ -513,15 +529,28 @@ export function DispatchProvider({
       hasLoadedRides,
       statusNotice,
       unreadDispatchMessageCount,
+    }),
+    [rides, pendingRides, scheduledRides, activeRide, backendError, hasLoadedRides, statusNotice, unreadDispatchMessageCount],
+  );
+
+  const actionsValue = useMemo<DispatchActions>(
+    () => ({
       clearDispatchUnreadMessages,
       dismissStatusNotice,
       noteIncomingDispatchMessages,
       refreshRides,
       acceptRide,
       declineRide,
-    }}>
-      {children}
-    </DispatchContext.Provider>
+    }),
+    [clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides, acceptRide, declineRide],
+  );
+
+  return (
+    <DispatchActionsContext.Provider value={actionsValue}>
+      <DispatchDataContext.Provider value={dataValue}>
+        {children}
+      </DispatchDataContext.Provider>
+    </DispatchActionsContext.Provider>
   );
 }
 
