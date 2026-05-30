@@ -1,4 +1,5 @@
-import { Image, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors, spacing } from "@/lib/theme";
@@ -58,7 +59,7 @@ export function AppHeader({
           >
             <Image
               source={require("../../assets/trustedride_certified_main_logo_transparent.png")}
-              resizeMode="contain"
+              contentFit="contain"
               style={{ width: logoWidth, height: Math.round(logoWidth / 3.3), flexShrink: 0 }}
             />
           </View>

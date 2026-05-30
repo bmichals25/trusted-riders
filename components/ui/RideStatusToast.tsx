@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { useEffect } from "react";
+import { Pressable, Text, View } from "react-native";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useDispatch, type RideStatusNotice } from "@/lib/dispatch-context";
@@ -33,61 +34,46 @@ export function RideStatusToast() {
   const { statusNotice, dismissStatusNotice } = useDispatch();
   const { notification } = useHaptics();
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(-120)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(-120);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
     if (!statusNotice) return;
 
     notification(NotificationFeedbackType.Success);
-    Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 18,
-        stiffness: 220,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
+    opacity.value = withTiming(1, { duration: 180 });
 
     const timer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: -120,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-      ]).start(({ finished }) => {
-        if (finished) dismissStatusNotice();
+      translateY.value = withTiming(-120, { duration: 180 });
+      opacity.value = withTiming(0, { duration: 160 }, (finished) => {
+        if (finished) runOnJS(dismissStatusNotice)();
       });
     }, 6000);
 
     return () => clearTimeout(timer);
   }, [dismissStatusNotice, notification, opacity, statusNotice, translateY]);
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
   if (!statusNotice) return null;
 
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={{
-        position: "absolute",
-        top: insets.top + 10,
-        left: 16,
-        right: 16,
-        zIndex: 100,
-        opacity,
-        transform: [{ translateY }],
-      }}
+      style={[
+        {
+          position: "absolute",
+          top: insets.top + 10,
+          left: 16,
+          right: 16,
+          zIndex: 100,
+        },
+        animatedStyle,
+      ]}
     >
       <Pressable
         accessibilityRole="button"
@@ -100,11 +86,7 @@ export function RideStatusToast() {
           borderWidth: 1,
           paddingHorizontal: 16,
           paddingVertical: 13,
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.16,
-          shadowRadius: 24,
-          elevation: 8,
+          boxShadow: "0px 10px 24px rgba(15, 23, 42, 0.16)",
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>

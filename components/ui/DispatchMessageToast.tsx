@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { listRideChatMessages, type RideChatMessage } from "@/lib/chat-api";
-import { useDispatch } from "@/lib/dispatch-context";
+import { useDispatchActions } from "@/lib/dispatch-context";
 import { NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { colors, radii } from "@/lib/theme";
@@ -31,29 +32,19 @@ export function DispatchMessageToast() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const { clearDispatchUnreadMessages, noteIncomingDispatchMessages } = useDispatch();
+  const { clearDispatchUnreadMessages, noteIncomingDispatchMessages } = useDispatchActions();
   const [notice, setNotice] = useState<DispatchMessageNotice | null>(null);
   const lastMessageIdRef = useRef<string | undefined>(undefined);
   const observedIncomingMessageIdsRef = useRef(new Set<string>());
   const hasInitializedRef = useRef(false);
   const pollingRef = useRef(false);
-  const translateY = useRef(new Animated.Value(-120)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(-120);
+  const opacity = useSharedValue(0);
 
   const dismiss = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: -120,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 160,
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) setNotice(null);
+    translateY.value = withTiming(-120, { duration: 180 });
+    opacity.value = withTiming(0, { duration: 160 }, (finished) => {
+      if (finished) runOnJS(setNotice)(null);
     });
   }, [opacity, translateY]);
 
@@ -61,19 +52,8 @@ export function DispatchMessageToast() {
     if (!notice) return;
 
     notification(NotificationFeedbackType.Success);
-    Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 18,
-        stiffness: 220,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
+    opacity.value = withTiming(1, { duration: 180 });
 
     const timer = setTimeout(dismiss, 8000);
     return () => clearTimeout(timer);
@@ -138,20 +118,26 @@ export function DispatchMessageToast() {
     };
   }, [clearDispatchUnreadMessages, noteIncomingDispatchMessages, pathname]);
 
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
   if (!notice) return null;
 
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={{
-        position: "absolute",
-        top: insets.top + 10,
-        left: 16,
-        right: 16,
-        zIndex: 110,
-        opacity,
-        transform: [{ translateY }],
-      }}
+      style={[
+        {
+          position: "absolute",
+          top: insets.top + 10,
+          left: 16,
+          right: 16,
+          zIndex: 110,
+        },
+        animatedStyle,
+      ]}
     >
       <Pressable
         accessibilityRole="button"
@@ -169,11 +155,7 @@ export function DispatchMessageToast() {
           borderWidth: 1,
           paddingHorizontal: 16,
           paddingVertical: 13,
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.16,
-          shadowRadius: 24,
-          elevation: 8,
+          boxShadow: "0px 10px 24px rgba(15, 23, 42, 0.16)",
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>

@@ -1,5 +1,5 @@
-import { LinearGradient } from "expo-linear-gradient";
 import type { PropsWithChildren } from "react";
+import { View } from "react-native";
 
 import { colors, radii } from "@/lib/theme";
 
@@ -14,11 +14,9 @@ export function GradientCard({
   borderRadius = radii.md,
 }: GradientCardProps) {
   return (
-    <LinearGradient
-      colors={[colors.primary, colors.primarySoft]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={{
+        experimental_backgroundImage: `linear-gradient(135deg, ${colors.primary}, ${colors.primarySoft})`,
         borderRadius,
         padding,
         borderCurve: "continuous",
@@ -26,6 +24,6 @@ export function GradientCard({
       }}
     >
       {children}
-    </LinearGradient>
+    </View>
   );
 }
