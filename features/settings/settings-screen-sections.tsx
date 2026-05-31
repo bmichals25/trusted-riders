@@ -1,20 +1,34 @@
 import React from "react";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { SymbolIcon, type AppSymbolName } from "@/components/ui/SymbolIcon";
 import { ActivityIndicator, Pressable, Switch, Text, View } from "react-native";
 
+import { BackChevron } from "@/components/ui/BackChevron";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { colors, radii, shadows, spacing, typography } from "@/lib/theme";
 
-export function SettingsTitle() {
+export function SettingsSubHeader({ title, topInset }: { title: string; topInset: number }) {
   return (
-    <View style={{ marginHorizontal: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md, gap: 6 }}>
-      <Text style={{ color: colors.primary, fontSize: 34, fontWeight: "900", lineHeight: 40 }} numberOfLines={1}>
-        Settings
-      </Text>
-      <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }} numberOfLines={2}>
-        Driver session, location, and device controls.
-      </Text>
+    <View
+      style={{
+        backgroundColor: colors.surface,
+        paddingTop: topInset + 8,
+        paddingHorizontal: spacing.md,
+        paddingBottom: spacing.sm,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: spacing.sm,
+      }}
+    >
+      <BackChevron fallbackHref="/settings" />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" }}>
+          Settings
+        </Text>
+        <Text style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 27 }} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -22,11 +36,9 @@ export function SettingsTitle() {
 export function OperatorSummary({
   name,
   isTracking,
-  hasAlwaysLocationAccess,
 }: {
   name: string;
   isTracking: boolean;
-  hasAlwaysLocationAccess: boolean;
 }) {
   const initials = name
     .split(/\s+/)
@@ -38,7 +50,7 @@ export function OperatorSummary({
   return (
     <View
       accessible
-      accessibilityLabel={`Chaperone ${name}. On duty. ${hasAlwaysLocationAccess ? "Background location ready." : "Background location needs Always permission before live tracking."} ${isTracking ? "Live location broadcasting." : "Live location paused."}`}
+      accessibilityLabel={`Chaperone ${name}. ${isTracking ? "Live location is being shared." : "Live location sharing is off."}`}
       style={{
         marginHorizontal: spacing.md,
         marginBottom: spacing.md,
@@ -66,38 +78,25 @@ export function OperatorSummary({
           {initials}
         </Text>
       </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
-        <Text style={{ color: colors.slate500, ...typography.sectionKicker }} numberOfLines={1}>
-          Chaperone
-        </Text>
-        <Text selectable style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 27 }} numberOfLines={1}>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ color: colors.slate500, ...typography.sectionKicker, flex: 1 }} numberOfLines={1}>
+            Chaperone
+          </Text>
+          <LiveLocationPill active={isTracking} />
+        </View>
+        <Text selectable style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 27 }}>
           {name}
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <StatusChip label="On duty" tone="good" />
-          <StatusChip
-            label={hasAlwaysLocationAccess ? "Always ready" : "Needs Always"}
-            tone={hasAlwaysLocationAccess ? "good" : "warning"}
-          />
-          <StatusChip label={isTracking ? "Broadcasting" : "Paused"} tone={isTracking ? "good" : "muted"} />
-        </View>
       </View>
     </View>
   );
 }
 
-function StatusChip({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "good" | "warning" | "muted";
-}) {
-  const palette = tone === "good"
+function LiveLocationPill({ active }: { active: boolean }) {
+  const palette = active
     ? { bg: colors.greenSoft, dot: colors.green, text: colors.greenStrong }
-    : tone === "warning"
-      ? { bg: colors.amberSoft, dot: colors.amber, text: colors.amberStrong }
-      : { bg: colors.slate100, dot: colors.slate400, text: colors.primarySoft };
+    : { bg: colors.slate100, dot: colors.slate400, text: colors.primarySoft };
 
   return (
     <View
@@ -114,7 +113,7 @@ function StatusChip({
     >
       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: palette.dot }} />
       <Text style={{ color: palette.text, fontSize: 11, fontWeight: "900" }} numberOfLines={1}>
-        {label}
+        {active ? "Live" : "Off"}
       </Text>
     </View>
   );
@@ -125,15 +124,17 @@ export function SettingsSection({
   footer,
   children,
 }: {
-  kicker: string;
+  kicker?: string;
   footer?: string;
   children: React.ReactNode;
 }) {
   return (
     <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.md, gap: spacing.sm }}>
-      <Text style={{ color: colors.slate500, ...typography.sectionKicker, paddingHorizontal: spacing.md }}>
-        {kicker}
-      </Text>
+      {kicker ? (
+        <Text style={{ color: colors.slate500, ...typography.sectionKicker, paddingHorizontal: spacing.md }}>
+          {kicker}
+        </Text>
+      ) : null}
       <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, borderCurve: "continuous", overflow: "hidden", ...shadows.soft }}>
         {children}
       </View>
@@ -150,7 +151,7 @@ function SettingIcon({
   name,
   tone = "blue",
 }: {
-  name: SFSymbol;
+  name: AppSymbolName;
   tone?: "blue" | "green" | "slate" | "amber" | "red";
 }) {
   const palette = {
@@ -174,7 +175,7 @@ function SettingIcon({
         justifyContent: "center",
       }}
     >
-      <SymbolView
+      <SymbolIcon
         name={name}
         size={18}
         type="hierarchical"
@@ -200,7 +201,7 @@ export function ToggleRow({
   value: boolean;
   onValueChange: (value: boolean) => void;
   critical?: boolean;
-  iconName?: SFSymbol;
+  iconName?: AppSymbolName;
   iconTone?: "blue" | "green" | "slate" | "amber" | "red";
   last?: boolean;
 }) {
@@ -255,7 +256,7 @@ export function ReadoutRow({
   value: string;
   detail?: string;
   tone?: "default" | "good" | "muted" | "warning";
-  iconName?: SFSymbol;
+  iconName?: AppSymbolName;
   iconTone?: "blue" | "green" | "slate" | "amber" | "red";
   last?: boolean;
 }) {
@@ -329,7 +330,7 @@ export function ActionRow({
   label: string;
   value?: string;
   detail?: string;
-  iconName: SFSymbol;
+  iconName: AppSymbolName;
   iconTone?: "blue" | "green" | "slate" | "amber" | "red";
   destructive?: boolean;
   disabled?: boolean;
@@ -380,7 +381,7 @@ export function ActionRow({
             {value}
           </Text>
         ) : (
-          <SymbolView
+          <SymbolIcon
             name="chevron.right"
             size={13}
             type="hierarchical"

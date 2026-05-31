@@ -8,7 +8,7 @@ export function TypingBubble() {
       <View
         style={{
           backgroundColor: colors.surfaceLow,
-          borderRadius: 16,
+          borderRadius: 10,
           borderBottomLeftRadius: 4,
           paddingHorizontal: 14,
           paddingVertical: 12,

@@ -1,8 +1,7 @@
-import { type RefObject, useCallback, useEffect } from "react";
-import { SymbolView } from "expo-symbols";
+import { type RefObject, memo, useCallback, useEffect, useMemo } from "react";
+import { SymbolIcon } from "@/components/ui/SymbolIcon";
 import {
   ActivityIndicator,
-  FlatList,
   Platform,
   Pressable,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -35,8 +35,6 @@ export function ChatContextStrip({ label }: { label: string }) {
         paddingHorizontal: spacing.md,
         paddingVertical: 10,
         backgroundColor: colors.surfaceLow,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.slate100,
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
@@ -54,7 +52,7 @@ export function ChatContextStrip({ label }: { label: string }) {
           justifyContent: "center",
         }}
       >
-        <SymbolView
+        <SymbolIcon
           name="checkmark.message.fill"
           size={15}
           type="hierarchical"
@@ -66,13 +64,23 @@ export function ChatContextStrip({ label }: { label: string }) {
         <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
           {label}
         </Text>
-        <Text style={{ color: colors.slate500, fontSize: 11, fontWeight: "800" }} numberOfLines={1}>
-          Dispatch link active
-        </Text>
       </View>
     </View>
   );
 }
+
+export type ChatRow =
+  | { type: "date"; id: string; date?: string }
+  | {
+      type: "message";
+      id: string;
+      text: string;
+      isOperator: boolean;
+      pending: boolean;
+      deliveryLabel: string;
+      a11yLabel: string;
+      checkpoint?: CheckpointCardData;
+    };
 
 export function ChatMessageList({
   listRef,
@@ -86,7 +94,7 @@ export function ChatMessageList({
   onScrollToLatest,
   onRetry,
 }: {
-  listRef: RefObject<FlatList<Message> | null>;
+  listRef: RefObject<FlashListRef<ChatRow> | null>;
   messages: Message[];
   isOtherTyping: boolean;
   isInitialLoading: boolean;
@@ -97,100 +105,84 @@ export function ChatMessageList({
   onScrollToLatest: () => void;
   onRetry: () => void;
 }) {
-  const renderMessage = useCallback(({ item, index }: { item: Message; index: number }) => {
-    const isOperator = item.sender === "operator";
-    const isLastOperatorMessage = item.id === lastOperatorMessageId;
-    const isRead = readMessageIds.has(item.id);
-    const checkpoint = item.checkpoint;
-    const previousMessage = index > 0 ? messages[index - 1] : undefined;
-    const showDateSeparator = shouldShowDateSeparator(previousMessage, item);
-    return (
-      <>
-        {showDateSeparator ? <MessageDateSeparator date={item.createdAt} /> : null}
-        <View
-          accessible={!checkpoint}
-          accessibilityLabel={!checkpoint ? messageAccessibilityLabel(item, isOperator, isLastOperatorMessage, isRead) : undefined}
-          style={{
-            alignSelf: isOperator ? "flex-end" : "flex-start",
-            maxWidth: checkpoint ? "86%" : "78%",
-            marginBottom: 8,
-          }}
-        >
-          {checkpoint ? (
-            <CheckpointUpdateCard
-              data={checkpoint}
-              isOperator={isOperator}
-              onPress={() => onCheckpointPress(checkpoint)}
-            />
-          ) : (
-            <View
-              style={{
-                backgroundColor: isOperator ? colors.primary : colors.surfaceLow,
-                borderRadius: 16,
-                borderBottomRightRadius: isOperator ? 4 : 16,
-                borderBottomLeftRadius: isOperator ? 16 : 4,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-              }}
-            >
-              <Text
-                style={{
-                  color: isOperator ? colors.surface : colors.primary,
-                  opacity: item.pending ? 0.72 : 1,
-                  fontSize: 15,
-                  fontWeight: "500",
-                  lineHeight: 21,
-                }}
-              >
-                {item.text}
-              </Text>
-            </View>
-          )}
-          <Text
-            style={{
-              color: colors.slate400,
-              fontSize: 10,
-              fontWeight: "600",
-              marginTop: 4,
-              alignSelf: isOperator ? "flex-end" : "flex-start",
-              paddingHorizontal: 4,
-            }}
-          >
-            {item.timestamp === "Not sent"
-              ? "Not sent"
-              : isLastOperatorMessage && !item.pending
-                ? (isRead ? "Read" : "Sent")
-                : item.timestamp}
-          </Text>
-        </View>
-      </>
-    );
-  }, [lastOperatorMessageId, messages, onCheckpointPress, readMessageIds]);
+  const rows = useMemo<ChatRow[]>(() => {
+    const out: ChatRow[] = [];
+    for (let index = 0; index < messages.length; index += 1) {
+      const item = messages[index];
+      const previous = index > 0 ? messages[index - 1] : undefined;
+      if (shouldShowDateSeparator(previous, item)) {
+        out.push({ type: "date", id: `date:${item.id}`, date: item.createdAt });
+      }
+      const isOperator = item.sender === "operator";
+      const isLastOperatorMessage = item.id === lastOperatorMessageId;
+      const isRead = readMessageIds.has(item.id);
+      const deliveryLabel =
+        item.timestamp === "Not sent"
+          ? "Not sent"
+          : isLastOperatorMessage && !item.pending
+            ? isRead
+              ? "Read"
+              : "Sent"
+            : item.timestamp;
+      out.push({
+        type: "message",
+        id: item.id,
+        text: item.text,
+        isOperator,
+        pending: !!item.pending,
+        deliveryLabel,
+        a11yLabel: messageAccessibilityLabel(item, isOperator, isLastOperatorMessage, isRead),
+        checkpoint: item.checkpoint,
+      });
+    }
+    return out;
+  }, [messages, lastOperatorMessageId, readMessageIds]);
 
-  return (
-    <FlatList
-      ref={listRef}
-      data={messages}
-      renderItem={renderMessage}
-      keyExtractor={(item) => item.id}
-      ListFooterComponent={isOtherTyping ? <TypingBubble /> : null}
-      ListEmptyComponent={
-        isInitialLoading && !loadError ? (
+  const renderRow = useCallback(
+    ({ item }: { item: ChatRow }) => {
+      if (item.type === "date") {
+        return <MessageDateSeparator date={item.date} />;
+      }
+      return (
+        <MessageRow
+          text={item.text}
+          isOperator={item.isOperator}
+          pending={item.pending}
+          deliveryLabel={item.deliveryLabel}
+          a11yLabel={item.a11yLabel}
+          checkpoint={item.checkpoint}
+          onCheckpointPress={onCheckpointPress}
+        />
+      );
+    },
+    [onCheckpointPress],
+  );
+
+  if (rows.length === 0) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: spacing.md }}>
+        {isInitialLoading && !loadError ? (
           <ChatLoadingState />
         ) : (
           <ChatUnavailableState loadError={loadError} onRetry={onRetry} />
-        )
-      }
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <FlashList
+      ref={listRef}
+      data={rows}
+      renderItem={renderRow}
+      keyExtractor={chatRowKey}
+      getItemType={chatRowType}
+      ListFooterComponent={isOtherTyping ? <TypingBubble /> : null}
       contentContainerStyle={{
         paddingHorizontal: spacing.md,
         paddingTop: spacing.md,
         paddingBottom: spacing.md,
-        flexGrow: messages.length === 0 ? 1 : undefined,
-        justifyContent: messages.length === 0 ? "center" : undefined,
       }}
-      initialNumToRender={16}
-      maxToRenderPerBatch={10}
-      windowSize={9}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       onContentSizeChange={onScrollToLatest}
@@ -198,6 +190,68 @@ export function ChatMessageList({
     />
   );
 }
+
+function chatRowKey(item: ChatRow) {
+  return item.id;
+}
+
+function chatRowType(item: ChatRow) {
+  return item.type === "date" ? "date" : item.checkpoint ? "checkpoint" : "message";
+}
+
+const MessageRow = memo(function MessageRow({
+  text,
+  isOperator,
+  pending,
+  deliveryLabel,
+  a11yLabel,
+  checkpoint,
+  onCheckpointPress,
+}: {
+  text: string;
+  isOperator: boolean;
+  pending: boolean;
+  deliveryLabel: string;
+  a11yLabel: string;
+  checkpoint?: CheckpointCardData;
+  onCheckpointPress: (checkpoint: CheckpointCardData) => void;
+}) {
+  return (
+    <View
+      accessible={!checkpoint}
+      accessibilityLabel={checkpoint ? undefined : a11yLabel}
+      style={[
+        styles.rowContainer,
+        {
+          alignSelf: isOperator ? "flex-end" : "flex-start",
+          maxWidth: checkpoint ? "86%" : "78%",
+        },
+      ]}
+    >
+      {checkpoint ? (
+        <CheckpointUpdateCard data={checkpoint} isOperator={isOperator} onPress={() => onCheckpointPress(checkpoint)} />
+      ) : (
+        <View
+          style={[
+            styles.bubble,
+            {
+              backgroundColor: isOperator ? colors.primary : colors.surfaceLow,
+              borderBottomRightRadius: isOperator ? 4 : 10,
+              borderBottomLeftRadius: isOperator ? 10 : 4,
+            },
+          ]}
+        >
+          <Text style={[styles.bubbleText, { color: isOperator ? colors.surface : colors.primary, opacity: pending ? 0.72 : 1 }]}>
+            {text}
+          </Text>
+        </View>
+      )}
+      <Text style={[styles.deliveryLabel, { alignSelf: isOperator ? "flex-end" : "flex-start" }]}>
+        {deliveryLabel}
+      </Text>
+    </View>
+  );
+});
 
 function MessageDateSeparator({ date }: { date?: string }) {
   return (
@@ -210,8 +264,6 @@ function MessageDateSeparator({ date }: { date?: string }) {
         minHeight: 26,
         borderRadius: radii.pill,
         backgroundColor: colors.surfaceLow,
-        borderWidth: 1,
-        borderColor: colors.slate100,
         paddingHorizontal: 10,
         justifyContent: "center",
         marginTop: spacing.xs,
@@ -241,13 +293,11 @@ function ChatUnavailableState({
       accessibilityLabel={`${title}. ${body}`}
       style={{
         backgroundColor: colors.surfaceLow,
-        borderRadius: radii.md,
+        borderRadius: radii.sm,
         borderCurve: "continuous",
         padding: spacing.lg,
         gap: spacing.md,
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: colors.slate100,
+        alignItems: "flex-start",
       }}
     >
       <View
@@ -256,13 +306,13 @@ function ChatUnavailableState({
         style={{
           width: 52,
           height: 52,
-          borderRadius: radii.lg,
+          borderRadius: radii.sm,
           backgroundColor: loadError ? colors.errorSoftDark : colors.blueSoft,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <SymbolView
+        <SymbolIcon
           name={loadError ? "exclamationmark.bubble.fill" : "message.badge.fill"}
           size={24}
           type="hierarchical"
@@ -270,11 +320,11 @@ function ChatUnavailableState({
           weight="semibold"
         />
       </View>
-      <View style={{ gap: 6, alignItems: "center" }}>
-        <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900", textAlign: "center" }}>
+      <View style={{ gap: 6, alignItems: "flex-start" }}>
+        <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900" }}>
           {title}
         </Text>
-        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", textAlign: "center", lineHeight: 19, maxWidth: 260 }}>
+        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", lineHeight: 19, maxWidth: 260 }}>
           {body}
         </Text>
       </View>
@@ -285,17 +335,15 @@ function ChatUnavailableState({
         style={({ pressed }) => ({
           minHeight: 42,
           minWidth: 120,
-          borderRadius: radii.pill,
-          backgroundColor: pressed ? colors.surfaceHigh : colors.surface,
-          borderWidth: 1,
-          borderColor: colors.slate200,
+          borderRadius: radii.sm,
+          backgroundColor: colors.surfaceHigh,
           alignItems: "center",
           justifyContent: "center",
           paddingHorizontal: spacing.md,
           opacity: pressed ? 0.72 : 1,
         })}
       >
-        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }}>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>
           {loadError ? "Try Again" : "Refresh"}
         </Text>
       </Pressable>
@@ -362,8 +410,8 @@ function LoadingBubble({
         styles.loadingBubble,
         {
           alignSelf: operator ? "flex-end" : "flex-start",
-          borderBottomRightRadius: operator ? 4 : 16,
-          borderBottomLeftRadius: operator ? 16 : 4,
+          borderBottomRightRadius: operator ? 4 : 10,
+          borderBottomLeftRadius: operator ? 10 : 4,
           backgroundColor: operator ? colors.slate100 : colors.surfaceLow,
         },
         style,
@@ -427,7 +475,7 @@ export function ChatComposer({
         style={{
           flex: 1,
           backgroundColor: colors.surface,
-          borderRadius: 20,
+          borderRadius: 10,
           paddingHorizontal: 16,
           paddingTop: 10,
           paddingBottom: 10,
@@ -458,7 +506,7 @@ export function ChatComposer({
         style={{
           width: 44,
           height: 44,
-          borderRadius: 22,
+          borderRadius: radii.sm,
           backgroundColor: canSendMessage ? colors.primary : colors.slate200,
           alignItems: "center",
           justifyContent: "center",
@@ -468,7 +516,7 @@ export function ChatComposer({
         {isSending ? (
           <ActivityIndicator color={colors.surface} size="small" />
         ) : (
-          <SymbolView
+          <SymbolIcon
             name="arrow.up"
             size={18}
             type="hierarchical"
@@ -533,6 +581,26 @@ function startOfLocalDay(date: Date) {
 
 const styles = StyleSheet.create({
   loadingBubble: {
-    borderRadius: 16,
+    borderRadius: 10,
+  },
+  rowContainer: {
+    marginBottom: 8,
+  },
+  bubble: {
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  bubbleText: {
+    fontSize: 15,
+    fontWeight: "500",
+    lineHeight: 21,
+  },
+  deliveryLabel: {
+    color: colors.slate500,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 4,
+    paddingHorizontal: 4,
   },
 });

@@ -59,14 +59,18 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-image"
     ],
+    "experiments": {
+      "reactCompiler": true
+    },
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "9b68846e-95f5-471a-95d1-452666314e18"
+        "projectId": "e7ea42ef-3e38-4bca-a977-59b23dd4ce6a"
       }
     },
-    "owner": "trustedriders"
+    "owner": "muselabs"
   }
 }

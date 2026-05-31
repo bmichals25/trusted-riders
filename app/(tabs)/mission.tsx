@@ -14,9 +14,7 @@ import {
   buildWeek,
   type CalendarMode,
   dayKey,
-  isActiveScheduleRide,
   isCalendarRideStatus,
-  isPendingRide,
   mergeRideLists,
   startOfDay,
   toScheduledItem,
@@ -52,18 +50,6 @@ export default function ScheduleScreen() {
     () => calendarRides.map(toScheduledItem).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()),
     [calendarRides],
   );
-  const activeRideCount = useMemo(
-    () => calendarRides.filter((ride) => isActiveScheduleRide(ride)).length,
-    [calendarRides],
-  );
-  const pendingRideCount = useMemo(
-    () => calendarRides.filter((ride) => isPendingRide(ride)).length,
-    [calendarRides],
-  );
-  const nextScheduledItem = useMemo(() => {
-    const now = Date.now();
-    return scheduledItems.find((item) => item.startsAt.getTime() >= now) ?? scheduledItems[0] ?? null;
-  }, [scheduledItems]);
   const selectedDayItems = scheduledItems.filter((item) => item.dayKey === selectedKey);
   const weekDays = useMemo(() => buildWeek(selectedDate), [selectedDate]);
   const weekItems = scheduledItems.filter((item) => weekDays.some((day) => day.key === item.dayKey));
@@ -125,26 +111,11 @@ export default function ScheduleScreen() {
           paddingTop: insets.top + spacing.xs,
         }}
       >
-        <View style={{ flex: 1, paddingHorizontal: spacing.md, paddingBottom: insets.bottom + spacing.sm, gap: spacing.sm }}>
-          <FadeInBlock delay={40}>
-            <ScheduleToolbar
-              mode={mode}
-              selectedDate={selectedDate}
-              activeCount={activeRideCount}
-              pendingCount={pendingRideCount}
-              nextItem={nextScheduledItem}
-              onPrevious={() => stepDate(-1)}
-              onNext={() => stepDate(1)}
-              onModeChange={selectMode}
-            />
-          </FadeInBlock>
-
-          {backendError ? (
-            <FadeInBlock delay={120}>
-              <ScheduleNotice title="Backend rides unavailable" body={backendError} />
-            </FadeInBlock>
-          ) : null}
-
+        {/* column-reverse: the CalendarSurface (which owns the scrollable region) is declared
+            first so it becomes the native first-descendant (subviews[0]) that
+            react-native-screens scrolls to top when the active bottom tab is re-tapped. The
+            toolbar and notice are declared after it but still render above it. */}
+        <View style={{ flex: 1, paddingHorizontal: spacing.md, paddingBottom: insets.bottom + spacing.sm, gap: spacing.sm, flexDirection: "column-reverse" }}>
           <FadeInBlock delay={90} style={{ flex: 1, minHeight: 0 }}>
             <CalendarSurface
               mode={mode}
@@ -160,6 +131,22 @@ export default function ScheduleScreen() {
               onOpenRide={openCalendarRide}
               refreshing={refreshing}
               onRefresh={onRefresh}
+            />
+          </FadeInBlock>
+
+          {backendError ? (
+            <FadeInBlock delay={120}>
+              <ScheduleNotice title="Backend rides unavailable" body={backendError} />
+            </FadeInBlock>
+          ) : null}
+
+          <FadeInBlock delay={40}>
+            <ScheduleToolbar
+              mode={mode}
+              selectedDate={selectedDate}
+              onPrevious={() => stepDate(-1)}
+              onNext={() => stepDate(1)}
+              onModeChange={selectMode}
             />
           </FadeInBlock>
         </View>

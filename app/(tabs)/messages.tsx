@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { SymbolView } from "expo-symbols";
+import { SymbolIcon } from "@/components/ui/SymbolIcon";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getLastNonChatHref } from "@/lib/navigation-memory";
@@ -29,14 +29,14 @@ export default function MessagesTabScreen() {
         backgroundColor: colors.surfaceLow,
         paddingTop: insets.top + spacing.xl,
         paddingHorizontal: spacing.lg,
-        justifyContent: "center",
+        justifyContent: "flex-start",
         paddingBottom: insets.bottom + 96,
       }}
     >
       <View
         style={{
           backgroundColor: colors.surface,
-          borderRadius: radii.md,
+          borderRadius: radii.sm,
           borderCurve: "continuous",
           padding: spacing.lg,
           gap: spacing.md,
@@ -55,7 +55,7 @@ export default function MessagesTabScreen() {
             justifyContent: "center",
           }}
         >
-          <SymbolView
+          <SymbolIcon
             name="bubble.left.and.bubble.right.fill"
             size={23}
             type="hierarchical"
@@ -67,19 +67,12 @@ export default function MessagesTabScreen() {
           <Text style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>
             Opening dispatch chat
           </Text>
-          <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>
-            Keeping your place while the latest ride conversation opens.
-          </Text>
         </View>
-        <View
-          style={{
-            height: 4,
-            borderRadius: radii.pill,
-            backgroundColor: colors.blueSoft,
-            overflow: "hidden",
-          }}
-        >
-          <View style={{ width: "54%", height: "100%", backgroundColor: colors.blue, borderRadius: radii.pill }} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <ActivityIndicator color={colors.blue} size="small" />
+          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700" }}>
+            Connecting to dispatch
+          </Text>
         </View>
       </View>
     </View>

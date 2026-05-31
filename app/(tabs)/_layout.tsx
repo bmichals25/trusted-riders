@@ -18,16 +18,25 @@ export default function TabsLayout() {
       minimizeBehavior="automatic"
     >
       <NativeTabs.Trigger name="index" listeners={{ tabPress: selection }}>
-        <NativeTabs.Trigger.Label hidden>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
+        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "house", selected: "house.fill" }}
+          md="home"
+        />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="mission" disableAutomaticContentInsets listeners={{ tabPress: selection }}>
-        <NativeTabs.Trigger.Label hidden>Schedule</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: "calendar", selected: "calendar.badge.clock" }} />
+        <NativeTabs.Trigger.Label>Schedule</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "calendar", selected: "calendar.badge.clock" }}
+          md="calendar_month"
+        />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings" listeners={{ tabPress: selection }}>
-        <NativeTabs.Trigger.Label hidden>Settings</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
+        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: "gearshape", selected: "gearshape.fill" }}
+          md="settings"
+        />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

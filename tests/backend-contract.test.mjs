@@ -331,6 +331,18 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
   assert.equal(dispatchContext.isCurrentRideStatus("in_transit"), true);
   assert.equal(dispatchContext.isCurrentRideStatus("pending"), false);
   assert.equal(dispatchContext.isCurrentRideStatus("completed"), false);
+  assert.equal(dispatchContext.isUpcomingRideStatus("pending"), true);
+  assert.equal(dispatchContext.isUpcomingRideStatus("accepted"), true);
+  assert.equal(dispatchContext.isUpcomingRideStatus("en_route"), false);
+  assert.equal(dispatchContext.isUpcomingRideStatus("picked_up"), false);
+  assert.equal(dispatchContext.isUpcomingRideStatus("in_transit"), false);
+  assert.equal(dispatchContext.isUpcomingRideStatus("completed"), false);
+  assert.equal(dispatchContext.isUpcomingRideStatus("cancelled"), false);
+  const scheduledStatuses = ["pending", "accepted", "en_route", "completed"]
+    .filter((status) => dispatchContext.isUpcomingRideStatus(status));
+  assert.deepEqual(scheduledStatuses, ["pending", "accepted"]);
+  const dispatchSource = fs.readFileSync(path.join(root, "lib/dispatch-context.tsx"), "utf8");
+  assert.match(dispatchSource, /rides\.filter\(\(r\) => isUpcomingRideStatus\(r\.status\)\)/);
   assert.equal(dispatchContext.shouldStopTrackingAfterGpsResponse(false), true);
   assert.equal(dispatchContext.shouldStopTrackingAfterGpsResponse(true), false);
   assert.equal(dispatchContext.shouldApplyIncomingGpsOff("gps_off", "dispatch"), true);
@@ -453,7 +465,7 @@ test("schedule model includes active rides in calendar views", () => {
   assert.equal(scheduleModel.isCalendarRideStatus("completed"), false);
   assert.equal(scheduleModel.isCalendarRideStatus("cancelled"), false);
 
-  assert.equal(scheduleModel.scheduleStatusKey({ status: "pending" }), "pending");
+  assert.equal(scheduleModel.scheduleStatusKey({ status: "pending" }), "scheduled");
   assert.equal(scheduleModel.scheduleStatusKey({ status: "accepted" }), "scheduled");
   assert.equal(scheduleModel.scheduleStatusKey({ status: "en_route" }), "enRoute");
   assert.equal(scheduleModel.scheduleStatusKey({ status: "picked_up" }), "arrived");

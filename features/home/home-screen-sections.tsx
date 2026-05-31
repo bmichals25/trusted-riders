@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { SymbolView, type SFSymbol } from "expo-symbols";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { SymbolIcon, type AppSymbolName } from "@/components/ui/SymbolIcon";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import Animated, {
@@ -55,12 +55,23 @@ export function CurrentRideCard({
   );
 }
 
-export function UpcomingRideCard({ ride, onOpen }: { ride: DispatchedRide; onOpen: () => void }) {
+export function UpcomingRideCard({
+  ride,
+  onOpen,
+  onNavigate,
+}: {
+  ride: DispatchedRide;
+  onOpen: () => void;
+  onNavigate: () => void;
+}) {
   return (
     <View style={cardStyle}>
       <RideHeader ride={ride} />
       <RouteRows ride={ride} />
-      <SecondaryActionButton label="View Ride" iconName="doc.text.magnifyingglass" onPress={onOpen} />
+      <View style={{ gap: spacing.sm }}>
+        <SecondaryActionButton label="View Ride" iconName="doc.text.magnifyingglass" onPress={onOpen} />
+        <SecondaryActionButton label="Navigate" iconName="location.fill" onPress={onNavigate} />
+      </View>
     </View>
   );
 }
@@ -94,64 +105,13 @@ export function NextUpcomingRideCard({
   );
 }
 
-export function RideRequestsBanner({ count, latestRide, onPress }: { count: number; latestRide: DispatchedRide; onPress: () => void }) {
-  const lastOpenAtRef = useRef(0);
-  const openOnce = useCallback(() => {
-    const now = Date.now();
-    if (now - lastOpenAtRef.current < 650) return;
-    lastOpenAtRef.current = now;
-    onPress();
-  }, [onPress]);
-
-  return (
-    <Pressable
-      onPress={openOnce}
-      accessibilityRole="button"
-      accessibilityLabel={`${count} pending ride ${count === 1 ? "request" : "requests"}. Open ride requests.`}
-      hitSlop={8}
-      pressRetentionOffset={16}
-      style={({ pressed }) => ({
-        alignSelf: "stretch",
-        minHeight: 54,
-        backgroundColor: colors.amberSoft,
-        borderRadius: radii.pill,
-        paddingLeft: 8,
-        paddingRight: spacing.sm,
-        paddingVertical: 7,
-        borderWidth: 1,
-        borderColor: colors.amberSoft,
-        opacity: pressed ? 0.72 : 1,
-      })}
-    >
-      <View pointerEvents="none" style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-        <View style={{ width: 38, height: 38, borderRadius: radii.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: colors.amber, fontSize: 17, fontWeight: "900" }}>{count}</Text>
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "900" }} numberOfLines={1}>
-            {count === 1 ? "Pending ride request" : "Pending ride requests"}
-          </Text>
-          <Text style={{ color: colors.amberStrong, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
-            Ride #{latestRide.id.replace(/^ride-?/i, "")} · {latestRide.scheduledTime}
-          </Text>
-        </View>
-        <View style={{ backgroundColor: colors.surface, borderRadius: radii.pill, paddingHorizontal: spacing.sm, paddingVertical: 7 }}>
-          <Text style={{ color: colors.blueStrong, fontSize: 12, fontWeight: "900" }}>
-            View
-          </Text>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
 export function Section({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
   return (
     <View style={{ marginHorizontal: spacing.md, gap: spacing.sm }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Text style={{ color: colors.primary, fontSize: 22, fontWeight: "900" }}>{title}</Text>
+        <Text style={{ color: colors.primary, fontSize: 22, fontWeight: "800" }}>{title}</Text>
         {typeof count === "number" ? (
-          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "900" }}>{count}</Text>
+          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600" }}>{count}</Text>
         ) : null}
       </View>
       {children}
@@ -231,8 +191,6 @@ function SkeletonBlock({ pulseStyle, style }: { pulseStyle: any; style: any }) {
       style={[
         {
           backgroundColor: colors.slate100,
-          borderColor: colors.slate200,
-          borderWidth: 1,
         },
         style,
         pulseStyle,
@@ -251,49 +209,19 @@ export function EmptyRideState({
   return (
     <View
       accessible
-      accessibilityLabel="Standing by. No current rides or pending requests are assigned. Dispatch updates will appear here automatically. Pull down or tap refresh to check now."
+      accessibilityLabel="Standing by. No current or upcoming rides are assigned. Dispatch updates will appear here automatically. Pull down or tap refresh to check now."
       style={[cardStyle, { gap: spacing.md }]}
     >
-      <View style={{ flexDirection: "row", gap: spacing.md, alignItems: "flex-start" }}>
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no"
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: radii.sm,
-            backgroundColor: colors.blueSoft,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <SymbolView
-            name="antenna.radiowaves.left.and.right"
-            size={22}
-            type="hierarchical"
-            tintColor={colors.blueStrong}
-            weight="semibold"
-          />
-        </View>
-        <View style={{ flex: 1, minWidth: 0, gap: 7 }}>
-          <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "900", lineHeight: 25 }}>
-            Standing by
-          </Text>
-          <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }} numberOfLines={3}>
-            No current rides or pending requests are assigned. Dispatch updates will appear here automatically.
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ gap: spacing.sm }}>
-        <StandbyReadinessRow iconName="checkmark.shield.fill" label="Dispatch watch" value="Active" tone="good" />
-        <StandbyReadinessRow iconName="arrow.clockwise" label="Manual check" value="Pull down anytime" tone="muted" />
-      </View>
-
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
-        <Text style={{ color: colors.slate500, flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 }}>
-          Keep the app ready for new assignments.
+      <View style={{ gap: 7 }}>
+        <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "800", lineHeight: 25 }}>
+          Standing by
         </Text>
+        <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }} numberOfLines={1}>
+          No rides assigned. Updates appear automatically.
+        </Text>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: spacing.md }}>
         <Pressable
           disabled={refreshing}
           onPress={onRefresh}
@@ -303,10 +231,8 @@ export function EmptyRideState({
           style={({ pressed }) => ({
             minWidth: 118,
             minHeight: 44,
-            borderRadius: radii.pill,
+            borderRadius: radii.sm,
             backgroundColor: pressed ? colors.surfaceHigh : colors.surfaceLow,
-            borderWidth: 1,
-            borderColor: colors.slate200,
             alignItems: "center",
             justifyContent: "center",
             paddingHorizontal: spacing.md,
@@ -314,71 +240,12 @@ export function EmptyRideState({
           })}
         >
           {refreshing ? (
-            <ActivityIndicator color={colors.blueStrong} />
+            <ActivityIndicator color={colors.primary} />
           ) : (
-            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }}>Refresh</Text>
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>Refresh</Text>
           )}
         </Pressable>
       </View>
-    </View>
-  );
-}
-
-function StandbyReadinessRow({
-  iconName,
-  label,
-  value,
-  tone,
-}: {
-  iconName: SFSymbol;
-  label: string;
-  value: string;
-  tone: "good" | "muted";
-}) {
-  const iconColor = tone === "good" ? colors.greenStrong : colors.primarySoft;
-  const iconBackground = tone === "good" ? colors.greenSoft : colors.slate100;
-  const valueColor = tone === "good" ? colors.greenStrong : colors.slate500;
-
-  return (
-    <View
-      style={{
-        minHeight: 42,
-        borderRadius: radii.sm,
-        backgroundColor: colors.surfaceLow,
-        borderWidth: 1,
-        borderColor: colors.slate100,
-        paddingHorizontal: spacing.sm,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing.sm,
-      }}
-    >
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: radii.xs,
-          backgroundColor: iconBackground,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <SymbolView
-          name={iconName}
-          size={15}
-          type="hierarchical"
-          tintColor={iconColor}
-          weight="semibold"
-        />
-      </View>
-      <Text style={{ color: colors.primary, flex: 1, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
-        {label}
-      </Text>
-      <Text style={{ color: valueColor, fontSize: 12, fontWeight: "900", textAlign: "right" }} numberOfLines={1}>
-        {value}
-      </Text>
     </View>
   );
 }
@@ -387,7 +254,7 @@ export function Notice({ tone, title, body }: { tone: "error" | "warning"; title
   const accent = tone === "error" ? colors.error : colors.amber;
   return (
     <View style={{ marginHorizontal: spacing.md, backgroundColor: colors.surface, borderLeftWidth: 4, borderLeftColor: accent, borderRadius: radii.sm, padding: spacing.md, gap: 4, ...shadows.soft }}>
-      <Text style={{ color: tone === "error" ? colors.error : colors.amberStrong, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.2 }}>{title}</Text>
+      <Text style={{ color: tone === "error" ? colors.error : colors.amberStrong, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.2 }}>{title}</Text>
       <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>{body}</Text>
     </View>
   );
@@ -400,7 +267,7 @@ function RideHeader({ ride }: { ride: DispatchedRide }) {
       <Avatar initials={initials} size={48} />
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.sm, alignItems: "center" }}>
-          <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "900", flex: 1 }} numberOfLines={1}>
+          <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "800", flex: 1 }}>
             {ride.passengerName}
           </Text>
           <StatusBadge status={badgeStatusFor(ride.status)} />
@@ -430,8 +297,8 @@ function RideMiniMap({ ride }: { ride: DispatchedRide }) {
   if (!hasDrawableRoute(coords)) {
     return (
       <View style={{ height: 150, borderRadius: radii.sm, backgroundColor: colors.mapPlaceholder, alignItems: "center", justifyContent: "center", padding: spacing.md }}>
-        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "800", textAlign: "center" }}>
-          Route preview appears when pickup and dropoff coordinates are available.
+        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+          Route appears once coordinates load.
         </Text>
       </View>
     );
@@ -447,8 +314,7 @@ function RideMiniMap({ ride }: { ride: DispatchedRide }) {
         borderRadius: radii.sm,
         overflow: "hidden",
         backgroundColor: colors.mapPlaceholder,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.slate200,
+        ...shadows.soft,
       }}
     >
       <MapView
@@ -513,7 +379,7 @@ function RideMiniMap({ ride }: { ride: DispatchedRide }) {
         }}
       >
         <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.blue }} />
-        <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
+        <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "700" }} numberOfLines={1}>
           Route preview
         </Text>
       </View>
@@ -548,7 +414,7 @@ function PrimaryActionButton({
   onPress,
 }: {
   label: string;
-  iconName: SFSymbol;
+  iconName: AppSymbolName;
   onPress: () => void;
 }) {
   return (
@@ -558,25 +424,25 @@ function PrimaryActionButton({
       accessibilityLabel={label}
       style={({ pressed }) => ({
         flex: 1,
-        minHeight: 54,
+        minHeight: 52,
         borderRadius: radii.sm,
-        backgroundColor: colors.green,
+        backgroundColor: pressed ? colors.primaryPressed : colors.primary,
         alignItems: "center",
         justifyContent: "center",
         flexDirection: "row",
         gap: spacing.sm,
+        paddingVertical: 15,
         paddingHorizontal: spacing.md,
-        opacity: pressed ? 0.72 : 1,
       })}
     >
-      <SymbolView
+      <SymbolIcon
         name={iconName}
         size={19}
         type="hierarchical"
         tintColor={colors.surface}
         weight="bold"
       />
-      <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "900", textAlign: "center" }}>{label}</Text>
+      <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "800", textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
@@ -587,7 +453,7 @@ function SecondaryActionButton({
   onPress,
 }: {
   label: string;
-  iconName: SFSymbol;
+  iconName: AppSymbolName;
   onPress: () => void;
 }) {
   return (
@@ -597,11 +463,9 @@ function SecondaryActionButton({
       accessibilityLabel={label}
       style={({ pressed }) => ({
         flex: 1,
-        minHeight: 42,
+        minHeight: 44,
         borderRadius: radii.sm,
-        backgroundColor: pressed ? colors.surfaceHigh : colors.surfaceLow,
-        borderWidth: 1,
-        borderColor: colors.slate200,
+        backgroundColor: pressed ? colors.slate200 : colors.surfaceHigh,
         alignItems: "center",
         justifyContent: "center",
         flexDirection: "row",
@@ -610,21 +474,20 @@ function SecondaryActionButton({
         opacity: pressed ? 0.72 : 1,
       })}
     >
-      <SymbolView
+      <SymbolIcon
         name={iconName}
         size={15}
         type="hierarchical"
-        tintColor={colors.blueStrong}
+        tintColor={colors.primary}
         weight="semibold"
       />
-      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900", textAlign: "center" }}>{label}</Text>
+      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700", textAlign: "center" }}>{label}</Text>
     </Pressable>
   );
 }
 
 function badgeStatusFor(status: RideStatus): StatusKey {
-  if (status === "pending") return "pending";
-  if (status === "accepted") return "scheduled";
+  if (status === "pending" || status === "accepted") return "scheduled";
   if (status === "en_route") return "enRoute";
   if (status === "picked_up" || status === "in_transit") return "inTransit";
   if (status === "completed") return "completed";
@@ -635,7 +498,7 @@ function primaryActionLabelFor(status: RideStatus) {
   return status === "accepted" ? "Start Ride" : "View Ride";
 }
 
-function primaryActionIconFor(status: RideStatus): SFSymbol {
+function primaryActionIconFor(status: RideStatus): AppSymbolName {
   return status === "accepted" ? "play.fill" : "arrow.right.circle.fill";
 }
 

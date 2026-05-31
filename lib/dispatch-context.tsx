@@ -7,7 +7,6 @@ import {
   isFleetApiRefreshSkippedError,
   setActiveRideId,
   updateLocation,
-  updateRideStatus,
 } from "./fleet-api";
 import {
   getChatCommandType,
@@ -38,7 +37,6 @@ export type RideStatusNotice = {
 
 type DispatchData = {
   rides: DispatchedRide[];
-  pendingRides: DispatchedRide[];
   scheduledRides: DispatchedRide[];
   activeRide: DispatchedRide | null;
   backendError: string | null;
@@ -52,15 +50,12 @@ type DispatchActions = {
   dismissStatusNotice: () => void;
   noteIncomingDispatchMessages: (count: number) => void;
   refreshRides: () => Promise<void>;
-  acceptRide: (id: string) => void;
-  declineRide: (id: string) => void;
 };
 
 type DispatchState = DispatchData & DispatchActions;
 
 const DispatchDataContext = createContext<DispatchData>({
   rides: [],
-  pendingRides: [],
   scheduledRides: [],
   activeRide: null,
   backendError: null,
@@ -74,8 +69,6 @@ const DispatchActionsContext = createContext<DispatchActions>({
   dismissStatusNotice: () => {},
   noteIncomingDispatchMessages: () => {},
   refreshRides: async () => {},
-  acceptRide: () => {},
-  declineRide: () => {},
 });
 
 const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
@@ -87,6 +80,10 @@ export function isCurrentRideStatus(status: RideStatus): boolean {
     status === "picked_up" ||
     status === "in_transit"
   );
+}
+
+export function isUpcomingRideStatus(status: RideStatus): boolean {
+  return status === "pending" || status === "accepted";
 }
 
 export function shouldApplyIncomingGpsOff(command: ReturnType<typeof getChatCommandType>, sender: RideChatMessage["sender"]): boolean {
@@ -497,32 +494,12 @@ export function DispatchProvider({
     return () => clearInterval(interval);
   }, [processChatCommands]);
 
-  const acceptRide = useCallback((id: string) => {
-    setRides((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, status: "accepted" as RideStatus } : r));
-      ridesRef.current = next;
-      return next;
-    });
-    if (!DEMO_MODE) void updateRideStatus(id, "accepted");
-  }, []);
-
-  const declineRide = useCallback((id: string) => {
-    setRides((prev) => {
-      const next = prev.map((r) => (r.id === id ? { ...r, status: "cancelled" as RideStatus } : r));
-      ridesRef.current = next;
-      return next;
-    });
-    if (!DEMO_MODE) void updateRideStatus(id, "cancelled");
-  }, []);
-
-  const pendingRides = useMemo(() => rides.filter((r) => r.status === "pending"), [rides]);
-  const scheduledRides = useMemo(() => rides.filter((r) => r.status === "accepted"), [rides]);
+  const scheduledRides = useMemo(() => rides.filter((r) => isUpcomingRideStatus(r.status)), [rides]);
   const activeRide = activeRideInState;
 
   const dataValue = useMemo<DispatchData>(
     () => ({
       rides,
-      pendingRides,
       scheduledRides,
       activeRide,
       backendError,
@@ -530,7 +507,7 @@ export function DispatchProvider({
       statusNotice,
       unreadDispatchMessageCount,
     }),
-    [rides, pendingRides, scheduledRides, activeRide, backendError, hasLoadedRides, statusNotice, unreadDispatchMessageCount],
+    [rides, scheduledRides, activeRide, backendError, hasLoadedRides, statusNotice, unreadDispatchMessageCount],
   );
 
   const actionsValue = useMemo<DispatchActions>(
@@ -539,10 +516,8 @@ export function DispatchProvider({
       dismissStatusNotice,
       noteIncomingDispatchMessages,
       refreshRides,
-      acceptRide,
-      declineRide,
     }),
-    [clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides, acceptRide, declineRide],
+    [clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides],
   );
 
   return (

@@ -1,26 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
   TextInput,
 } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { type FlashListRef } from "@shopify/flash-list";
+import { SymbolIcon } from "@/components/ui/SymbolIcon";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron } from "@/components/ui/BackChevron";
-import { useDispatch } from "@/lib/dispatch-context";
+import { useDispatchActions } from "@/lib/dispatch-context";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { CheckpointDetailModal } from "@/features/chat/chat-checkpoint";
 import { mapApiMessage, type CheckpointCardData, type Message } from "@/features/chat/chat-model";
 import { ChatOpeningBlock } from "@/features/chat/chat-opening-block";
-import { ChatComposer, ChatContextStrip, ChatMessageList } from "@/features/chat/chat-thread";
+import { ChatComposer, ChatContextStrip, ChatMessageList, type ChatRow } from "@/features/chat/chat-thread";
 import {
   getRideChatStatus,
   listRideChatMessages,
@@ -33,7 +33,7 @@ import {
 import { DISPATCH_PHONE, formatPhone } from "@/lib/config";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
-import { colors } from "@/lib/theme";
+import { colors, radii } from "@/lib/theme";
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -48,8 +48,8 @@ export default function ChatScreen() {
   const chatTitle = "Dispatch Messages";
   const riderLabel = typeof riderName === "string" && !/^ride\b/i.test(riderName) ? riderName : undefined;
   const contextLabel = rideId
-    ? `Dispatch + TrustedRider · Ride ${rideId}${riderLabel ? ` · ${riderLabel}` : ""}`
-    : "Dispatch + TrustedRider";
+    ? `Ride ${rideId}${riderLabel ? ` · ${riderLabel}` : ""}`
+    : riderLabel ?? "Dispatch link active";
   const [messages, setMessages] = useState<Message[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [inputText, setInputText] = useState("");
@@ -61,8 +61,8 @@ export default function ChatScreen() {
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<CheckpointCardData | null>(null);
   const canSendMessage = inputText.trim().length > 0 && !isSending;
   const { impact } = useHaptics();
-  const { clearDispatchUnreadMessages } = useDispatch();
-  const flatListRef = useRef<FlatList>(null);
+  const { clearDispatchUnreadMessages } = useDispatchActions();
+  const flatListRef = useRef<FlashListRef<ChatRow>>(null);
   const inputRef = useRef<TextInput>(null);
   const draftRef = useRef("");
   const lastClearedTextRef = useRef("");
@@ -350,7 +350,7 @@ export default function ChatScreen() {
             style={({ pressed }) => ({
               width: 40,
               height: 40,
-              borderRadius: 20,
+              borderRadius: radii.sm,
               backgroundColor: colors.greenSoftDark,
               alignItems: "center",
               justifyContent: "center",
@@ -358,7 +358,7 @@ export default function ChatScreen() {
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <SymbolView
+            <SymbolIcon
               name="phone.fill"
               size={17}
               type="hierarchical"

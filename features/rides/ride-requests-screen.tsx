@@ -1,25 +1,25 @@
 import { useCallback, useState } from "react";
-import { SymbolView } from "expo-symbols";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { RefreshControl, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron } from "@/components/ui/BackChevron";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
-import { RideRequestCard } from "@/components/ui/RideRequestCard";
+import { NextUpcomingRideCard, UpcomingRideCard } from "@/features/home/home-screen-sections";
 import { useDispatch } from "@/lib/dispatch-context";
-import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
+import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
-import { confirmDeclineRideRequest } from "@/lib/ride-action-confirmation";
+import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide } from "@/lib/rides";
-import { colors, radii, shadows, spacing } from "@/lib/theme";
+import { colors, radii, spacing } from "@/lib/theme";
 
-export function RideRequestsScreenContent() {
+export function UpcomingRidesScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { pendingRides, backendError, refreshRides, acceptRide, declineRide } = useDispatch();
-  const { impact, notification } = useHaptics();
+  const { scheduledRides, backendError, refreshRides } = useDispatch();
+  const { impact } = useHaptics();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -31,66 +31,70 @@ export function RideRequestsScreenContent() {
     }
   }, [refreshRides]);
 
-  const openChat = useCallback((ride: DispatchedRide) => {
-    impact(ImpactFeedbackStyle.Light);
-    router.push({
-      pathname: "/chat",
-      params: { rideId: ride.id, riderName: ride.passengerName },
-    });
-  }, [impact, router]);
-
-  const openRideRequestDetails = useCallback((ride: DispatchedRide) => {
+  const openRideDetails = useCallback((ride: DispatchedRide) => {
     impact(ImpactFeedbackStyle.Light);
     router.push(`/ride-details?rideId=${encodeURIComponent(ride.id)}`);
   }, [impact, router]);
 
+  const openNavigation = useCallback((ride: DispatchedRide) => {
+    impact(ImpactFeedbackStyle.Light);
+    showMapProviderOptionsForRide(ride);
+  }, [impact]);
+
+  const renderUpcomingRide = useCallback(
+    ({ item, index }: { item: DispatchedRide; index: number }) => {
+      const Card = index === 0 ? NextUpcomingRideCard : UpcomingRideCard;
+      return (
+        <FadeInBlock delay={90 + index * 35}>
+          <Card
+            ride={item}
+            onOpen={() => openRideDetails(item)}
+            onNavigate={() => openNavigation(item)}
+          />
+        </FadeInBlock>
+      );
+    },
+    [openRideDetails, openNavigation],
+  );
+
   return (
     <PageTransition>
       <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
-        <RideRequestsHeader count={pendingRides.length} topInset={insets.top} />
+        <UpcomingRidesHeader count={scheduledRides.length} topInset={insets.top} />
 
-        <ScrollView
-          style={{ flex: 1 }}
+        <FlashList
+          data={scheduledRides}
+          keyExtractor={(ride) => ride.id}
+          renderItem={renderUpcomingRide}
           contentInsetAdjustmentBehavior="never"
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: insets.bottom + 28, gap: spacing.md, flexGrow: 1 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
-        >
-          {backendError ? (
-            <FadeInBlock delay={60}>
-              <Notice title="Backend rides unavailable" body={backendError} />
-            </FadeInBlock>
-          ) : null}
-
-          {pendingRides.length ? (
-            pendingRides.map((ride, index) => (
-              <FadeInBlock key={ride.id} delay={90 + index * 35}>
-                <RideRequestCard
-                  ride={ride}
-                  onOpen={() => openRideRequestDetails(ride)}
-                  onChat={() => openChat(ride)}
-                  onAccept={() => {
-                    notification(NotificationFeedbackType.Success);
-                    acceptRide(ride.id);
-                  }}
-                  onDecline={() => {
-                    impact(ImpactFeedbackStyle.Medium);
-                    confirmDeclineRideRequest(ride, () => declineRide(ride.id));
-                  }}
-                />
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: insets.bottom + 28 }}
+          ItemSeparatorComponent={RideSeparator}
+          ListHeaderComponent={
+            backendError ? (
+              <FadeInBlock delay={60}>
+                <View style={{ marginBottom: spacing.md }}>
+                  <Notice title="Backend rides unavailable" body={backendError} />
+                </View>
               </FadeInBlock>
-            ))
-          ) : (
+            ) : null
+          }
+          ListEmptyComponent={
             <FadeInBlock delay={90}>
-              <EmptyRequests refreshing={refreshing} />
+              <EmptyUpcomingRides refreshing={refreshing} />
             </FadeInBlock>
-          )}
-        </ScrollView>
+          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
+        />
       </View>
     </PageTransition>
   );
 }
 
-function RideRequestsHeader({ count, topInset }: { count: number; topInset: number }) {
+function RideSeparator() {
+  return <View style={{ height: spacing.md }} />;
+}
+
+function UpcomingRidesHeader({ count, topInset }: { count: number; topInset: number }) {
   return (
     <View
       style={{
@@ -106,7 +110,7 @@ function RideRequestsHeader({ count, topInset }: { count: number; topInset: numb
       <BackChevron />
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "900", lineHeight: 25 }}>
-          Ride Requests
+          Upcoming Rides
         </Text>
         <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700" }}>
           {rideCountLabel(count)}
@@ -116,81 +120,34 @@ function RideRequestsHeader({ count, topInset }: { count: number; topInset: numb
   );
 }
 
-function EmptyRequests({ refreshing }: { refreshing: boolean }) {
+function EmptyUpcomingRides({ refreshing }: { refreshing: boolean }) {
   return (
     <View
       accessible
-      accessibilityLabel="No pending ride requests. Pull down to refresh and keep this screen ready for dispatch assignments."
+      accessibilityLabel="No upcoming rides. Pull down to refresh and keep this screen ready for dispatch assignments."
       style={{
-        backgroundColor: colors.surface,
-        borderRadius: radii.md,
+        backgroundColor: colors.surfaceLow,
+        borderRadius: radii.sm,
         borderCurve: "continuous",
         padding: spacing.lg,
-        gap: spacing.md,
-        alignItems: "center",
+        gap: 6,
         marginTop: spacing.lg,
-        borderWidth: 1,
-        borderColor: colors.slate100,
-        ...shadows.soft,
       }}
     >
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{
-          width: 54,
-          height: 54,
-          borderRadius: radii.lg,
-          backgroundColor: colors.blueSoft,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <SymbolView
-          name="tray.fill"
-          size={25}
-          type="hierarchical"
-          tintColor={colors.blueStrong}
-          weight="semibold"
-        />
-      </View>
-      <View style={{ gap: 6, alignItems: "center" }}>
-        <Text style={{ color: colors.primary, fontSize: 19, fontWeight: "900", lineHeight: 24, textAlign: "center" }}>
-          No pending requests
-        </Text>
-        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", textAlign: "center", lineHeight: 19, maxWidth: 260 }}>
-          New ride requests will appear here as dispatch sends them. Pull down to check again.
-        </Text>
-      </View>
-      <View
-        style={{
-          minHeight: 40,
-          alignSelf: "stretch",
-          borderRadius: radii.sm,
-          backgroundColor: colors.surfaceLow,
-          borderWidth: 1,
-          borderColor: colors.slate100,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: spacing.sm,
-        }}
-      >
-        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
-          Dispatch watch
-        </Text>
-        <Text style={{ color: refreshing ? colors.blueStrong : colors.greenStrong, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
-          {refreshing ? "Refreshing" : "Ready"}
-        </Text>
-      </View>
+      <Text style={{ color: colors.primary, fontSize: 19, fontWeight: "800", lineHeight: 24 }}>
+        No upcoming rides
+      </Text>
+      <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", lineHeight: 19 }}>
+        {refreshing ? "Checking for assigned rides..." : "Assigned rides appear here. Pull down to refresh."}
+      </Text>
     </View>
   );
 }
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <View style={{ backgroundColor: colors.surface, borderLeftWidth: 4, borderLeftColor: colors.error, borderRadius: radii.sm, padding: spacing.md, gap: 4, ...shadows.soft }}>
-      <Text style={{ color: colors.error, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.4 }}>
+    <View style={{ backgroundColor: colors.errorSoft, borderRadius: radii.sm, padding: spacing.md, gap: 4 }}>
+      <Text style={{ color: colors.error, fontSize: 12, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1.4 }}>
         {title}
       </Text>
       <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>{body}</Text>
@@ -199,7 +156,7 @@ function Notice({ title, body }: { title: string; body: string }) {
 }
 
 function rideCountLabel(count: number) {
-  if (count === 0) return "No pending requests";
-  if (count === 1) return "1 pending request";
-  return `${count} pending requests`;
+  if (count === 0) return "No upcoming rides";
+  if (count === 1) return "1 upcoming ride";
+  return `${count} upcoming rides`;
 }

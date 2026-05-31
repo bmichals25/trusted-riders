@@ -53,9 +53,10 @@ export function DriverLoginScreen({
 }) {
   const insets = useSafeAreaInsets();
   const passwordInputRef = useRef<TextInput>(null);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [focusedField, setFocusedField] = useState<FocusedField>(null);
+  const [buttonPressed, setButtonPressed] = useState(false);
   const reduced = useReducedMotion();
+  const shouldAnimateForKeyboard = Platform.OS === "ios";
   const keyboardProgress = useSharedValue(0);
   const webInputStyle =
     Platform.OS === "web" ? ({ outlineStyle: "none", outlineWidth: 0 } as any) : null;
@@ -77,22 +78,6 @@ export function DriverLoginScreen({
     });
   };
 
-  const heroAnimatedStyle = useAnimatedStyle(() => ({
-    paddingVertical: interpolate(keyboardProgress.value, [0, 1], [34, spacing.md]),
-    paddingHorizontal: interpolate(keyboardProgress.value, [0, 1], [spacing.xl, spacing.lg]),
-    gap: interpolate(keyboardProgress.value, [0, 1], [0, 0]),
-  }));
-
-  const brandPlateAnimatedStyle = useAnimatedStyle(() => ({
-    width: interpolate(keyboardProgress.value, [0, 1], [354, 300]),
-    height: interpolate(keyboardProgress.value, [0, 1], [124, 96]),
-  }));
-
-  const logoAnimatedStyle = useAnimatedStyle(() => ({
-    width: interpolate(keyboardProgress.value, [0, 1], [330, 284]),
-    height: interpolate(keyboardProgress.value, [0, 1], [100, 86]),
-  }));
-
   const formAnimatedStyle = useAnimatedStyle(() => ({
     paddingVertical: interpolate(keyboardProgress.value, [0, 1], [spacing.xl, spacing.md]),
     paddingHorizontal: interpolate(keyboardProgress.value, [0, 1], [spacing.xl, spacing.lg]),
@@ -113,30 +98,23 @@ export function DriverLoginScreen({
     marginTop: interpolate(keyboardProgress.value, [0, 1], [6, 0]),
   }));
 
-  const footerAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: 1 - keyboardProgress.value,
-    height: interpolate(keyboardProgress.value, [0, 1], [24, 0]),
-    marginTop: interpolate(keyboardProgress.value, [0, 1], [14, 0]),
-    overflow: "hidden",
-  }));
-
   useEffect(() => {
+    if (!shouldAnimateForKeyboard) return;
+
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const showSub = Keyboard.addListener(showEvent, (event) => {
       animateKeyboardProgress(true, event.duration);
-      setKeyboardVisible(true);
     });
     const hideSub = Keyboard.addListener(hideEvent, (event) => {
       animateKeyboardProgress(false, event.duration);
-      setKeyboardVisible(false);
     });
 
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, [keyboardProgress, reduced]);
+  }, [keyboardProgress, reduced, shouldAnimateForKeyboard]);
 
   useEffect(() => {
     if (password) return;
@@ -147,7 +125,7 @@ export function DriverLoginScreen({
   return (
     <KeyboardAvoidingView
       style={s.screen}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         style={s.scroll}
@@ -159,31 +137,26 @@ export function DriverLoginScreen({
           },
         ]}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "none"}
         showsVerticalScrollIndicator={false}
       >
+        <View style={s.credentialCardShadow}>
         <View style={s.credentialCard}>
-          <Animated.View style={[s.hero, heroAnimatedStyle]}>
-            <Animated.View style={[s.brandPlate, brandPlateAnimatedStyle]}>
+          <View style={s.hero}>
+            <View style={s.brandPlate}>
               <Animated.Image
                 source={require("../../assets/trustedride_certified_main_logo_transparent.png")}
                 accessibilityLabel={BRAND_NAME}
                 resizeMode="contain"
-                style={[s.heroLogo, logoAnimatedStyle]}
+                style={s.heroLogo}
               />
-            </Animated.View>
-          </Animated.View>
+            </View>
+          </View>
 
           <Animated.View style={[s.form, formAnimatedStyle]}>
-            <View style={s.formHeader}>
-              <Text style={s.sectionKicker}>Sign In</Text>
-              <View style={s.formSignal} />
-            </View>
-
             <Animated.View style={[s.field, fieldAnimatedStyle]}>
               <Text nativeID="driver-email-label" style={s.fieldLabel}>Email</Text>
               <View style={[s.inputShell, focusedField === "email" ? s.inputShellFocused : null]}>
-                <View style={[s.inputRail, focusedField === "email" ? s.inputRailFocused : null]} />
                 <AnimatedTextInput
                   style={[s.input, inputAnimatedStyle, webInputStyle]}
                   placeholder="driver@trustedriders.org"
@@ -196,13 +169,13 @@ export function DriverLoginScreen({
                   accessibilityLabel="Email"
                   accessibilityHint="Enter the email address assigned to your TrustedRide Certified driver account."
                   keyboardType="email-address"
+                  showSoftInputOnFocus
                   textContentType="username"
                   returnKeyType="next"
                   onFocus={() => setFocusedField("email")}
                   onBlur={() => setFocusedField(null)}
                   onSubmitEditing={() => passwordInputRef.current?.focus()}
                   blurOnSubmit={false}
-                  autoFocus
                 />
               </View>
             </Animated.View>
@@ -216,12 +189,6 @@ export function DriverLoginScreen({
                   focusedField === "password" ? s.inputShellFocused : null,
                 ]}
               >
-                <View
-                  style={[
-                    s.inputRail,
-                    focusedField === "password" ? s.inputRailFocused : null,
-                  ]}
-                />
                 <AnimatedTextInput
                   ref={passwordInputRef}
                   style={[
@@ -235,6 +202,7 @@ export function DriverLoginScreen({
                   value={password}
                   onChangeText={onPasswordChange}
                   secureTextEntry={!passwordVisible}
+                  showSoftInputOnFocus
                   accessibilityLabel="Password"
                   accessibilityHint="Enter your TrustedRide Certified driver account password."
                   accessibilityValue={{ text: password ? `${password.length} characters entered` : "No password entered" }}
@@ -274,9 +242,15 @@ export function DriverLoginScreen({
               style={[
                 s.primaryButton,
                 primaryButtonAnimatedStyle,
-                canSubmit ? s.primaryButtonReady : s.primaryButtonDisabled,
+                !canSubmit
+                  ? s.primaryButtonDisabled
+                  : buttonPressed
+                    ? s.primaryButtonPressed
+                    : s.primaryButtonReady,
               ]}
               onPress={onSubmit}
+              onPressIn={() => setButtonPressed(true)}
+              onPressOut={() => setButtonPressed(false)}
               disabled={!canSubmit}
               accessibilityRole="button"
               accessibilityLabel={submitting ? "Signing in" : "Sign in"}
@@ -293,11 +267,8 @@ export function DriverLoginScreen({
               )}
             </AnimatedPressable>
 
-            <Animated.View style={[s.footer, footerAnimatedStyle]} pointerEvents="none">
-              <Text style={s.footerText}>Build 0.1.0 · Prototype</Text>
-              <Text style={s.footerText}>Encrypted</Text>
-            </Animated.View>
           </Animated.View>
+        </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -334,19 +305,21 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: spacing.sm,
   },
-  credentialCard: {
+  credentialCardShadow: {
     width: "100%",
     maxWidth: 440,
-    backgroundColor: colors.surface,
-    borderRadius: radii.lg,
-    borderCurve: "continuous",
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(148, 163, 184, 0.22)",
-    shadowColor: colors.primary,
+    borderRadius: radii.sm,
+    shadowColor: "#0f172a",
     shadowOpacity: 0.1,
     shadowRadius: 28,
     shadowOffset: { width: 0, height: 16 },
+  },
+  credentialCard: {
+    width: "100%",
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    borderCurve: "continuous",
+    overflow: "hidden",
   },
   hero: {
     width: "100%",
@@ -355,8 +328,6 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     gap: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.surfaceHigh,
   },
   brandPlate: {
     alignItems: "center",
@@ -372,25 +343,6 @@ const s = StyleSheet.create({
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
-  },
-  formHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  formSignal: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.blue,
-  },
-  sectionKicker: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "900",
-    textTransform: "uppercase",
-    letterSpacing: 2.2,
   },
   field: {
     gap: 8,
@@ -416,14 +368,6 @@ const s = StyleSheet.create({
   inputShellFocused: {
     borderColor: "rgba(37, 99, 235, 0.55)",
     backgroundColor: "#FFFFFF",
-  },
-  inputRail: {
-    alignSelf: "stretch",
-    width: 4,
-    backgroundColor: colors.surfaceHigh,
-  },
-  inputRailFocused: {
-    backgroundColor: colors.blue,
   },
   input: {
     flex: 1,
@@ -499,10 +443,13 @@ const s = StyleSheet.create({
     marginTop: 6,
   },
   primaryButtonReady: {
-    backgroundColor: colors.blueStrong,
+    backgroundColor: colors.primary,
+  },
+  primaryButtonPressed: {
+    backgroundColor: colors.primaryPressed,
   },
   primaryButtonDisabled: {
-    backgroundColor: "#AEB5C0",
+    backgroundColor: colors.slate400,
   },
   primaryButtonText: {
     color: "#FFFFFF",
@@ -515,17 +462,5 @@ const s = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 20,
     fontWeight: "900",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 14,
-  },
-  footerText: {
-    color: colors.slate400,
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 2,
   },
 });

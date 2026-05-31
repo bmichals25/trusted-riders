@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { SymbolIcon } from "@/components/ui/SymbolIcon";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   useAnimatedStyle,
@@ -369,7 +369,7 @@ function LocationMapModal({
                 justifyContent: "center",
               }}
             >
-              <SymbolView
+              <SymbolIcon
                 name="location.fill"
                 size={17}
                 type="hierarchical"

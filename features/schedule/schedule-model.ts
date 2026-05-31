@@ -26,19 +26,43 @@ export function toScheduledItem(ride: DispatchedRide): ScheduledItem {
 }
 
 export function parseRideStart(ride: DispatchedRide): Date {
-  const rawDate = ride.scheduledDate?.trim();
-  const rawTime = ride.scheduledTime?.trim();
+  const rawDate = ride.scheduledDate?.trim() ?? "";
+  const rawTime = ride.scheduledTime?.trim() ?? "";
   const today = new Date();
-  const base =
-    /^today$/i.test(rawDate) ? today :
-    /^tomorrow$/i.test(rawDate) ? addDays(today, 1) :
-    new Date(`${rawDate} ${rawTime}`);
+  const isToday = /^today$/i.test(rawDate);
+  const isTomorrow = /^tomorrow$/i.test(rawDate);
 
-  const parsed = Number.isNaN(base.getTime()) ? new Date(ride.createdAt || Date.now()) : base;
-  if (!rawTime || !Number.isNaN(base.getTime())) return parsed;
+  // "Today"/"Tomorrow" resolve to the start of that calendar day so the
+  // scheduled clock time below is layered on — without this the ride would
+  // inherit the current time of day instead of its scheduledTime.
+  if (isToday || isTomorrow) {
+    const day = startOfDay(isTomorrow ? addDays(today, 1) : today);
+    return applyClockTime(day, rawTime) ?? day;
+  }
 
-  const timeParsed = new Date(`${parsed.toDateString()} ${rawTime}`);
-  return Number.isNaN(timeParsed.getTime()) ? parsed : timeParsed;
+  // Explicit "<date> <time>" string already carries the time.
+  const explicit = new Date(`${rawDate} ${rawTime}`.trim());
+  if (!Number.isNaN(explicit.getTime())) return explicit;
+
+  // Last resort: layer the time onto a parsed date, else fall back to createdAt.
+  const dateOnly = new Date(rawDate);
+  if (!Number.isNaN(dateOnly.getTime())) return applyClockTime(dateOnly, rawTime) ?? dateOnly;
+  return new Date(ride.createdAt || Date.now());
+}
+
+// Layers a "h:mm AM/PM" (or 24h "HH:mm") clock string onto the given day.
+// Returns null when the string can't be parsed so callers can fall back.
+function applyClockTime(day: Date, rawTime: string): Date | null {
+  const match = rawTime.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const meridiem = match[3]?.toUpperCase();
+  if (meridiem === "PM" && hours < 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+  const result = new Date(day);
+  result.setHours(hours, minutes, 0, 0);
+  return result;
 }
 
 export function startOfDay(date: Date) {
@@ -164,9 +188,11 @@ export function formatHeaderDate(date: Date, mode: CalendarMode) {
     const week = buildWeek(date);
     const start = week[0].date;
     const end = week[6].date;
-    return `${formatShortDate(start)} - ${formatShortDate(end)}`;
+    const sameMonth = start.getMonth() === end.getMonth();
+    const endLabel = sameMonth ? `${end.getDate()}` : formatShortDate(end);
+    return `${formatShortDate(start)} – ${endLabel}`;
   }
-  return date.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
+  return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
 }
 
 export function formatAgendaDate(date: Date) {
@@ -204,8 +230,7 @@ export function isCalendarRideStatus(status: DispatchedRide["status"]) {
 }
 
 export function scheduleStatusKey(ride: Pick<DispatchedRide, "status">): StatusKey {
-  if (ride.status === "pending") return "pending";
-  if (ride.status === "accepted") return "scheduled";
+  if (ride.status === "pending" || ride.status === "accepted") return "scheduled";
   if (ride.status === "en_route") return "enRoute";
   if (ride.status === "picked_up") return "arrived";
   if (ride.status === "in_transit") return "inTransit";

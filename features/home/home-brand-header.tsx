@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Image, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -34,21 +35,22 @@ export function HomeBrandHeader({
 
   const logoSize = useMemo(() => {
     const centeredAvailableWidth = width - spacing.md * 2 - HEADER_ACTIONS_RESERVED_WIDTH * 2;
-    const logoWidth = Math.max(210, Math.min(centeredAvailableWidth, compact ? 240 : 304));
+    const logoWidth = Math.max(172, Math.min(centeredAvailableWidth, compact ? 184 : 240));
 
     return {
       width: logoWidth,
       height: Math.round(logoWidth / LOGO_ASPECT_RATIO),
     };
   }, [compact, width]);
-  const headerHeight = logoSize.height + (compact ? 28 : 34);
+  // Keep just enough slack around the logo to clear the 44pt action buttons.
+  const headerHeight = Math.max(44, logoSize.height + (compact ? 6 : 10));
 
   return (
     <View
       style={{
         backgroundColor: colors.surface,
-        paddingTop: insets.top + 8,
-        paddingBottom: compact ? 18 : 20,
+        paddingTop: insets.top + 3,
+        paddingBottom: compact ? 7 : 9,
         paddingHorizontal: spacing.md,
       }}
     >
@@ -82,7 +84,7 @@ export function HomeBrandHeader({
           <Image
             source={LOGO_SOURCE}
             accessibilityIgnoresInvertColors
-            resizeMode="contain"
+            contentFit="contain"
             style={{
               width: logoSize.width,
               height: logoSize.height,
@@ -113,8 +115,8 @@ export function HomeBrandHeader({
             accessibilityLabel={isTracking ? "Live location tracking is on" : "Live location tracking is off"}
             hitSlop={8}
             style={({ pressed }) => ({
-              width: 28,
-              height: 40,
+              width: 44,
+              height: 44,
               borderRadius: radii.pill,
               alignItems: "center",
               justifyContent: "center",
@@ -166,8 +168,8 @@ function DispatchChatButton({ onPress, unreadCount }: { onPress: () => void; unr
       }
       hitSlop={8}
       style={({ pressed }) => ({
-        width: 32,
-        height: 40,
+        width: 44,
+        height: 44,
         borderRadius: radii.pill,
         backgroundColor: pressed ? colors.surfaceLow : "transparent",
         alignItems: "center",
@@ -181,8 +183,8 @@ function DispatchChatButton({ onPress, unreadCount }: { onPress: () => void; unr
           pointerEvents="none"
           style={{
             position: "absolute",
-            top: 3,
-            right: -3,
+            top: 8,
+            right: 6,
             minWidth: 18,
             height: 18,
             borderRadius: 9,

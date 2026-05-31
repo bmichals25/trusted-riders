@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SymbolView } from "expo-symbols";
+import { SymbolIcon } from "@/components/ui/SymbolIcon";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { MenuView, type MenuAction } from "@react-native-menu/menu";
 
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { type DispatchedRide } from "@/lib/rides";
@@ -11,7 +12,6 @@ import {
   type CalendarMode,
   chunk,
   currentTimeTop,
-  dateSubtitle,
   formatAgendaDate,
   formatHeaderDate,
   formatHour,
@@ -35,161 +35,96 @@ import {
 export function ScheduleToolbar({
   mode,
   selectedDate,
-  activeCount,
-  pendingCount,
-  nextItem,
   onPrevious,
   onNext,
   onModeChange,
 }: {
   mode: CalendarMode;
   selectedDate: Date;
-  activeCount: number;
-  pendingCount: number;
-  nextItem: ScheduledItem | null;
   onPrevious: () => void;
   onNext: () => void;
   onModeChange: (mode: CalendarMode) => void;
 }) {
   return (
-    <View style={{ gap: spacing.sm }}>
-      <View style={{ gap: 3 }}>
-        <Text style={{ color: colors.primary, fontSize: 34, fontWeight: "900", lineHeight: 39 }} numberOfLines={1}>
-          Schedule
-        </Text>
-        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "800", lineHeight: 18 }} numberOfLines={1}>
-          Active rides, accepted rides, and pending requests
-        </Text>
-      </View>
-      <ModeControl mode={mode} onChange={onModeChange} />
-      <ScheduleReadinessStrip
-        activeCount={activeCount}
-        pendingCount={pendingCount}
-        nextItem={nextItem}
-      />
-
+    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
       {mode === "list" ? (
-        <View style={dateStripStyle}>
+        <View style={[dateStripStyle, { flex: 1 }]}>
           <View style={{ flex: 1, minWidth: 0, alignItems: "center", paddingVertical: 3 }}>
             <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "900", lineHeight: 22 }} numberOfLines={1}>
               All scheduled rides
             </Text>
-            <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800", lineHeight: 16 }} numberOfLines={1}>
-              Agenda view
-            </Text>
           </View>
         </View>
       ) : (
-        <View style={dateStripStyle}>
+        <View style={[dateStripStyle, { flex: 1 }]}>
           <DateArrow label="Previous date" iconName="chevron.left" onPress={onPrevious} />
           <View style={{ flex: 1, minWidth: 0, alignItems: "center" }}>
             <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "900", lineHeight: 22 }} numberOfLines={1}>
               {formatHeaderDate(selectedDate, mode)}
             </Text>
-            <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800", lineHeight: 16 }} numberOfLines={1}>
-              {dateSubtitle(selectedDate, mode)}
-            </Text>
           </View>
           <DateArrow label="Next date" iconName="chevron.right" onPress={onNext} />
         </View>
       )}
+      <ViewSelector mode={mode} onChange={onModeChange} />
     </View>
   );
 }
 
-function ScheduleReadinessStrip({
-  activeCount,
-  pendingCount,
-  nextItem,
-}: {
-  activeCount: number;
-  pendingCount: number;
-  nextItem: ScheduledItem | null;
-}) {
-  const nextRide = nextItem?.ride;
+const MODE_LABELS: Record<CalendarMode, string> = {
+  list: "List",
+  day: "Day",
+  week: "Week",
+  month: "Month",
+};
+
+function ViewSelector({ mode, onChange }: { mode: CalendarMode; onChange: (mode: CalendarMode) => void }) {
+  const actions: MenuAction[] = CALENDAR_MODES.map((item) => ({
+    id: item,
+    title: MODE_LABELS[item],
+    state: item === mode ? "on" : "off",
+  }));
+
   return (
-    <View
-      accessible
-      accessibilityLabel={`Schedule summary. ${activeCount} active ${activeCount === 1 ? "ride" : "rides"}. ${pendingCount} pending ${pendingCount === 1 ? "request" : "requests"}. ${nextItem ? `Next ride ${rideShortLabel(nextItem.ride)} at ${nextItem.timeLabel}.` : "No upcoming ride in the schedule."}`}
-      style={{
-        minHeight: 64,
-        borderRadius: radii.md,
-        backgroundColor: colors.primary,
-        padding: spacing.sm,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing.sm,
-        ...shadows.soft,
+    <MenuView
+      title="Schedule view"
+      shouldOpenOnLongPress={false}
+      onPressAction={({ nativeEvent }) => {
+        const next = nativeEvent.event as CalendarMode;
+        if (next && next !== mode) onChange(next);
       }}
+      actions={actions}
     >
-      <SummaryMetric
-        label="Active"
-        value={String(activeCount)}
-        tone={activeCount ? "green" : "muted"}
-      />
-      <SummaryMetric
-        label="Pending"
-        value={String(pendingCount)}
-        tone={pendingCount ? "amber" : "muted"}
-      />
       <View
+        accessibilityRole="button"
+        accessibilityLabel={`Schedule view: ${MODE_LABELS[mode]}`}
+        accessibilityHint="Choose list, day, week, or month view"
         style={{
-          flex: 1,
-          minWidth: 0,
-          borderRadius: radii.sm,
-          backgroundColor: "rgba(255,255,255,0.08)",
-          paddingHorizontal: spacing.sm,
-          paddingVertical: 8,
-          gap: 3,
+          minHeight: 44,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingLeft: spacing.md,
+          paddingRight: spacing.sm,
+          borderRadius: radii.pill,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.slate200,
+          ...shadows.soft,
         }}
       >
-        <Text style={{ color: colors.slate300, fontSize: 10, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" }} numberOfLines={1}>
-          Next
+        <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "900" }} numberOfLines={1}>
+          {MODE_LABELS[mode]}
         </Text>
-        <Text style={{ color: colors.surface, fontSize: 14, fontWeight: "900", lineHeight: 18 }} numberOfLines={1}>
-          {nextItem ? `${nextItem.timeLabel} · ${rideShortLabel(nextRide!)}` : "Standing by"}
-        </Text>
-        <Text style={{ color: colors.slate300, fontSize: 11, fontWeight: "800", lineHeight: 14 }} numberOfLines={1}>
-          {nextRide ? nextRide.pickupAddress : "No upcoming schedule items"}
-        </Text>
+        <SymbolIcon
+          name="chevron.down"
+          size={12}
+          type="hierarchical"
+          tintColor={colors.blue}
+          weight="bold"
+        />
       </View>
-    </View>
-  );
-}
-
-function SummaryMetric({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "green" | "amber" | "muted";
-}) {
-  const valueColor = tone === "green"
-    ? colors.greenLight
-    : tone === "amber"
-      ? colors.amberSoft
-      : colors.slate300;
-  return (
-    <View
-      style={{
-        width: 72,
-        minHeight: 48,
-        borderRadius: radii.sm,
-        backgroundColor: "rgba(255,255,255,0.08)",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 1,
-      }}
-    >
-      <Text style={{ color: valueColor, fontSize: 19, fontWeight: "900", lineHeight: 23 }} numberOfLines={1}>
-        {value}
-      </Text>
-      <Text style={{ color: colors.slate300, fontSize: 10, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase" }} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
+    </MenuView>
   );
 }
 
@@ -257,46 +192,36 @@ export function CalendarSurface({
         backgroundColor: colors.surface,
         borderRadius: radii.sm,
         padding: spacing.xs,
-        gap: spacing.xs,
         flex: 1,
         minHeight: 0,
         overflow: "hidden",
         ...shadows.soft,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
-        <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 }} numberOfLines={1}>
-          {mode === "list" ? "Agenda" : mode === "day" ? "Daily schedule" : mode === "week" ? "Week view" : "Month view"}
-        </Text>
-        <View style={{ borderRadius: radii.pill, backgroundColor: colors.surfaceLow, paddingHorizontal: spacing.sm, paddingVertical: 6 }}>
-          <Text style={{ color: visibleRideCount ? colors.blue : colors.slate500, fontSize: 12, fontWeight: "900" }}>
-            {rideCountLabel(visibleRideCount)}
-          </Text>
-        </View>
-      </View>
-
-      <View style={{ flex: 1, minHeight: 0, gap: spacing.xs }}>
-        <ScrollView
-          ref={calendarScrollRef}
-          style={{ flex: 1, minHeight: 0 }}
-          contentContainerStyle={{ paddingBottom: spacing.xs }}
-          showsVerticalScrollIndicator={false}
-          onLayout={(event) => setCalendarViewportHeight(event.nativeEvent.layout.height)}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
-        >
-          {visibleRideCount === 0 ? (
+      {/* The ScrollView is the card's first descendant (subviews[0]) so react-native-screens
+          scrolls it to top when the active bottom tab is re-tapped. */}
+      <ScrollView
+        ref={calendarScrollRef}
+        style={{ flex: 1, minHeight: 0 }}
+        contentContainerStyle={{ paddingBottom: spacing.xs }}
+        showsVerticalScrollIndicator={false}
+        onLayout={(event) => setCalendarViewportHeight(event.nativeEvent.layout.height)}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
+      >
+        {mode === "list" ? (
+          visibleRideCount === 0 ? (
             <ScheduleEmptyState mode={mode} minHeight={Math.max(260, calendarViewportHeight - spacing.md)} />
-          ) : mode === "list" ? (
-            <AgendaList items={listItems} onOpenRide={onOpenRide} />
-          ) : mode === "day" ? (
-            <DayCalendar items={dayItems} selectedKey={selectedKey} todayKey={todayKey} hours={dayTimelineHours} onOpenRide={onOpenRide} />
-          ) : mode === "week" ? (
-            <WeekCalendar days={weekDays} items={weekItems} selectedKey={selectedKey} onSelectDate={onSelectDate} onOpenRide={onOpenRide} />
           ) : (
-            <MonthCalendar days={monthDays} items={monthItems} todayKey={todayKey} selectedKey={selectedKey} onSelectDate={onSelectDate} onOpenRide={onOpenRide} />
-          )}
-        </ScrollView>
-      </View>
+            <AgendaList items={listItems} onOpenRide={onOpenRide} />
+          )
+        ) : mode === "day" ? (
+          <DayCalendar items={dayItems} selectedKey={selectedKey} todayKey={todayKey} hours={dayTimelineHours} onOpenRide={onOpenRide} />
+        ) : mode === "week" ? (
+          <WeekCalendar days={weekDays} items={weekItems} selectedKey={selectedKey} onSelectDate={onSelectDate} onOpenRide={onOpenRide} />
+        ) : (
+          <MonthCalendar days={monthDays} items={monthItems} todayKey={todayKey} selectedKey={selectedKey} onSelectDate={onSelectDate} onOpenRide={onOpenRide} />
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -311,7 +236,7 @@ function ScheduleEmptyState({ mode, minHeight }: { mode: CalendarMode; minHeight
         : "No rides this month";
   const body = mode === "list"
     ? "Pull to refresh when dispatch assigns new work."
-    : "Pull to refresh, or switch views to check another part of the schedule.";
+    : "Pull to refresh, or switch views.";
 
   return (
     <View
@@ -341,7 +266,7 @@ function ScheduleEmptyState({ mode, minHeight }: { mode: CalendarMode; minHeight
           borderColor: colors.slate100,
         }}
       >
-        <SymbolView
+        <SymbolIcon
           name="calendar.badge.clock"
           size={25}
           type="hierarchical"
@@ -390,7 +315,7 @@ function DateArrow({ label, iconName, onPress }: { label: string; iconName: "che
         opacity: pressed ? 0.62 : 1,
       })}
     >
-      <SymbolView
+      <SymbolIcon
         name={iconName}
         size={18}
         type="hierarchical"
@@ -398,49 +323,6 @@ function DateArrow({ label, iconName, onPress }: { label: string; iconName: "che
         weight="bold"
       />
     </Pressable>
-  );
-}
-
-function ModeControl({ mode, onChange }: { mode: CalendarMode; onChange: (mode: CalendarMode) => void }) {
-  return (
-    <View
-      accessibilityRole="tablist"
-      style={{
-        alignSelf: "stretch",
-        backgroundColor: colors.surfaceHigh,
-        borderRadius: radii.pill,
-        padding: 3,
-        flexDirection: "row",
-        gap: 3,
-      }}
-    >
-      {CALENDAR_MODES.map((item) => {
-        const selected = item === mode;
-        return (
-          <Pressable
-            key={item}
-            onPress={() => onChange(item)}
-            accessibilityRole="tab"
-            accessibilityLabel={`${item} view`}
-            accessibilityState={{ selected }}
-            style={({ pressed }) => ({
-              flex: 1,
-              minHeight: 44,
-              borderRadius: radii.pill,
-              backgroundColor: selected ? colors.surface : "transparent",
-              alignItems: "center",
-              justifyContent: "center",
-              opacity: pressed ? 0.72 : 1,
-              ...selected ? shadows.soft : null,
-            })}
-          >
-            <Text style={{ color: selected ? colors.primary : colors.slate500, fontSize: 13, fontWeight: "900", textTransform: "capitalize" }}>
-              {item}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
   );
 }
 
@@ -566,11 +448,16 @@ function AgendaRideRow({ item, onPress }: { item: ScheduledItem; onPress: () => 
   const ride = item.ride;
   const pending = isPendingRide(ride);
   const active = isActiveScheduleRide(ride);
+  // toLocaleTimeString separates the AM/PM with a narrow no-break space (U+202F),
+  // so split on any whitespace — a plain " " split silently keeps them joined.
+  const timeParts = item.timeLabel.split(/\s+/);
+  const timeClock = timeParts[0];
+  const timePeriod = timeParts.length > 1 ? timeParts[timeParts.length - 1] : "";
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Pending request" : active ? "Active ride" : "Scheduled ride"}. Pickup ${ride.pickupAddress}. Dropoff ${ride.dropoffAddress}.`}
+      accessibilityLabel={`Open ${ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Upcoming ride" : active ? "Active ride" : "Scheduled ride"}. Pickup ${ride.pickupAddress}. Dropoff ${ride.dropoffAddress}.`}
       style={({ pressed }) => ({
         borderRadius: radii.sm,
         backgroundColor: colors.surface,
@@ -582,19 +469,26 @@ function AgendaRideRow({ item, onPress }: { item: ScheduledItem; onPress: () => 
         opacity: pressed ? 0.72 : 1,
       })}
     >
-      <View style={{ width: 58, alignItems: "center", gap: 4 }}>
-        <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "900" }} numberOfLines={1}>
-          {item.timeLabel}
-        </Text>
+      <View style={{ width: 50, alignItems: "center", gap: 4 }}>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "900", lineHeight: 18 }} numberOfLines={1}>
+            {timeClock}
+          </Text>
+          {timePeriod ? (
+            <Text style={{ color: colors.slate500, fontSize: 11, fontWeight: "800", lineHeight: 13 }} numberOfLines={1}>
+              {timePeriod}
+            </Text>
+          ) : null}
+        </View>
         <View style={{ width: 2, flex: 1, minHeight: 54, borderRadius: radii.pill, backgroundColor: pending ? colors.amberSoft : active ? colors.greenSoft : colors.blueSoft }} />
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: spacing.xs }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", lineHeight: 20 }} numberOfLines={1}>
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "900", lineHeight: 20 }}>
               {ride.passengerName}
             </Text>
-            <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800", lineHeight: 16 }} numberOfLines={1}>
+            <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800", lineHeight: 16 }}>
               {rideShortLabel(ride)} · {ride.transitType}
             </Text>
           </View>
@@ -613,7 +507,7 @@ function CompactRouteLine({ color, address }: { color: string; address: string }
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
-      <Text style={{ flex: 1, color: colors.slate500, fontSize: 12, fontWeight: "700", lineHeight: 16 }} numberOfLines={1}>
+      <Text style={{ flex: 1, color: colors.slate500, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
         {address}
       </Text>
     </View>
@@ -684,7 +578,7 @@ function WeekCalendar({
                 <Pressable
                   onPress={() => primaryPendingItem ? onOpenRide(primaryPendingItem.ride) : onSelectDate(day.date)}
                   accessibilityRole="button"
-                  accessibilityLabel={primaryPendingItem ? `Open pending ride ${rideShortLabel(primaryPendingItem.ride)}` : `Select ${formatAgendaDate(day.date)}`}
+                  accessibilityLabel={primaryPendingItem ? `Open upcoming ride ${rideShortLabel(primaryPendingItem.ride)}` : `Select ${formatAgendaDate(day.date)}`}
                   style={({ pressed }) => ({
                     position: "absolute",
                     left: 0,
@@ -771,7 +665,7 @@ function MonthCalendar({
                   onPress={() => primaryPendingItem ? onOpenRide(primaryPendingItem.ride) : onSelectDate(day.date)}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={primaryPendingItem ? `Open pending ride ${rideShortLabel(primaryPendingItem.ride)}` : `Select ${formatAgendaDate(day.date)}`}
+                  accessibilityLabel={primaryPendingItem ? `Open upcoming ride ${rideShortLabel(primaryPendingItem.ride)}` : `Select ${formatAgendaDate(day.date)}`}
                   style={({ pressed }) => ({
                     position: "absolute",
                     left: 0,
@@ -823,32 +717,37 @@ function CalendarEventBlock({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${item.ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Pending request" : active ? "Active ride" : "Scheduled ride"}.`}
+      accessibilityLabel={`Open ${item.ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Upcoming ride" : active ? "Active ride" : "Scheduled ride"}.`}
       style={({ pressed }) => ({
-        backgroundColor: mode === "day" ? eventSoftColor : colors.surface,
+        // Week columns are only ~36px wide, so the chip is a filled colour block
+        // positioned on the time rail (no text — any label just truncates to "…").
+        // Day mode keeps the full detail card.
+        backgroundColor: compact ? (pending ? colors.surface : eventColor) : eventSoftColor,
         borderRadius: radii.xs,
-        paddingHorizontal: compact ? 5 : spacing.sm,
-        paddingVertical: compact ? 5 : spacing.sm,
-        gap: compact ? 1 : 3,
+        paddingHorizontal: compact ? 0 : spacing.sm,
+        paddingVertical: compact ? 0 : spacing.sm,
+        gap: compact ? 0 : 3,
         opacity: pressed ? 0.72 : 1,
-        borderWidth: 1,
-        borderColor: mode === "day" ? eventBorderColor : pending ? colors.amber : active ? colors.greenSoft : colors.slate100,
-        borderLeftWidth: pending ? 1 : 3,
+        borderWidth: compact ? (pending ? 1 : 0) : 1,
+        borderColor: compact ? eventColor : mode === "day" ? eventBorderColor : pending ? colors.amber : active ? colors.greenSoft : colors.slate100,
+        borderLeftWidth: compact ? (pending ? 1 : 0) : pending ? 1 : 3,
         borderLeftColor: eventColor,
         ...style,
       })}
     >
-      <Text style={{ color: colors.primary, fontSize: compact ? 10 : 14, fontWeight: "900" }} numberOfLines={compact ? 1 : 2}>
-        {compact ? rideShortLabel(item.ride) : item.ride.passengerName}
-      </Text>
-      <Text style={{ color: pending ? colors.amber : active ? colors.greenStrong : colors.blue, fontSize: compact ? 9 : 12, fontWeight: "900" }} numberOfLines={1}>
-        {item.timeLabel}{mode === "day" ? ` · ${pending ? "Pending" : active ? "Active" : item.ride.transitType}` : ""}
-      </Text>
-      {mode === "day" ? (
-        <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }} numberOfLines={1}>
-          {item.ride.pickupAddress}
-        </Text>
-      ) : null}
+      {compact ? null : (
+        <>
+          <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "900" }}>
+            {item.ride.passengerName}
+          </Text>
+          <Text style={{ color: pending ? colors.amber : active ? colors.greenStrong : colors.blue, fontSize: 12, fontWeight: "900" }} numberOfLines={1}>
+            {item.timeLabel} · {pending ? "Upcoming" : active ? "Active" : item.ride.transitType}
+          </Text>
+          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700" }}>
+            {item.ride.pickupAddress}
+          </Text>
+        </>
+      )}
     </Pressable>
   );
 }
@@ -860,7 +759,7 @@ function MonthEventBar({ item, selected, onPress }: { item: ScheduledItem; selec
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${item.ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Pending request" : active ? "Active ride" : "Scheduled ride"}.`}
+      accessibilityLabel={`Open ${item.ride.passengerName} ride. ${item.timeLabel}. ${pending ? "Upcoming ride" : active ? "Active ride" : "Scheduled ride"}.`}
       style={({ pressed }) => ({
         minHeight: pending ? 7 : 5,
         borderRadius: radii.pill,

@@ -92,7 +92,7 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
               onPress={Platform.OS === "web" ? onReload : onOpenSettings}
               accessibilityRole="button"
               accessibilityLabel={Platform.OS === "web" ? "Enable tracking" : "Open Settings"}
-              accessibilityHint={Platform.OS === "web" ? "Reloads after you allow location in the browser." : "Opens iOS Settings for TrustedRide Certified."}
+              accessibilityHint={Platform.OS === "web" ? "Reloads after you allow location in the browser." : "Opens app settings for TrustedRide Certified."}
             >
               <Text style={s.buttonText}>
                 {Platform.OS === "web" ? "Enable Tracking" : "Open Settings"}

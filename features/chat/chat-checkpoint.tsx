@@ -1,4 +1,5 @@
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { SymbolIcon } from "@/components/ui/SymbolIcon";
 
 import { type CheckpointCardData } from "@/features/chat/chat-model";
 import { colors, radii, spacing } from "@/lib/theme";
@@ -20,13 +21,11 @@ export function CheckpointUpdateCard({
       style={({ pressed }) => [
         {
           width: 286,
-          borderRadius: radii.md,
-          borderBottomRightRadius: isOperator ? 5 : radii.md,
-          borderBottomLeftRadius: isOperator ? radii.md : 5,
+          borderRadius: radii.sm,
+          borderBottomRightRadius: isOperator ? 4 : radii.sm,
+          borderBottomLeftRadius: isOperator ? radii.sm : 4,
           borderCurve: "continuous",
-          backgroundColor: colors.surface,
-          borderWidth: 1,
-          borderColor: colors.slate200,
+          backgroundColor: colors.surfaceLow,
           padding: 14,
           gap: 10,
           opacity: pressed ? 0.76 : 1,
@@ -44,21 +43,15 @@ export function CheckpointUpdateCard({
             justifyContent: "center",
           }}
         >
-          <Text style={{ color: colors.greenLight, fontSize: 18, fontWeight: "900" }}>✓</Text>
+          <SymbolIcon
+            name="checkmark"
+            size={17}
+            type="hierarchical"
+            tintColor={colors.greenLight}
+            weight="semibold"
+          />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            style={{
-              color: colors.green,
-              fontSize: 11,
-              fontWeight: "900",
-              textTransform: "uppercase",
-              letterSpacing: 1.2,
-            }}
-            numberOfLines={1}
-          >
-            Driver checkpoint
-          </Text>
           <Text
             style={{
               color: colors.primary,
@@ -78,27 +71,12 @@ export function CheckpointUpdateCard({
           {data.statusLabel} · {data.timeLabel}
         </Text>
         {data.address ? (
-          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700", lineHeight: 16 }} numberOfLines={2}>
+          <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "700", lineHeight: 16 }}>
             {data.address}
           </Text>
         ) : null}
       </View>
 
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderTopColor: colors.slate100,
-          paddingTop: 9,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Text style={{ color: colors.slate400, fontSize: 11, fontWeight: "800" }}>
-          View checkpoint details
-        </Text>
-        <Text style={{ color: colors.blue, fontSize: 15, fontWeight: "900" }}>›</Text>
-      </View>
     </Pressable>
   );
 }
@@ -127,8 +105,8 @@ export function CheckpointDetailModal({
         <View
           style={{
             maxHeight: "78%",
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
+            borderTopLeftRadius: radii.lg,
+            borderTopRightRadius: radii.lg,
             backgroundColor: colors.surface,
             paddingHorizontal: spacing.md,
             paddingTop: 14,
@@ -195,7 +173,7 @@ export function CheckpointDetailModal({
                   }}
                 >
                   <Text style={{ color: colors.green, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1 }}>
-                    {checkpoint.completedMission ? "Mission completed" : "Driver update"}
+                    {checkpoint.completedMission ? "Mission completed" : "TrustedRider update"}
                   </Text>
                   <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>
                     {checkpoint.commandLabel}
@@ -205,32 +183,43 @@ export function CheckpointDetailModal({
                   </Text>
                 </View>
 
-                <CheckpointDetailRow
-                  label="Step"
-                  value={checkpoint.stepLabel ?? "Current mission step"}
-                />
-                <CheckpointDetailRow
-                  label="Current stop"
-                  value={[checkpoint.currentStageTitle, checkpoint.currentStageAddress].filter(Boolean).join("\n")}
-                />
-                {checkpoint.nextStageTitle || checkpoint.nextStageAddress ? (
+                <View
+                  style={{
+                    borderRadius: radii.sm,
+                    borderCurve: "continuous",
+                    backgroundColor: colors.surfaceLow,
+                    paddingHorizontal: 14,
+                    paddingVertical: 14,
+                    gap: 14,
+                  }}
+                >
                   <CheckpointDetailRow
-                    label="Next stop"
-                    value={[checkpoint.nextStageTitle, checkpoint.nextStageAddress].filter(Boolean).join("\n")}
+                    label="Step"
+                    value={checkpoint.stepLabel ?? "Current mission step"}
                   />
-                ) : null}
-                {checkpoint.targetAddress && checkpoint.targetAddress !== checkpoint.currentStageAddress ? (
                   <CheckpointDetailRow
-                    label="Target"
-                    value={checkpoint.targetAddress}
+                    label="Current stop"
+                    value={[checkpoint.currentStageTitle, checkpoint.currentStageAddress].filter(Boolean).join("\n")}
                   />
-                ) : null}
-                {checkpoint.driverLocationLabel ? (
-                  <CheckpointDetailRow
-                    label="Driver location"
-                    value={checkpoint.driverLocationLabel}
-                  />
-                ) : null}
+                  {checkpoint.nextStageTitle || checkpoint.nextStageAddress ? (
+                    <CheckpointDetailRow
+                      label="Next stop"
+                      value={[checkpoint.nextStageTitle, checkpoint.nextStageAddress].filter(Boolean).join("\n")}
+                    />
+                  ) : null}
+                  {checkpoint.targetAddress && checkpoint.targetAddress !== checkpoint.currentStageAddress ? (
+                    <CheckpointDetailRow
+                      label="Target"
+                      value={checkpoint.targetAddress}
+                    />
+                  ) : null}
+                  {checkpoint.driverLocationLabel ? (
+                    <CheckpointDetailRow
+                      label="TrustedRider location"
+                      value={checkpoint.driverLocationLabel}
+                    />
+                  ) : null}
+                </View>
               </>
             ) : null}
           </ScrollView>
@@ -250,17 +239,8 @@ function CheckpointDetailRow({
   if (!value) return null;
 
   return (
-    <View
-      style={{
-        borderRadius: radii.md,
-        borderCurve: "continuous",
-        backgroundColor: colors.surfaceLow,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        gap: 5,
-      }}
-    >
-      <Text style={{ color: colors.slate400, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1 }}>
+    <View style={{ gap: 5 }}>
+      <Text style={{ color: colors.slate500, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1 }}>
         {label}
       </Text>
       <Text selectable style={{ color: colors.primary, fontSize: 15, fontWeight: "800", lineHeight: 21 }}>

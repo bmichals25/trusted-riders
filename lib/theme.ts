@@ -61,7 +61,7 @@ export const statusColors = {
 export type StatusKey = keyof typeof statusColors;
 
 export const statusLabels: Record<StatusKey, string> = {
-  pending:    "Request",
+  pending:    "Upcoming",
   scheduled:  "Scheduled",
   enRoute:    "En Route",
   inTransit:  "In Transit",

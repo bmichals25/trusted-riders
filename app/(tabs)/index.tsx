@@ -1,12 +1,12 @@
 import { useCallback, useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { FocusTransition } from "@/components/ui/FocusTransition";
 import { useStartupPresentation } from "@/components/ui/DriverNameGate";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
-import { RideRequestCard } from "@/components/ui/RideRequestCard";
 import { HomeBrandHeader } from "@/features/home/home-brand-header";
 import {
   CurrentRideCard,
@@ -14,28 +14,33 @@ import {
   LoadingState,
   NextUpcomingRideCard,
   Notice,
-  RideRequestsBanner,
   Section,
   UpcomingRideCard,
 } from "@/features/home/home-screen-sections";
 import { useDispatch } from "@/lib/dispatch-context";
-import { ImpactFeedbackStyle, NotificationFeedbackType } from "@/lib/haptics";
+import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
-import { confirmDeclineRideRequest } from "@/lib/ride-action-confirmation";
 import { type DispatchedRide } from "@/lib/rides";
 import { colors, spacing } from "@/lib/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { activeRide, pendingRides, scheduledRides, backendError, hasLoadedRides, refreshRides, acceptRide, declineRide } = useDispatch();
-  const { error: locationError } = useLocation();
-  const { impact, notification } = useHaptics();
+  const { activeRide, scheduledRides, backendError, hasLoadedRides, refreshRides } = useDispatch();
+  const { error: locationError, permissionStatus } = useLocation();
+  const { impact } = useHaptics();
   const { startupAnimationComplete, startupAnimationExiting, startupAnimationVisible } = useStartupPresentation();
+  const { height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
-  const homeBottomPadding = 108;
-  const shouldShowRideRequests = hasLoadedRides && !backendError && pendingRides.length > 0;
+  // Floating tab bar clearance (76) + bottom safe-area inset so the last ride
+  // card clears the bar on every device. Floored at 108 so nothing clips on no-inset devices.
+  const homeBottomPadding = Math.max(insets.bottom + 76, 108);
+  // Only mount the location banner block when it actually has something to show.
+  // Otherwise the FadeInBlock wrapper renders an empty Animated.View that still
+  // counts as a flex child, injecting a phantom `gap: spacing.lg` (24) at the top.
+  const showLocationBanner = permissionStatus === "denied";
   const blockExitOnBlur = false;
   const replayHomeEntrance = false;
   const homeEntranceReady = !startupAnimationVisible || startupAnimationExiting || startupAnimationComplete;
@@ -57,11 +62,6 @@ export default function HomeScreen() {
     });
   }, [impact, router]);
 
-  const openRideRequestDetails = useCallback((ride: DispatchedRide) => {
-    impact(ImpactFeedbackStyle.Light);
-    router.push(`/ride-details?rideId=${encodeURIComponent(ride.id)}`);
-  }, [impact, router]);
-
   const openRideDetails = useCallback((ride: DispatchedRide) => {
     impact(ImpactFeedbackStyle.Light);
     router.push(`/ride-details?rideId=${encodeURIComponent(ride.id)}`);
@@ -74,18 +74,14 @@ export default function HomeScreen() {
 
   return (
     <FocusTransition>
-      <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
-        <FadeInBlock
-          delay={0}
-          distance={8}
-          duration={460}
-          exitOnBlur={blockExitOnBlur}
-          ready={homeEntranceReady}
-          replayOnFocus={replayHomeEntrance}
-        >
-          <HomeBrandHeader backendConnected={!backendError} backendError={backendError} />
-        </FadeInBlock>
-
+      <View style={{ flex: 1, minHeight: windowHeight, backgroundColor: colors.surfaceLow, flexDirection: "column-reverse" }}>
+        {/* column-reverse: the ScrollView is declared first so it becomes the native
+            first-descendant (subviews[0]), which react-native-screens requires in order to
+            scroll the active tab to the top when its bottom tab is re-tapped. Yoga still lays
+            the ScrollView out below the header that is declared after it. */}
+        {/* Ride lists below stay inline rather than FlashList: they're bounded short and
+            mutually exclusive, and nesting a virtualized list inside this hero ScrollView
+            would break virtualization. The full unbounded upcoming list lives in ride-requests-screen. */}
         <ScrollView
           style={{ flex: 1, backgroundColor: colors.surfaceLow }}
           contentInsetAdjustmentBehavior="never"
@@ -95,21 +91,23 @@ export default function HomeScreen() {
           scrollEventThrottle={16}
           contentContainerStyle={{
             flexGrow: 1,
-            paddingTop: spacing.md,
+            paddingTop: spacing.sm,
             paddingBottom: homeBottomPadding,
-            gap: spacing.lg,
+            gap: spacing.md,
           }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />}
         >
-          <FadeInBlock
-            delay={70}
-            duration={480}
-            exitOnBlur={blockExitOnBlur}
-            ready={homeEntranceReady}
-            replayOnFocus={replayHomeEntrance}
-          >
-            <LocationPermissionBanner />
-          </FadeInBlock>
+          {showLocationBanner ? (
+            <FadeInBlock
+              delay={70}
+              duration={480}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+            >
+              <LocationPermissionBanner />
+            </FadeInBlock>
+          ) : null}
 
           {backendError ? (
             <FadeInBlock
@@ -153,45 +151,6 @@ export default function HomeScreen() {
                 />
               </Section>
             </FadeInBlock>
-          ) : shouldShowRideRequests ? (
-            <FadeInBlock
-              delay={145}
-              duration={520}
-              distance={16}
-              exitOnBlur={blockExitOnBlur}
-              ready={homeEntranceReady}
-              replayOnFocus={replayHomeEntrance}
-            >
-              <Section title="Ride Requests" count={pendingRides.length}>
-                <View style={{ gap: spacing.md }}>
-                  {pendingRides.map((ride, index) => (
-                    <FadeInBlock
-                      key={ride.id}
-                      delay={185 + index * 38}
-                      duration={480}
-                      exitOnBlur={blockExitOnBlur}
-                      ready={homeEntranceReady}
-                      replayOnFocus={replayHomeEntrance}
-                      distance={10}
-                    >
-                      <RideRequestCard
-                        ride={ride}
-                        onOpen={() => openRideRequestDetails(ride)}
-                        onChat={() => openChat(ride)}
-                        onAccept={() => {
-                          notification(NotificationFeedbackType.Success);
-                          acceptRide(ride.id);
-                        }}
-                        onDecline={() => {
-                          impact(ImpactFeedbackStyle.Medium);
-                          confirmDeclineRideRequest(ride, () => declineRide(ride.id));
-                        }}
-                      />
-                    </FadeInBlock>
-                  ))}
-                </View>
-              </Section>
-            </FadeInBlock>
           ) : hasLoadedRides && !backendError && scheduledRides.length > 0 ? (
             <FadeInBlock
               delay={145}
@@ -225,6 +184,7 @@ export default function HomeScreen() {
                           <UpcomingRideCard
                             ride={ride}
                             onOpen={() => openRideDetails(ride)}
+                            onNavigate={() => openNavigation(ride)}
                           />
                         )}
                       </FadeInBlock>
@@ -256,28 +216,22 @@ export default function HomeScreen() {
               replayOnFocus={replayHomeEntrance}
             >
               <Section title="Current Ride">
-                <LoadingState title="Loading ride information" body="Checking the live backend for current rides and requests." />
+                <LoadingState title="Loading ride information" body="Checking dispatch…" />
               </Section>
             </FadeInBlock>
           )}
-
-          {shouldShowRideRequests && activeRide ? (
-            activeRide ? (
-              <FadeInBlock
-                delay={220}
-                duration={500}
-                distance={12}
-                exitOnBlur={blockExitOnBlur}
-                ready={homeEntranceReady}
-                replayOnFocus={replayHomeEntrance}
-              >
-                <View style={{ marginHorizontal: spacing.md }}>
-                  <RideRequestsBanner count={pendingRides.length} latestRide={pendingRides[0]} onPress={() => openRideRequestDetails(pendingRides[0])} />
-                </View>
-              </FadeInBlock>
-            ) : null
-          ) : null}
         </ScrollView>
+
+        <FadeInBlock
+          delay={0}
+          distance={8}
+          duration={460}
+          exitOnBlur={blockExitOnBlur}
+          ready={homeEntranceReady}
+          replayOnFocus={replayHomeEntrance}
+        >
+          <HomeBrandHeader backendConnected={!backendError} backendError={backendError} />
+        </FadeInBlock>
       </View>
     </FocusTransition>
   );
