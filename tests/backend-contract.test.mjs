@@ -139,6 +139,7 @@ test("chat helpers use the chaperone-scoped backend contract", () => {
   assert.equal(chatApi.getChatCommandType({ type: "unknown" }), null);
   assert.deepEqual(plain(chatApi.buildGpsResponseMetadata("gps_yes")), { command: "gps_yes" });
   assert.deepEqual(plain(chatApi.buildGpsResponseMetadata("gps_off")), { command: "gps_off" });
+  assert.deepEqual(plain(chatApi.buildRideEndMetadata()), { command: "ride_end" });
 
   const gpsRequest = chatApi.buildSendChatMessageRequest({
     text: "",
@@ -149,6 +150,17 @@ test("chat helpers use the chaperone-scoped backend contract", () => {
     text: "",
     client_message_id: "driver-gps-1",
     message_metadata: { command: "gps_yes" },
+  });
+
+  const rideEndRequest = chatApi.buildSendChatMessageRequest({
+    text: "",
+    clientMessageId: "driver-ride-end-1",
+    metadata: chatApi.buildRideEndMetadata(),
+  });
+  assert.deepEqual(JSON.parse(rideEndRequest.init.body), {
+    text: "",
+    client_message_id: "driver-ride-end-1",
+    message_metadata: { command: "ride_end" },
   });
 
   assert.equal(
@@ -225,7 +237,9 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
   });
   assert.equal(pushNotifications.readGpsAskNotificationData({ command: "gps_yes" }), null);
 
-  return pushNotifications.scheduleLocalGpsAskNotification({ messageId: "m3" }).then(() => {
+  return pushNotifications.scheduleLocalGpsAskNotification({ messageId: "m3" }).then(() =>
+    pushNotifications.scheduleLocalGpsOffNotification({ messageId: "m4" })
+  ).then(() => {
     assert.deepEqual(plain(scheduledNotifications), [{
       content: {
         title: "Dispatch is requesting GPS",
@@ -233,6 +247,16 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
         data: {
           command: "gps_ask",
           message_id: "m3",
+        },
+      },
+      trigger: null,
+    }, {
+      content: {
+        title: "GPS tracking turned off",
+        body: "Dispatch turned off live location sharing for this ride.",
+        data: {
+          command: "gps_off",
+          message_id: "m4",
         },
       },
       trigger: null,
@@ -353,6 +377,41 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
   assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "in_transit" }, { id: "184", status: "completed" }), true);
   assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "completed" }, { id: "184", status: "completed" }), false);
   assert.equal(dispatchContext.shouldEndGpsAtRideEndpoint({ id: "184", status: "in_transit" }, { id: "184", status: "cancelled" }), false);
+  assert.equal(
+    dispatchContext.shouldAutoCompleteRideAtDropoff(
+      { status: "in_transit", dropoffCoords: { latitude: 40.7401, longitude: -73.9998 } },
+      { latitude: 40.7402, longitude: -73.9997 },
+    ),
+    true,
+  );
+  assert.equal(
+    dispatchContext.shouldAutoCompleteRideAtDropoff(
+      { status: "picked_up", dropoffCoords: { latitude: 40.7401, longitude: -73.9998 } },
+      { latitude: 40.7402, longitude: -73.9997 },
+    ),
+    true,
+  );
+  assert.equal(
+    dispatchContext.shouldAutoCompleteRideAtDropoff(
+      { status: "en_route", dropoffCoords: { latitude: 40.7401, longitude: -73.9998 } },
+      { latitude: 40.7402, longitude: -73.9997 },
+    ),
+    false,
+  );
+  assert.equal(
+    dispatchContext.shouldAutoCompleteRideAtDropoff(
+      { status: "in_transit", dropoffCoords: { latitude: 40.7401, longitude: -73.9998 } },
+      { latitude: 40.7501, longitude: -74.0128 },
+    ),
+    false,
+  );
+  assert.equal(
+    Math.round(dispatchContext.distanceMetersBetween(
+      { latitude: 40.7401, longitude: -73.9998 },
+      { latitude: 40.7402, longitude: -73.9997 },
+    )),
+    14,
+  );
 
   const activeRide = {
     id: "184",

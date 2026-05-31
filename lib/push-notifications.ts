@@ -24,6 +24,10 @@ type LocalGpsAskNotificationInput = {
   messageId: string;
 };
 
+type LocalGpsOffNotificationInput = {
+  messageId: string;
+};
+
 let notificationHandlerConfigured = false;
 
 export function getExpoProjectId(): string | null {
@@ -143,6 +147,31 @@ export async function scheduleLocalGpsAskNotification({
       body: "Tap to approve or deny location sharing.",
       data: {
         command: "gps_ask",
+        message_id: messageId,
+      },
+    },
+    trigger: null,
+  });
+}
+
+export async function scheduleLocalGpsOffNotification({
+  messageId,
+}: LocalGpsOffNotificationInput): Promise<void> {
+  if (DEMO_MODE || Platform.OS === "web") return;
+
+  const notifications = getNotificationsModule();
+  if (!notifications) return;
+  configureNotificationHandler(notifications);
+
+  const existingPermission = await notifications.getPermissionsAsync();
+  if (!hasNotificationPermission(existingPermission)) return;
+
+  await notifications.scheduleNotificationAsync({
+    content: {
+      title: "GPS tracking turned off",
+      body: "Dispatch turned off live location sharing for this ride.",
+      data: {
+        command: "gps_off",
         message_id: messageId,
       },
     },

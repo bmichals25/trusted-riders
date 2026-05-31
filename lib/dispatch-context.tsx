@@ -7,11 +7,13 @@ import {
   isFleetApiRefreshSkippedError,
   setActiveRideId,
   updateLocation,
+  updateRideStatus,
 } from "./fleet-api";
 import {
   getChatCommandType,
   listRideChatMessages,
   sendGpsCommandMessage,
+  sendRideEndCommandMessage,
   sendRideChatMessage,
   type RideChatMessage,
 } from "./chat-api";
@@ -22,9 +24,10 @@ import {
   addGpsAskNotificationListeners,
   registerForPushNotifications,
   scheduleLocalGpsAskNotification,
+  scheduleLocalGpsOffNotification,
 } from "./push-notifications";
-import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideStatus } from "./rides";
-import { useLocation } from "./location-context";
+import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideCoordinate, type RideStatus } from "./rides";
+import { useLocation, type DriverLocation } from "./location-context";
 import * as storage from "./storage";
 
 export type RideStatusNotice = {
@@ -73,6 +76,7 @@ const DispatchActionsContext = createContext<DispatchActions>({
 
 const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
 const LAST_ACTIVE_RIDE_KEY = "trustedriders-last-active-ride";
+const AUTO_COMPLETE_DROPOFF_RADIUS_METERS = 150;
 
 export function isCurrentRideStatus(status: RideStatus): boolean {
   return (
@@ -84,6 +88,31 @@ export function isCurrentRideStatus(status: RideStatus): boolean {
 
 export function isUpcomingRideStatus(status: RideStatus): boolean {
   return status === "pending" || status === "accepted";
+}
+
+export function distanceMetersBetween(a: RideCoordinate, b: RideCoordinate): number {
+  const earthRadiusMeters = 6371000;
+  const lat1 = degreesToRadians(a.latitude);
+  const lat2 = degreesToRadians(b.latitude);
+  const deltaLat = degreesToRadians(b.latitude - a.latitude);
+  const deltaLon = degreesToRadians(b.longitude - a.longitude);
+  const sinLat = Math.sin(deltaLat / 2);
+  const sinLon = Math.sin(deltaLon / 2);
+  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+export function shouldAutoCompleteRideAtDropoff(
+  ride: Pick<DispatchedRide, "status" | "dropoffCoords">,
+  location: Pick<DriverLocation, "latitude" | "longitude"> | null,
+  radiusMeters = AUTO_COMPLETE_DROPOFF_RADIUS_METERS,
+): boolean {
+  if (!location || !ride.dropoffCoords) return false;
+  if (ride.status !== "picked_up" && ride.status !== "in_transit") return false;
+  return distanceMetersBetween(
+    { latitude: location.latitude, longitude: location.longitude },
+    ride.dropoffCoords,
+  ) <= radiusMeters;
 }
 
 export function shouldApplyIncomingGpsOff(command: ReturnType<typeof getChatCommandType>, sender: RideChatMessage["sender"]): boolean {
@@ -143,6 +172,33 @@ export function DispatchProvider({
   }
   const activeRideInState = rides.find((r) => isCurrentRideStatus(r.status)) ?? null;
   activeRideIdRef.current = activeRideInState ? getRideBackendId(activeRideInState.id) : null;
+
+  const completeRideAtDropoff = useCallback((ride: DispatchedRide) => {
+    if (sentEndpointGpsOffRideIdsRef.current.has(ride.id)) return;
+    sentEndpointGpsOffRideIdsRef.current.add(ride.id);
+    gpsSharingApprovedRef.current = false;
+    stopTracking();
+
+    setRides((prev) => {
+      const next = prev.map((candidate) =>
+        candidate.id === ride.id
+          ? { ...candidate, status: "completed" as RideStatus }
+          : candidate,
+      );
+      ridesRef.current = next;
+      return next;
+    });
+
+    void updateRideStatus(ride.id, "completed").catch((error) => {
+      console.log("[dispatch] auto-complete ride status failed", error instanceof Error ? error.message : error);
+    });
+    void sendRideEndCommandMessage().catch((error) => {
+      console.log("[dispatch] auto-complete ride_end command failed", error instanceof Error ? error.message : error);
+    });
+    void sendGpsCommandMessage("gps_off").catch((error) => {
+      console.log("[dispatch] auto-complete gps_off command failed", error instanceof Error ? error.message : error);
+    });
+  }, [stopTracking]);
 
   const refreshRides = useCallback(async () => {
     if (DEMO_MODE) {
@@ -232,6 +288,9 @@ export function DispatchProvider({
           sentEndpointGpsOffRideIdsRef.current.add(ride.id);
           gpsSharingApprovedRef.current = false;
           stopTracking();
+          void sendRideEndCommandMessage().catch((error) => {
+            console.log("[dispatch] endpoint ride_end command failed", error instanceof Error ? error.message : error);
+          });
           void sendGpsCommandMessage("gps_off").catch((error) => {
             console.log("[dispatch] endpoint gps_off command failed", error instanceof Error ? error.message : error);
           });
@@ -311,6 +370,12 @@ export function DispatchProvider({
       console.log(`[fleet-api] approved update_location foreground: ${result}`);
     });
   }, [location, isTracking]);
+
+  useEffect(() => {
+    if (DEMO_MODE || !isTracking || !activeRideInState) return;
+    if (!shouldAutoCompleteRideAtDropoff(activeRideInState, location)) return;
+    completeRideAtDropoff(activeRideInState);
+  }, [activeRideInState, completeRideAtDropoff, isTracking, location]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -469,6 +534,9 @@ export function DispatchProvider({
           processedChatCommandIdsRef.current.add(message.id);
           gpsSharingApprovedRef.current = false;
           stopTracking();
+          void scheduleLocalGpsOffNotification({ messageId: message.id }).catch((error) => {
+            console.log("[push] local gps_off notification failed", error instanceof Error ? error.message : error);
+          });
           continue;
         }
         if (command !== "gps_ask") continue;
@@ -483,7 +551,7 @@ export function DispatchProvider({
     } finally {
       chatCommandPollInFlightRef.current = false;
     }
-  }, [handleGpsRequest]);
+  }, [handleGpsRequest, stopTracking]);
 
   useEffect(() => {
     void processChatCommands();
@@ -670,6 +738,10 @@ export function shouldEndGpsAtRideEndpoint(
   nextRide: Pick<DispatchedRide, "id" | "status">,
 ): boolean {
   return nextRide.status === "completed" && previousRide?.status !== "completed";
+}
+
+function degreesToRadians(value: number): number {
+  return value * Math.PI / 180;
 }
 
 function isPendingAddress(value: string): boolean {

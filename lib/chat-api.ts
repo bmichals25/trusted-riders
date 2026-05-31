@@ -31,7 +31,7 @@ export type ChatReadReceipt = {
   read_at: string;
 };
 
-export type ChatCommandType = "gps_ask" | "gps_yes" | "gps_off";
+export type ChatCommandType = "gps_ask" | "gps_yes" | "gps_off" | "ride_end";
 export type ChatMetadata = Record<string, unknown> | ChatCommandType;
 
 export type RideChatStatus = {
@@ -172,6 +172,17 @@ export async function sendGpsCommandMessage(
   });
 }
 
+export async function sendRideEndCommandMessage(): Promise<RideChatMessage> {
+  return sendRideChatMessage({
+    rideId: DISPATCH_CHAT_ROOM_ID,
+    text: "",
+    sender: "driver",
+    senderName: "Driver",
+    clientMessageId: `driver-ride-end-${Date.now()}`,
+    metadata: buildRideEndMetadata(),
+  });
+}
+
 export async function setRideChatTyping({
   rideId,
 }: {
@@ -283,11 +294,15 @@ export function getChatCommandType(metadata: unknown): ChatCommandType | null {
         (metadata as Record<string, unknown>).command ??
         (metadata as Record<string, unknown>).action
       : null;
-  return value === "gps_ask" || value === "gps_yes" || value === "gps_off" ? value : null;
+  return value === "gps_ask" || value === "gps_yes" || value === "gps_off" || value === "ride_end" ? value : null;
 }
 
 export function buildGpsResponseMetadata(command: "gps_yes" | "gps_off"): Record<string, ChatCommandType> {
   return { command };
+}
+
+export function buildRideEndMetadata(): Record<string, ChatCommandType> {
+  return { command: "ride_end" };
 }
 
 function buildMessageMetadataPayload(
