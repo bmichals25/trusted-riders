@@ -1,0 +1,50 @@
+# Repo-root Netlify config for trustedriders-dispatch.
+# This host is the dispatch UI only — not the fleet/MCP backend.
+# Draft/preview deploys only. Do not publish this branch to production.
+
+[build]
+  command = "npm --prefix dispatch ci && npm --prefix dispatch run build"
+  publish = "dispatch/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "dispatch/netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/health/"
+  to = "/.netlify/functions/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/mcp"
+  to = "/.netlify/functions/mcp"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/mcp/"
+  to = "/.netlify/functions/mcp"
+  status = 200
+  force = true
