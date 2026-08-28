@@ -1,0 +1,43 @@
+# Used when the Netlify site base is the repo root (not `dispatch/`).
+# Does not override the UI build command/publish directory.
+# This host is the dispatch UI only — not the fleet/MCP backend.
+
+[functions]
+  directory = "dispatch/netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/health/"
+  to = "/.netlify/functions/health"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/mcp"
+  to = "/.netlify/functions/mcp"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/mcp/"
+  to = "/.netlify/functions/mcp"
+  status = 200
+  force = true
