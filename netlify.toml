@@ -1,6 +1,13 @@
-# Used when the Netlify site base is the repo root (not `dispatch/`).
-# Does not override the UI build command/publish directory.
+# Repo-root Netlify config for trustedriders-dispatch.
 # This host is the dispatch UI only — not the fleet/MCP backend.
+# Draft/preview deploys only. Do not publish this branch to production.
+
+[build]
+  command = "npm --prefix dispatch ci && npm --prefix dispatch run build"
+  publish = "dispatch/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
 
 [functions]
   directory = "dispatch/netlify/functions"
