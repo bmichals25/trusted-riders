@@ -1,170 +1,138 @@
 # TrustedRiders
 
-Operator-facing mobile app for the TrustedRiders non-emergency medical transport
-dispatch platform. Expo / React Native; iOS-first with a working web preview for
-development.
+**Canonical two-surface product** for MuseLabs TrustedRiders — a non-emergency
+medical transport (NEMT) operator platform.
 
-All production backend data is expected to come from Suresh's Fleet Tracking
-API at `https://pretyphoid-electrovalently-zena.ngrok-free.dev`.
+| Surface | What it is | Where it lives |
+| ------- | ---------- | -------------- |
+| **TrustedRide Certified iOS** | Operator/driver mobile app (Expo / React Native) | Repo root (`app/`, `lib/`, `eas.json`) |
+| **TrustedRiders Dispatch web** | Static dispatch UI (Vite) | https://trustedriders-dispatch.netlify.app |
+
+**Marketing:** https://www.trustedriders.org
+
+**Fleet data backend:** Suresh Fleet Tracking API (Flask) — see
+[`lib/config.ts`](lib/config.ts) for the current ngrok host and
+[`docs/suresh-fleet-api-inventory.md`](docs/suresh-fleet-api-inventory.md) for
+the discovered contract.
 
 ---
 
-## Prerequisites
+## Legacy vs canonical (read this first)
 
-- **Node.js 20+** (the dispatch sub-project declares `engines.node ≥ 18`)
+This monorepo also contains a **local React/MCP prototype** under `dispatch/`
+(Vite console + WebSocket relay). That code is **retained as legacy evidence**
+of early experiments — it is **not** production proof and is **not** the
+canonical dispatch host.
+
+| | Canonical | Legacy (evidence only) |
+| - | --------- | ---------------------- |
+| Dispatch UI | Netlify static site at `trustedriders-dispatch.netlify.app` | Local `dispatch/` Vite console on `:3001` |
+| Mobile data path | Suresh Fleet API (`lib/fleet-api.ts`) | Old WebSocket relay (`npm run relay` / `:3002`) — **no longer used by mobile** |
+| MCP / bad Supabase hosts | N/A — not part of canonical product | Documented gaps (TR-001/002/003 class); see [`docs/LEGACY.md`](docs/LEGACY.md) |
+
+Do not treat incomplete prototype documentation as a production gap to "fix" by
+inventing backends. TR-005's recommended disposition is to **document the
+canonical two-surface product separately** and **retain the legacy gap as
+evidence**.
+
+---
+
+## Documentation index
+
+| Doc | Purpose |
+| --- | ------- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System boundaries: iOS, Dispatch web, Fleet API, what Netlify is / is not |
+| [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) | `EXPO_PUBLIC_*`, EAS, Fleet API URL, dispatch phone — no secrets |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | EAS/TestFlight for iOS; Netlify static for Dispatch; preview vs prod |
+| [`docs/DEMO.md`](docs/DEMO.md) | Honest public walk-through of what you can actually see today |
+| [`docs/WHAT_BEN_ACTUALLY_BUILT.md`](docs/WHAT_BEN_ACTUALLY_BUILT.md) | Portfolio narrative for the two-surface system |
+| [`docs/LEGACY.md`](docs/LEGACY.md) | Local prototype disposition and known legacy gaps |
+| [`docs/suresh-fleet-api-inventory.md`](docs/suresh-fleet-api-inventory.md) | Discovered Fleet API endpoints and gaps |
+| [`DESIGN.md`](DESIGN.md) | "Vigilant Command Center" design language |
+
+---
+
+## Quick start (developer setup)
+
+### Prerequisites
+
+- **Node.js 20+** (the `dispatch/` sub-project declares `engines.node ≥ 18`)
 - **npm 10+**
 - **iOS**: Xcode 15+ and a simulator, or a real device with
   [Expo Go](https://apps.apple.com/us/app/expo-go/id982107779). For production
   builds, an active Apple Developer Program membership and the EAS CLI.
 - **Android** (optional): Android Studio with an emulator or a real device.
-- **Web** (optional): any modern browser.
+- **Web** (optional): any modern browser for Expo web preview.
 
----
-
-## First-time setup
+### Install
 
 ```bash
-# From the repo root
 npm install
 
-# Legacy dispatch console only, if you are intentionally testing old relay flows
+# Legacy dispatch console only — local experiments, not canonical production
 cd dispatch && npm install && cd ..
 ```
 
----
-
-## Running the driver app
-
-From the repo root:
+### Run the iOS / mobile app
 
 ```bash
-# Web preview (fastest; most UI renders identically to iOS)
-npm run web
-
-# iOS simulator — opens Metro, then launches the simulator
-npm run ios
-
-# Android emulator
-npm run android
-
-# Or start Metro on its own and pick a target from the menu
-npm start
+npm run web      # Web preview (fastest)
+npm run ios      # iOS simulator
+npm run android  # Android emulator
+npm start        # Metro menu
 ```
 
-Expo serves the bundle at **http://localhost:8081** by default (or 8083 if a
-`--port` flag is set). The web preview renders at that URL.
+Expo serves at **http://localhost:8081** by default. Sign-in authenticates
+against the Fleet API URL in [`lib/config.ts`](lib/config.ts). The JWT is
+persisted in `AsyncStorage` / `localStorage`.
 
-### Sign in
-
-The sign-in form authenticates against Suresh's Fleet Tracking Flask backend.
-The app points at the canonical ngrok URL defined in
-[`lib/config.ts`](lib/config.ts):
-
-```ts
-export const FLEET_API_URL = "https://pretyphoid-electrovalently-zena.ngrok-free.dev";
-```
-
-The token is persisted in `AsyncStorage` / `localStorage` so reloads stay
-authenticated for the JWT lifetime (~24h). Signing out from Settings clears
-it.
-
-### Emergency dispatch phone
-
-The in-app Emergency modals dial the TrustedRiders dispatch hotline. Set it
-via `EXPO_PUBLIC_DISPATCH_PHONE` in E.164 format (e.g. `+15551234567`). The
-default at [`lib/config.ts`](lib/config.ts) is a 555-prefix placeholder that
-won't actually route, so override before shipping to real drivers:
-
-```bash
-EXPO_PUBLIC_DISPATCH_PHONE=+15551234567 eas build --profile production --platform ios
-```
-
----
-
-## Legacy Dispatch Console
-
-The `dispatch/` app is retained for historical/local experiments. The mobile
-app no longer depends on its WebSocket relay.
-
-From the repo root:
-
-```bash
-cd dispatch
-
-# Both the Vite console and the old WebSocket relay
-npm run dev
-
-# Or run them separately
-npm run relay         # node server.js — relay on port 3002
-npx vite --port 3001  # console on http://localhost:3001
-```
-
----
-
-## Type-checking
+### Type-check
 
 ```bash
 npm run typecheck
 ```
 
----
-
-## Production builds (iOS / TestFlight)
-
-EAS is already configured — see [`eas.json`](eas.json) and the `expo.extra.eas`
-entry in [`app.json`](app.json).
+### Production iOS build (EAS / TestFlight)
 
 ```bash
-# One-time: install EAS CLI and sign in
 npm install -g eas-cli
 eas login
-
-# Production build for TestFlight
 eas build --profile production --platform ios
-
-# Submit the latest build to App Store Connect
 eas submit --platform ios --latest
 ```
 
-EAS will prompt for your Apple ID, password, and 2FA code on the first build;
-credentials are cached after that. The first TestFlight submission walks you
-through creating the App Store Connect record (bundle id
-`com.trustedriders.prototype`).
+Bundle id: `com.trustedriders.prototype`. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+for profiles, env vars, and TestFlight notes.
+
+### Legacy dispatch console (local only)
+
+```bash
+cd dispatch
+npm run dev          # Vite :3001 + relay :3002
+npm run relay        # relay only
+npx vite --port 3001 # console only
+```
+
+See [`docs/LEGACY.md`](docs/LEGACY.md) — the mobile app no longer depends on
+this relay.
 
 ---
 
-## Notable scripts & paths
+## Repo map
 
-| Script / path                              | What it does                                             |
-| ------------------------------------------ | -------------------------------------------------------- |
-| `npm run web` / `ios` / `android`          | Start Metro for the named platform                       |
-| `npm run typecheck`                        | `tsc --noEmit`                                           |
-| `app/`                                     | Expo Router routes (`index`, `mission`, `chat`, …)       |
-| `components/ui/`                           | Shared presentation components                           |
-| `lib/`                                     | Contexts (auth, dispatch, haptics, location), API client |
-| `lib/theme.ts`                             | Design-system tokens — source of truth for DESIGN.md     |
-| `assets/`                                  | Brand logo + icon                                        |
-| `dispatch/`                                | Legacy Vite console + WebSocket relay                    |
-| `DESIGN.md`                                | "Vigilant Command Center" design language                |
-
----
-
-## Design language
-
-See [`DESIGN.md`](DESIGN.md) — the *Vigilant Command Center* rule set. Tight
-radii (4/8 px), tonal layering instead of dividers, dark gradient reserved for
-hero elements and primary actions, editorial hierarchy over consumer-app
-softness.
+| Path | Role |
+| ---- | ---- |
+| `app/` | Expo Router routes (`index`, `mission`, `chat`, …) |
+| `lib/` | Auth, Fleet API client, dispatch context, location, theme |
+| `components/` | Shared UI (map, badges, modals, …) |
+| `eas.json` / `app.json` | EAS build profiles; bundle id `com.trustedriders.prototype` |
+| `dispatch/` | **Legacy** local Vite console + WebSocket relay |
+| `docs/` | Architecture, deployment, demo, and API inventory docs |
 
 ---
 
 ## Permissions
 
-The app requests:
-
-- **Location when-in-use + always** — shown to the user via
-  [`LocationSetupGate`](components/ui/LocationSetupGate.tsx) after sign-in;
-  required for the map, pickup navigation, and live Fleet API updates.
-- **Background location** (iOS `UIBackgroundModes: location`, Android
-  `FOREGROUND_SERVICE_LOCATION`) — used during an active mission to keep
-  the Fleet API updated while the app is in the background.
+The mobile app requests location (when-in-use, always, and background on iOS)
+for map display, pickup navigation, and Fleet API location updates during
+active missions. See [`components/ui/LocationSetupGate.tsx`](components/ui/LocationSetupGate.tsx).
