@@ -31,11 +31,13 @@ export default function LiveMap({
       center: [37.778, -122.415],
       zoom: 13,
       zoomControl: false,
-      attributionControl: false,
+      attributionControl: true,
     });
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    // Carto dark_all now watermarks "API KEY REQUIRED". Use OSM — no key, attribution on.
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
 
     L.control.zoom({ position: "bottomright" }).addTo(map);

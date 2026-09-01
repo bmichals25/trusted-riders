@@ -57,6 +57,13 @@ test("O-loading: map lazy-load fallback is a visible loading state", () => {
   assert.doesNotMatch(app, /import L from "leaflet"/);
 });
 
+test("Live map tiles are keyless OSM, not Carto API-key watermark tiles", () => {
+  const liveMap = readFileSync(join(root, "src/LiveMap.tsx"), "utf8");
+  assert.match(liveMap, /tile\.openstreetmap\.org/);
+  assert.match(liveMap, /OpenStreetMap contributors/);
+  assert.doesNotMatch(liveMap, /basemaps\.cartocdn\.com/);
+});
+
 test("O-bundle: Vite splits Leaflet + LiveMap off the stranger-path app chunk", () => {
   const vite = readFileSync(join(root, "vite.config.ts"), "utf8");
   assert.match(vite, /return "leaflet-map"/);
