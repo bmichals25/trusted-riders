@@ -74,7 +74,7 @@ export function CancelRideSheet({
             <View style={{ gap: 6 }}>
               <Text style={{ color: colors.primary, fontSize: 21, fontWeight: "900" }}>Cancel ride #{ride.id}?</Text>
               <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
-                The ride goes back to dispatch to reassign to another driver. The passenger's trip isn't cancelled.
+                The ride goes back to dispatch to reassign to another Trusted Rider. The passenger's trip isn't cancelled.
                 {"\n"}Pickup: {ride.scheduledDate} · {ride.scheduledTime}
               </Text>
             </View>

@@ -173,7 +173,7 @@ export function CheckpointDetailModal({
                   }}
                 >
                   <Text style={{ color: colors.green, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 1.1 }}>
-                    {checkpoint.completedMission ? "Mission completed" : "TrustedRider update"}
+                    {checkpoint.completedMission ? "Mission completed" : "Mission update"}
                   </Text>
                   <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "900", lineHeight: 23 }}>
                     {checkpoint.commandLabel}
@@ -215,7 +215,7 @@ export function CheckpointDetailModal({
                   ) : null}
                   {checkpoint.driverLocationLabel ? (
                     <CheckpointDetailRow
-                      label="TrustedRider location"
+                      label="Your location"
                       value={checkpoint.driverLocationLabel}
                     />
                   ) : null}

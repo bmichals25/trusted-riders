@@ -1,0 +1,3 @@
+# Allowlist for scripts/check-tr-copy.mjs (BEN-14 "Driver" -> "Trusted Rider"/"TR" copy sweep).
+# One entry per line: <path relative to repo root>|<exact string as printed by the check>  # why it stays
+# Keep this empty unless a string truly must say "driver" (e.g. quoting an external system).

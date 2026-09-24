@@ -141,7 +141,7 @@ export function RideRequestActions({ ride, onRespond }: { ride: DispatchedRide; 
   const confirmDecline = () => {
     Alert.alert(
       `Decline ride #${ride.id}?`,
-      "Dispatch will be told and will reassign it to another driver.",
+      "Dispatch will be told and will reassign it to another Trusted Rider.",
       [
         { text: "Keep ride", style: "cancel" },
         { text: "Decline", style: "destructive", onPress: () => void respond("decline") },

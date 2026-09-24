@@ -1,6 +1,6 @@
 # TrustedRiders
 
-Slim V1 TrustedRider (driver) app for TrustedRiders non-emergency medical transport work.
+Slim V1 Trusted Rider (TR) app for TrustedRiders non-emergency medical transport work.
 Expo / React Native; iOS-first with a web preview for day-to-day development.
 
 Production backend data comes from Suresh's Fleet Tracking API at:
@@ -77,6 +77,23 @@ EXPO_PUBLIC_DISPATCH_PHONE=+15551234567 npm run ios
 npm run typecheck
 ```
 
+## Copy Check ("Trusted Rider", not "Driver")
+
+The people using this app are Trusted Riders. On screen, prefer "you"; otherwise say
+"Trusted Rider" (or "TR" where space is tight), never "driver". To list any user-visible
+"driver"/"Driver" text (or the old one-word "TrustedRider") left in `app/`, `components/`,
+`features/` and `lib/`:
+
+```bash
+scripts/check-tr-copy.sh          # or: node scripts/check-tr-copy.mjs [dir ...]
+```
+
+It prints nothing and exits 0 when clean. It only reads string literals, template text and
+JSX text, so identifiers, imports, object keys, API fields (`sender: "driver"`), routes and
+the canonical backend status values are ignored. If a string really has to say "driver",
+add it to `scripts/tr-copy-allowlist.txt` with a reason. The script also checks the iOS
+permission strings in `app.json` and `ios/*/Info.plist`.
+
 ## Notable Paths
 
 | Path | Purpose |
@@ -103,4 +120,4 @@ eas submit --platform ios --latest
 
 ## Permissions
 
-The app uses foreground location for local ride context. GPS coordinates are not sent in chat responses; dispatch must send chat metadata `{ "command": "gps_ask" }`, and the TrustedRider must tap Turn On before the app replies with `{ "command": "gps_yes" }` and starts sending coordinates through `POST /api/update_location`.
+The app uses foreground location for local ride context. GPS coordinates are not sent in chat responses; dispatch must send chat metadata `{ "command": "gps_ask" }`, and the Trusted Rider must tap Turn On before the app replies with `{ "command": "gps_yes" }` and starts sending coordinates through `POST /api/update_location`.

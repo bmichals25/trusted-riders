@@ -148,7 +148,7 @@ def make_login_screen() -> Path:
 
     draw.text((56, 266), "Email", font=font(16, True), fill="#122033")
     rounded_rectangle(draw, (56, 292, 334, 348), 8, "#f8fafc", outline="#cbd8ea", width=2)
-    draw.text((74, 311), "driver@trustedriders.org", font=font(16), fill="#59687a")
+    draw.text((74, 311), "you@trustedriders.org", font=font(16), fill="#59687a")
 
     draw.text((56, 382), "Password", font=font(16, True), fill="#122033")
     rounded_rectangle(draw, (56, 408, 334, 464), 8, "#f8fafc", outline="#cbd8ea", width=2)
@@ -473,14 +473,14 @@ def page_install(c: canvas.Canvas, assets: dict[str, Path]) -> None:
 
 def page_login(c: canvas.Canvas, assets: dict[str, Path]) -> None:
     page_shell(c, "02 sign in", 3)
-    title_block(c, "02 / Sign in", "Use assigned credentials", "Each tester should use an assigned driver account. The sample email shown in this guide is placeholder text.", width=430)
+    title_block(c, "02 / Sign in", "Use assigned credentials", "Each tester should use an assigned Trusted Rider account. The sample email shown in this guide is placeholder text.", width=430)
     draw_phone(c, assets["login"], 74, 118, 430, "Sign-in screen")
     x = 320
     label(c, "Credential checklist", x, 532)
     numbered_list(
         c,
         [
-            "Enter the assigned driver email.",
+            "Enter the assigned Trusted Rider email.",
             "Enter the assigned password.",
             "Tap Sign In and wait for the ride home screen.",
         ],
@@ -519,7 +519,7 @@ def page_location(c: canvas.Canvas, assets: dict[str, Path]) -> None:
         502,
         232,
     )
-    info_panel(c, "Why it matters", "Location powers the driver map, pickup routing, and live dispatch visibility during active rides.", x, 118, 232, 92, "blue")
+    info_panel(c, "Why it matters", "Location powers your map, pickup routing, and live dispatch visibility during active rides.", x, 118, 232, 92, "blue")
     c.showPage()
 
 

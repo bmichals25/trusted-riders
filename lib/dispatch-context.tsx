@@ -315,7 +315,7 @@ export function DispatchProvider({
           `${error.message} (${error.status})`,
         );
       } else {
-        setBackendError("Unable to load driver rides from the backend.");
+        setBackendError("Unable to load your rides from the backend.");
       }
       setHasLoadedRides(true);
       return;
@@ -508,7 +508,7 @@ export function DispatchProvider({
         rideId: "dispatch",
         text: "",
         sender: "driver",
-        senderName: "Driver",
+        senderName: "Trusted Rider",
         clientMessageId: `driver-gps-${requestMessageId}-${Date.now()}`,
         metadata: { command: "gps_yes" },
       });

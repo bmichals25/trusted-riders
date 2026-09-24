@@ -92,7 +92,7 @@ export const demoRides: DispatchedRide[] = [
     scheduledTime: "8:15 AM",
     transitType: "Wheelchair",
     tripType: "One-Way",
-    notes: "Early pickup. Facility asks for driver to check in at reception.",
+    notes: "Early pickup. Facility asks for the Trusted Rider to check in at reception.",
     emergencyContact: "Jin Park, +1 (470) 555-0186",
     status: "accepted",
     createdAt: now - 22 * 60_000,

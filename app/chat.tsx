@@ -119,7 +119,7 @@ export default function ChatScreen() {
     void markRideChatRead({
       rideId: roomId,
       sender: "driver",
-      senderName: "Driver",
+      senderName: "Trusted Rider",
       lastReadMessageId: latestIncoming.id,
     }).then((status) => {
       setReadReceipts(status.read_receipts);
@@ -172,7 +172,7 @@ export default function ChatScreen() {
       void setRideChatTyping({
         rideId: roomId,
         sender: "driver",
-        senderName: "Driver",
+        senderName: "Trusted Rider",
         isTyping: false,
       }).catch(() => {});
     };
@@ -193,7 +193,7 @@ export default function ChatScreen() {
       void setRideChatTyping({
         rideId: roomId,
         sender: "driver",
-        senderName: "Driver",
+        senderName: "Trusted Rider",
         isTyping,
       }).catch(() => {});
     }
@@ -229,7 +229,7 @@ export default function ChatScreen() {
     void setRideChatTyping({
       rideId: roomId,
       sender: "driver",
-      senderName: "Driver",
+      senderName: "Trusted Rider",
       isTyping: false,
     }).catch(() => {});
     setIsSending(true);
@@ -239,7 +239,7 @@ export default function ChatScreen() {
         rideId: roomId,
         text,
         sender: "driver",
-        senderName: "Driver",
+        senderName: "Trusted Rider",
         clientMessageId,
         metadata: {
           ...(rideId ? { ride_id: rideId } : {}),
