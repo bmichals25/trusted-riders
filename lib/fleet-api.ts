@@ -156,6 +156,51 @@ export async function login(email: string, password: string): Promise<FleetUser>
   return user;
 }
 
+export const PASSWORD_RESET_FETCH_OPTIONS: FleetFetchOptions = {
+  minIntervalMs: 2000,
+  failureBackoffMs: 0,
+  throttleKey: "POST /api/forgot-password",
+};
+
+// Shown for every successful request, whether or not the email has an account
+// (the backend deliberately doesn't say).
+export const PASSWORD_RESET_CONFIRMATION = "If that email has an account, we've sent a reset link.";
+
+/**
+ * Ask the backend to email a password reset link. The reset itself happens on
+ * the web page in that email. Resolves on success; throws an Error with a
+ * user-facing message otherwise.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const trimmedEmail = email.trim();
+  if (!trimmedEmail) {
+    throw new Error("Enter your email address.");
+  }
+  if (DEMO_MODE) return;
+
+  const { result, res } = await fleetFetch(
+    "POST",
+    "/api/forgot-password",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: trimmedEmail }),
+    },
+    PASSWORD_RESET_FETCH_OPTIONS,
+  );
+  if (!res) {
+    throw new Error(
+      result === "skipped"
+        ? "Please wait a moment before trying again."
+        : "Fleet API unavailable. Check your connection and try again.",
+    );
+  }
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res);
+    throw new Error(message ?? "Unable to send a reset link. Please try again.");
+  }
+}
+
 export function getToken(): string | null {
   return token;
 }
