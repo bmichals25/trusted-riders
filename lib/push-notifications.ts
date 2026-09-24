@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import type * as ExpoNotifications from "expo-notifications";
-import { NativeModules, Platform } from "react-native";
+import { requireOptionalNativeModule } from "expo";
+import { Platform } from "react-native";
 
 import { FLEET_API_URL } from "./config";
 import { DEMO_MODE } from "./demo-mode";
@@ -371,7 +372,9 @@ function configureNotificationHandler(notifications: typeof ExpoNotifications): 
 }
 
 function getNotificationsModule(): typeof ExpoNotifications | null {
-  if (!NativeModules.ExpoPushTokenManager) return null;
+  // Expo modules register with expo-modules-core, not React Native's NativeModules, so under the New
+  // Architecture `NativeModules.ExpoPushTokenManager` is always undefined and push never registered.
+  if (!requireOptionalNativeModule("ExpoPushTokenManager")) return null;
 
   try {
     // Lazy load because existing development clients may not include the native

@@ -194,8 +194,8 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
         scheduledNotifications.push(notification);
       },
     },
+    expo: { requireOptionalNativeModule: (name) => (name === "ExpoPushTokenManager" ? {} : null) },
     "react-native": {
-      NativeModules: { ExpoPushTokenManager: {} },
       Platform: { OS: "ios" },
     },
     "./config": { FLEET_API_URL: "https://example.test" },
@@ -268,8 +268,8 @@ function loadPushNotificationsWith(notificationsMock) {
   return loadTsModule("lib/push-notifications.ts", {
     "expo-constants": { __esModule: true, default: { expoConfig: { extra: {} } } },
     "expo-notifications": notificationsMock,
+    expo: { requireOptionalNativeModule: (name) => (name === "ExpoPushTokenManager" ? {} : null) },
     "react-native": {
-      NativeModules: { ExpoPushTokenManager: {} },
       Platform: { OS: "ios" },
     },
     "./config": { FLEET_API_URL: "https://example.test" },
