@@ -7,6 +7,8 @@ export type RideStatus =
   | "completed"
   | "cancelled";
 
+import type { RideTrip } from "./round-trip";
+
 export type TransitType = "Sedan" | "Wheelchair" | "Stretcher" | "Ambulatory";
 export type RideCoordinate = { latitude: number; longitude: number };
 
@@ -28,6 +30,8 @@ export type DispatchedRide = {
   status: RideStatus;
   /** Dispatch assigned this ride and is waiting for the driver to accept or decline it. */
   awaitingAcceptance?: boolean;
+  /** Round trip leg (lib/round-trip.ts); null/absent for a one-way ride. */
+  trip?: RideTrip | null;
   createdAt: number;
 };
 
@@ -94,8 +98,9 @@ export function mergeRideSummaryAndDetail(
   if (summaryStatus) {
     merged.status = summaryStatus;
   }
-  // Ride details are cached; acceptance changes after the first fetch, so the fresh list wins.
-  for (const key of ["driver_accepted", "driver_accepted_at"]) {
+  // Ride details are cached; acceptance changes after the first fetch, so the fresh list wins. Same for the
+  // round-trip block and the start time (Ready to Return gives an open return leg its start time).
+  for (const key of ["driver_accepted", "driver_accepted_at", "trip", "start_time"]) {
     if (key in summary) merged[key] = summary[key];
   }
   return merged;

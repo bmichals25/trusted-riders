@@ -33,6 +33,7 @@ import {
   scheduleLocalGpsOffNotification,
 } from "./push-notifications";
 import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideCoordinate, type RideStatus } from "./rides";
+import { isSameTrip } from "./round-trip";
 import { useLocation, type DriverLocation } from "./location-context";
 import * as storage from "./storage";
 import { LAST_ACTIVE_RIDE_KEY } from "./session-cache";
@@ -255,12 +256,15 @@ export function DispatchProvider({
       result = { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
     }
     if (!result.ok) return result;
+    // Round trip: the answer covers both legs (the backend applies it to the other leg too).
+    const answered = (candidate: DispatchedRide) =>
+      candidate.id === ride.id || (isSameTrip(candidate, ride) && isUpcomingRideStatus(candidate.status));
     setRides((prev) => {
       const next = response === "decline"
         // Declined rides go back to dispatch and are no longer this driver's.
-        ? prev.filter((candidate) => candidate.id !== ride.id)
+        ? prev.filter((candidate) => !answered(candidate))
         : prev.map((candidate) =>
-            candidate.id === ride.id
+            answered(candidate)
               ? { ...candidate, status: "accepted" as RideStatus, awaitingAcceptance: false }
               : candidate,
           );

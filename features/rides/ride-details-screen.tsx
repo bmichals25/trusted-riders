@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackChevron } from "@/components/ui/BackChevron";
 import { RideRequestActions } from "@/features/home/home-screen-sections";
 import { CancelRideSheet } from "@/features/rides/cancel-ride-sheet";
+import { ReadyToReturnCard, TripLegPanel } from "@/features/rides/ready-to-return";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { useDispatch } from "@/lib/dispatch-context";
@@ -102,6 +103,20 @@ export function RideDetailsScreenContent() {
                 <FadeInBlock delay={100}>
                   <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md }}>
                     <RideRequestActions ride={ride} onRespond={respondFromDetails} />
+                  </View>
+                </FadeInBlock>
+              ) : null}
+              {ride.trip ? (
+                <FadeInBlock delay={105}>
+                  <View style={{ gap: spacing.md }}>
+                    {ride.trip.leg === "return" ? (
+                      <ReadyToReturnCard ride={ride} onChat={() => openChat(ride)} />
+                    ) : null}
+                    <TripLegPanel
+                      ride={ride}
+                      rides={rides}
+                      onOpenRide={(id) => router.push(`/ride-details?rideId=${encodeURIComponent(id)}`)}
+                    />
                   </View>
                 </FadeInBlock>
               ) : null}

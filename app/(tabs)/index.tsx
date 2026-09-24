@@ -8,6 +8,7 @@ import { FocusTransition } from "@/components/ui/FocusTransition";
 import { useStartupPresentation } from "@/components/ui/DriverNameGate";
 import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBanner";
 import { HomeBrandHeader } from "@/features/home/home-brand-header";
+import { ReadyToReturnCard } from "@/features/rides/ready-to-return";
 import {
   CurrentRideCard,
   EmptyRideState,
@@ -23,6 +24,7 @@ import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide } from "@/lib/rides";
+import { findReadyToReturnRide } from "@/lib/round-trip";
 import { colors, spacing } from "@/lib/theme";
 
 export default function HomeScreen() {
@@ -44,6 +46,9 @@ export default function HomeScreen() {
   const blockExitOnBlur = false;
   const replayHomeEntrance = false;
   const homeEntranceReady = !startupAnimationVisible || startupAnimationExiting || startupAnimationComplete;
+  // Round trip: passenger at the appointment -> "Ready to Return" card instead of a plain upcoming card.
+  const readyRide = activeRide ? null : findReadyToReturnRide(scheduledRides);
+  const upcomingRides = readyRide ? scheduledRides.filter((ride) => ride.id !== readyRide.id) : scheduledRides;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -133,6 +138,25 @@ export default function HomeScreen() {
             </FadeInBlock>
           ) : null}
 
+          {readyRide ? (
+            <FadeInBlock
+              delay={140}
+              duration={520}
+              distance={16}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+            >
+              <Section title="Ride Home">
+                <ReadyToReturnCard
+                  ride={readyRide}
+                  onOpen={() => openRideDetails(readyRide)}
+                  onChat={() => openChat(readyRide)}
+                />
+              </Section>
+            </FadeInBlock>
+          ) : null}
+
           {activeRide ? (
             <FadeInBlock
               delay={145}
@@ -152,7 +176,7 @@ export default function HomeScreen() {
                 />
               </Section>
             </FadeInBlock>
-          ) : hasLoadedRides && !backendError && scheduledRides.length > 0 ? (
+          ) : hasLoadedRides && !backendError && upcomingRides.length > 0 ? (
             <FadeInBlock
               delay={145}
               duration={520}
@@ -161,9 +185,9 @@ export default function HomeScreen() {
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
             >
-              <Section title="Upcoming Rides" count={scheduledRides.length}>
+              <Section title="Upcoming Rides" count={upcomingRides.length}>
                 <View style={{ gap: spacing.md }}>
-                  {scheduledRides.map((ride, index) => {
+                  {upcomingRides.map((ride, index) => {
                     const isNextUpcomingRide = index === 0;
                     return (
                       <FadeInBlock
@@ -196,7 +220,7 @@ export default function HomeScreen() {
                 </View>
               </Section>
             </FadeInBlock>
-          ) : hasLoadedRides && !backendError ? (
+          ) : readyRide ? null : hasLoadedRides && !backendError ? (
             <FadeInBlock
               delay={145}
               duration={520}

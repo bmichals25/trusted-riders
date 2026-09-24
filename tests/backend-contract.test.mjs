@@ -424,6 +424,7 @@ test("gps_ask tracker prompts each message id at most once across sources", () =
 
 test("fleet helpers map Suresh statuses and include active ride location context", () => {
   const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
+    "./round-trip": loadTsModule("lib/round-trip.ts"),
     "./rides": {
       normalizeRouteGeometry: () => [],
     },
@@ -693,6 +694,7 @@ test("schedule model includes active rides in calendar views", () => {
 
 test("fleet normalization maps backend ride shapes into mobile ride models", () => {
   const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
+    "./round-trip": loadTsModule("lib/round-trip.ts"),
     "./rides": {
       normalizeRouteGeometry: (value) => Array.isArray(value)
         ? value.map((point) => ({
@@ -801,6 +803,7 @@ test("fleet normalization maps backend ride shapes into mobile ride models", () 
 
 test("login helpers preserve passwords and accept common auth token shapes", () => {
   const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
+    "./round-trip": loadTsModule("lib/round-trip.ts"),
     "./rides": {
       normalizeRouteGeometry: () => [],
     },

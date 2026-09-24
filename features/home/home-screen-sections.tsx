@@ -14,6 +14,7 @@ import Animated, {
 import { Avatar } from "@/components/ui/Avatar";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { TripLegLine } from "@/features/rides/ready-to-return";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate, type RideStatus } from "@/lib/rides";
 import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
 
@@ -140,8 +141,10 @@ export function RideRequestActions({ ride, onRespond }: { ride: DispatchedRide; 
 
   const confirmDecline = () => {
     Alert.alert(
-      `Decline ride #${ride.id}?`,
-      "Dispatch will be told and will reassign it to another driver.",
+      ride.trip ? "Decline this round trip?" : `Decline ride #${ride.id}?`,
+      ride.trip
+        ? "Both rides (there and home) go back to dispatch to give to another TR."
+        : "Dispatch will be told and will reassign it to another driver.",
       [
         { text: "Keep ride", style: "cancel" },
         { text: "Decline", style: "destructive", onPress: () => void respond("decline") },
@@ -152,12 +155,14 @@ export function RideRequestActions({ ride, onRespond }: { ride: DispatchedRide; 
   return (
     <View style={{ gap: spacing.sm }}>
       <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>
-        Dispatch assigned you this ride. Let them know if you can take it.
+        {ride.trip
+          ? "Dispatch assigned you this round trip: the ride there and the ride home. Your answer covers both."
+          : "Dispatch assigned you this ride. Let them know if you can take it."}
       </Text>
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
         <DeclineButton label={busy === "decline" ? "Declining…" : "Decline"} onPress={confirmDecline} disabled={!!busy} />
         <PrimaryActionButton
-          label={busy === "accept" ? "Accepting…" : "Accept ride"}
+          label={busy === "accept" ? "Accepting…" : ride.trip ? "Accept trip" : "Accept ride"}
           iconName="checkmark.circle.fill"
           onPress={() => void respond("accept")}
           disabled={!!busy}
@@ -402,6 +407,7 @@ function RideHeader({ ride }: { ride: DispatchedRide }) {
         <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700" }}>
           {ride.scheduledDate} · {ride.scheduledTime} · {ride.transitType}
         </Text>
+        <TripLegLine ride={ride} />
       </View>
     </View>
   );

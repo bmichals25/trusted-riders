@@ -5,6 +5,7 @@ import {
   type RideStatus,
   type TransitType,
 } from "./rides";
+import { normalizeTrip, OPEN_RETURN_DATE_LABEL, OPEN_RETURN_TIME_LABEL } from "./round-trip";
 
 export type FleetUser = { name: string; email: string };
 
@@ -57,6 +58,9 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
   const createdAt = createdAtDate ? createdAtDate.getTime() : Date.now();
 
   const status = normalizeRideStatus(pickString(raw, ["status", "ride_status"]) || "");
+  const trip = normalizeTrip(raw.trip);
+  // Open return leg: no pickup time until the TR taps Ready to Return.
+  const openReturn = trip?.leg === "return" && !pickupTime;
 
   return {
     id,
@@ -67,10 +71,10 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
     pickupCoords: pickCoords(raw, "pickup"),
     dropoffCoords: pickCoords(raw, "dropoff"),
     routeCoords: pickRouteCoords(raw),
-    scheduledDate: formatRideDate(pickupDate ?? pickupTime),
-    scheduledTime: formatRideTime(pickupTime),
+    scheduledDate: openReturn ? OPEN_RETURN_DATE_LABEL : formatRideDate(pickupDate ?? pickupTime),
+    scheduledTime: openReturn ? OPEN_RETURN_TIME_LABEL : formatRideTime(pickupTime),
     transitType: normalizeTransitType(pickString(raw, ["transit_type", "transitType", "vehicle_type", "vehicle"])),
-    tripType: normalizeTripType(pickString(raw, ["trip_type", "tripType", "ride_type"])),
+    tripType: trip ? "Round-Trip" : normalizeTripType(pickString(raw, ["trip_type", "tripType", "ride_type"])),
     notes:
       pickString(raw, ["notes", "care_notes", "careNotes", "special_instructions", "specialInstructions", "special_conditions", "specialConditions", "conditions", "medical_conditions", "medicalConditions", "accessibility_notes", "accessibilityNotes"]) ||
       pickNestedString(raw, ["passenger", "rider", "client", "customer"], ["notes", "care_notes", "careNotes", "special_conditions", "specialConditions", "conditions", "medical_conditions", "medicalConditions", "accessibility_notes", "accessibilityNotes"]) ||
@@ -79,6 +83,7 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
     status,
     // Only an explicit `driver_accepted: false` means "waiting on the driver"; older backends omit the field.
     awaitingAcceptance: (status === "pending" || status === "accepted") && raw.driver_accepted === false,
+    ...(trip ? { trip } : {}),
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
   };
 }
@@ -247,7 +252,8 @@ function toNumber(value: unknown): number | null {
 export function normalizeRideStatus(status: string): RideStatus {
   const value = status.toLowerCase().replace(/[\/\-\s]+/g, "_");
   if (["requested", "request", "pending", "new"].includes(value)) return "pending";
-  if (["scheduled", "scheduled_driver_assigned", "driver_accepted", "booked", "assigned", "accepted"].includes(value)) return "accepted";
+  // "ready to return": a round trip's ride home the TR is waiting on (dispatch arranges it) — still upcoming.
+  if (["scheduled", "scheduled_driver_assigned", "driver_accepted", "booked", "assigned", "accepted", "ready_to_return"].includes(value)) return "accepted";
   if (["active", "in_progress", "driver_in_transit", "en_route", "enroute", "on_way", "released"].includes(value)) return "en_route";
   if (["driver_at_pickup", "picked_up", "pickedup"].includes(value)) return "picked_up";
   if (["driver_passenger_in_transit", "in_transit", "intransit"].includes(value)) return "in_transit";
