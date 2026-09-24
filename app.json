@@ -30,6 +30,7 @@
     },
     "android": {
       "package": "com.trustedriders.prototype",
+      "allowBackup": false,
       "adaptiveIcon": {
         "foregroundImage": "./assets/TRC_APP_ICON_2.png",
         "backgroundColor": "#1559dc"

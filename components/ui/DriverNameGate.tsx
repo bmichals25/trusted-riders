@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { StyleSheet, View } from "react-native";
 import { AppLoadingAnimation } from "@/components/ui/AppLoadingAnimation";
 import { DriverLoginScreen } from "@/features/auth/driver-login-screen";
-import { clearToken, login, requestPasswordReset, restoreToken } from "@/lib/fleet-api";
+import { login, requestPasswordReset, restoreToken } from "@/lib/fleet-api";
+import { signOutDriver } from "@/lib/sign-out";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import * as storage from "@/lib/storage";
 
@@ -139,10 +140,11 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   };
 
   const signOut = useCallback(async () => {
-    await clearToken();
-    await storage.remove(DRIVER_NAME_KEY);
-    // Intentionally leave the email cached so the login form pre-fills
-    // for the next sign-in.
+    // Stops background location, unregisters this device's push token, revokes the token on the
+    // server and wipes every "trustedriders-*" key, including the cached name and email (a shared
+    // phone must not show the previous Trusted Rider anything).
+    await signOutDriver();
+    setEmail("");
     setPassword("");
     setError(null);
     setSession(null);

@@ -117,6 +117,51 @@ export async function registerPushTokenWithBackend(input: PushTokenRegistrationI
   }
 }
 
+/** The body for DELETE /api/push_tokens: this device's token only. */
+export function buildPushTokenUnregisterRequest(expoPushToken: string): { path: string; init: RequestInit } {
+  return {
+    path: "/api/push_tokens",
+    init: {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: expoPushToken }),
+    },
+  };
+}
+
+/**
+ * Sign-out (BEN-29): tell the backend to forget this device's push token, so the next person who signs
+ * in on a shared phone never gets the previous Trusted Rider's pushes. Best effort and never throws;
+ * never prompts for notification permission (no permission = no token was registered).
+ */
+export async function unregisterPushToken(timeoutMs = 5000): Promise<void> {
+  if (DEMO_MODE || Platform.OS === "web") return;
+  const authToken = getToken();
+  if (!authToken) return;
+  const notifications = getNotificationsModule();
+  const projectId = getExpoProjectId();
+  if (!notifications || !projectId) return;
+
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const permission = await notifications.getPermissionsAsync();
+    if (!hasNotificationPermission(permission)) return;
+    const expoPushToken = (await notifications.getExpoPushTokenAsync({ projectId })).data;
+    if (!expoPushToken) return;
+    const request = buildPushTokenUnregisterRequest(expoPushToken);
+    await fetch(`${FLEET_API_URL}${request.path}`, {
+      ...request.init,
+      headers: { ...(request.init.headers as Record<string, string>), Authorization: `Bearer ${authToken}` },
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+  } catch {
+    // Offline or token unavailable: the server drops tokens Expo reports as unregistered anyway.
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export function readGpsAskNotificationData(raw: unknown): GpsAskNotificationData | null {
   const record = raw && typeof raw === "object" && !Array.isArray(raw)
     ? raw as Record<string, unknown>

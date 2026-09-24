@@ -13,7 +13,6 @@ import {
 } from "./fleet-api-transport";
 import {
   getCachedRideDetail,
-  getRideDetailFallback,
   persistRideDetail,
   readPersistedRideDetail,
   setCachedRideDetail,
@@ -34,10 +33,11 @@ import {
   type FleetUser,
 } from "./fleet-normalization";
 import * as storage from "./storage";
-import { clearSessionScopedCaches } from "./session-cache";
+import { deleteSecureItem, getSecureItem, setSecureItem } from "./secure-token-store";
+import { ACTIVE_RIDE_KEY, clearSessionScopedCaches } from "./session-cache";
 
+// Kept in the Keychain/Keystore (lib/secure-token-store.ts), migrated out of AsyncStorage on first read.
 const TOKEN_KEY = "trustedriders-auth-token";
-const ACTIVE_RIDE_KEY = "trustedriders-active-ride";
 
 let token: string | null = null;
 
@@ -118,7 +118,7 @@ export async function login(email: string, password: string): Promise<FleetUser>
   const credentials = normalizeLoginCredentials(email, password);
   if (DEMO_MODE) {
     token = "trustedriders-demo-token";
-    await storage.set(TOKEN_KEY, token);
+    await setSecureItem(TOKEN_KEY, token);
     return { name: "Jordan Mitchell", email: credentials.email };
   }
 
@@ -151,8 +151,8 @@ export async function login(email: string, password: string): Promise<FleetUser>
 
   token = authToken;
   const user = normalizeUser(data.user ?? data.driver ?? data);
-  console.log(`[auth] login ok user=${user.email || user.name}`);
-  await storage.set(TOKEN_KEY, authToken);
+  console.log("[auth] login ok");
+  await setSecureItem(TOKEN_KEY, authToken);
   return user;
 }
 
@@ -215,8 +215,34 @@ function authHeaders(): HeadersInit | null {
 
 export async function clearToken(): Promise<void> {
   token = null;
-  await storage.remove(TOKEN_KEY);
+  await deleteSecureItem(TOKEN_KEY);
   await clearSessionScopedCaches();
+}
+
+/**
+ * Best-effort POST /api/logout: the server revokes this token (and its session) so a copy of it is
+ * useless after sign-out. Never throws; gives up after a few seconds when offline.
+ */
+export async function logoutFromServer(timeoutMs = 5000): Promise<void> {
+  if (DEMO_MODE || !token) return;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    await fleetFetch(
+      "POST",
+      "/api/logout",
+      {
+        method: "POST",
+        headers: { ...(authHeaders() ?? {}), Accept: "application/json" },
+        ...(controller ? { signal: controller.signal } : {}),
+      },
+      { minIntervalMs: 0, failureBackoffMs: 0, throttleKey: "POST /api/logout" },
+    );
+  } catch {
+    // offline or already expired: the local sign-out still happens
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 // Rehydrate the in-memory token from persistent storage on app boot.
@@ -227,7 +253,7 @@ export async function restoreToken(): Promise<string | null> {
     return token;
   }
 
-  const stored = await storage.get(TOKEN_KEY);
+  const stored = await getSecureItem(TOKEN_KEY);
   if (stored) token = stored;
   return stored;
 }
@@ -505,11 +531,6 @@ async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Re
       console.log(`[api] ${path} route detail persisted ${describeRoutePayload(persisted)}`);
       setCachedRideDetail(cacheKey, persisted);
       return persisted;
-    }
-    const fallback = getRideDetailFallback(cacheKey);
-    if (fallback) {
-      console.log(`[api] ${path} route detail fallback ${describeRoutePayload(fallback)}`);
-      return fallback;
     }
     return null;
   }

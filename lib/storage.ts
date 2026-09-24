@@ -30,3 +30,20 @@ export async function remove(key: string): Promise<void> {
     else await AsyncStorage.removeItem(key);
   } catch {}
 }
+
+/** Remove every key that starts with `prefix` (sign-out wipes all "trustedriders-" keys). */
+export async function removeByPrefix(prefix: string): Promise<void> {
+  try {
+    if (Platform.OS === "web") {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(prefix)) keys.push(key);
+      }
+      keys.forEach((key) => localStorage.removeItem(key));
+      return;
+    }
+    const keys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(prefix));
+    if (keys.length) await AsyncStorage.multiRemove(keys);
+  } catch {}
+}

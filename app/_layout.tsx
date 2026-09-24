@@ -1,3 +1,5 @@
+// Must stay first: silences console.log/info/debug in release builds (BEN-29).
+import "@/lib/release-console";
 import "react-native-gesture-handler";
 import "react-native-reanimated";
 

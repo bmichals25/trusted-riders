@@ -58,6 +58,22 @@ export function useLocation() {
 // Queue for background location updates — flushed when app comes to foreground
 let backgroundQueue: DriverLocation[] = [];
 
+/**
+ * Sign-out (BEN-29): stop the background location task so a signed-out phone stops reporting its
+ * position, and drop anything queued. Safe to call when nothing is running. Never throws.
+ */
+export async function stopBackgroundLocationUpdates(): Promise<void> {
+  backgroundQueue = [];
+  if (Platform.OS === "web") return;
+  try {
+    if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME)) {
+      await Location.stopLocationUpdatesAsync(BACKGROUND_TASK_NAME);
+    }
+  } catch {
+    // The task was never registered in this binary (or already stopped).
+  }
+}
+
 // Register the background task at module level (required by expo-task-manager).
 // Runs outside the React tree — pulls the active ride id from AsyncStorage and
 // POSTs each fix to the Fleet API so dispatch keeps receiving pings while the
