@@ -1,6 +1,6 @@
 # TRC Application Design System
 
-TrustedRide Certified uses the **Vigilant Command Center** design language: a calm, authoritative mobile interface for chaperones and operators doing active ride work.
+TrustedRide Certified uses the **Vigilant Command Center** design language: a calm, authoritative mobile interface for TrustedRiders (drivers) and operators doing active ride work.
 
 This document is the design source of truth for the current application experience. The code-level token source remains `lib/theme.ts`.
 
@@ -10,7 +10,7 @@ TRC is not a playful consumer ride app. It is a field operations tool for people
 
 Primary users:
 
-- Chaperones and operators working non-emergency medical transport assignments.
+- TrustedRiders (drivers) and operators working non-emergency medical transport assignments.
 - People using the app under time pressure, motion, glare, and occasional connectivity issues.
 - Dispatch-connected staff who need reliable status, route, chat, and location context.
 
@@ -327,7 +327,7 @@ Settings is an operations utility area.
 
 Rules:
 
-- Operator summary appears first with initials, chaperone label, and live/off pill.
+- Operator summary appears first with initials, TrustedRider label, and live/off pill.
 - Rows use icon tiles, bold labels, short descriptions, and native chevrons or switches.
 - Group settings in white surfaces with 12 px radius.
 - Use dividers only inside list groups where they clarify row boundaries.

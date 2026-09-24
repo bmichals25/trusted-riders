@@ -20,7 +20,7 @@ export default function AccountSettingsScreen() {
   const { signOut, session } = useAuth();
   const { notification } = useHaptics();
   const [signingOut, setSigningOut] = useState(false);
-  const profileName = session?.name ?? "Chaperone";
+  const profileName = session?.name ?? "TrustedRider";
 
   const performSignOut = async () => {
     if (signingOut) return;
@@ -32,7 +32,7 @@ export default function AccountSettingsScreen() {
   const handleSignOut = () => {
     Alert.alert(
       "Sign out?",
-      "This clears the current chaperone session on this device.",
+      "This signs you out of TrustedRide on this device.",
       [
         { text: "Cancel", style: "cancel" },
         {

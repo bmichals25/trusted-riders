@@ -50,7 +50,7 @@ export function OperatorSummary({
   return (
     <View
       accessible
-      accessibilityLabel={`Chaperone ${name}. ${isTracking ? "Live location is being shared." : "Live location sharing is off."}`}
+      accessibilityLabel={`TrustedRider ${name}. ${isTracking ? "Live location is being shared." : "Live location sharing is off."}`}
       style={{
         marginHorizontal: spacing.md,
         marginBottom: spacing.md,
@@ -81,7 +81,7 @@ export function OperatorSummary({
       <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text style={{ color: colors.slate500, ...typography.sectionKicker, flex: 1 }} numberOfLines={1}>
-            Chaperone
+            TrustedRider
           </Text>
           <LiveLocationPill active={isTracking} />
         </View>

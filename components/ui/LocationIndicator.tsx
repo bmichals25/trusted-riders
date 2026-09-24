@@ -297,7 +297,7 @@ function LocationMapModal({
             <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "800", lineHeight: 18 }} numberOfLines={2}>
               {isTracking
                 ? "Dispatch is receiving GPS updates for the active ride."
-                : "Tracking stays off until approved by the chaperone or dispatch."}
+                : "Tracking stays off until approved by you or dispatch."}
             </Text>
           </View>
           <Pressable

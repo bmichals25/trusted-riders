@@ -44,7 +44,7 @@ function loadTsModule(relativePath, mocks = {}) {
   return module.exports;
 }
 
-test("chat helpers use the chaperone-scoped backend contract", () => {
+test("chat helpers use the driver-scoped backend contract", () => {
   const chatApi = loadTsModule("lib/chat-api.ts", {
     "./config": { FLEET_API_URL: "https://example.test" },
     "./demo-data": {},

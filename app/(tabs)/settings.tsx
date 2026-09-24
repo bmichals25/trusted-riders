@@ -14,7 +14,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { isTracking } = useLocation();
   const { session } = useAuth();
-  const profileName = session?.name ?? "Chaperone";
+  const profileName = session?.name ?? "TrustedRider";
 
   return (
     <PageTransition>

@@ -1,6 +1,6 @@
 # TrustedRiders
 
-Slim V1 chaperone app for TrustedRiders non-emergency medical transport work.
+Slim V1 TrustedRider (driver) app for TrustedRiders non-emergency medical transport work.
 Expo / React Native; iOS-first with a web preview for day-to-day development.
 
 Production backend data comes from Suresh's Fleet Tracking API at:
