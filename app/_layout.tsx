@@ -1,8 +1,8 @@
 import "react-native-gesture-handler";
 import "react-native-reanimated";
 
-import { Stack, useGlobalSearchParams, usePathname } from "expo-router";
-import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo } from "react";
+import { type Href, Stack, useGlobalSearchParams, usePathname, useRootNavigationState, useRouter } from "expo-router";
+import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -15,6 +15,7 @@ import { DispatchProvider } from "@/lib/dispatch-context";
 import { HapticsProvider } from "@/lib/haptics-context";
 import { LocationProvider } from "@/lib/location-context";
 import { rememberNonChatHref } from "@/lib/navigation-memory";
+import { addNotificationTapNavigationListener } from "@/lib/push-notifications";
 import { colors } from "@/lib/theme";
 
 export default function RootLayout() {
@@ -31,6 +32,7 @@ export default function RootLayout() {
             <StatusBar style="dark" />
             <NavigationMemory />
             <LocationSetupGate>
+            <NotificationTapNavigation />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen
@@ -86,6 +88,31 @@ function NavigationMemory() {
     if (!pathname || pathname === "/chat" || pathname.endsWith("/messages")) return;
     rememberNonChatHref(href);
   }, [href, pathname]);
+
+  return null;
+}
+
+/**
+ * Opens the ride (ride_request / ride_status) or dispatch chat (chat_message) when the driver taps
+ * a push, including the tap that cold-started the app. Mounted next to the Stack so it only runs
+ * once the driver is signed in and the navigator exists.
+ */
+function NotificationTapNavigation() {
+  const router = useRouter();
+  const navigationReady = Boolean(useRootNavigationState()?.key);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => addNotificationTapNavigationListener(setPendingHref), []);
+
+  useEffect(() => {
+    if (!pendingHref || !navigationReady) return;
+    setPendingHref(null);
+    try {
+      router.push(pendingHref as Href);
+    } catch (error) {
+      console.log("[push] notification navigation failed", error instanceof Error ? error.message : error);
+    }
+  }, [navigationReady, pendingHref, router]);
 
   return null;
 }

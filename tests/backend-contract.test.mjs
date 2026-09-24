@@ -264,6 +264,153 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
   });
 });
 
+function loadPushNotificationsWith(notificationsMock) {
+  return loadTsModule("lib/push-notifications.ts", {
+    "expo-constants": { __esModule: true, default: { expoConfig: { extra: {} } } },
+    "expo-notifications": notificationsMock,
+    "react-native": {
+      NativeModules: { ExpoPushTokenManager: {} },
+      Platform: { OS: "ios" },
+    },
+    "./config": { FLEET_API_URL: "https://example.test" },
+    "./demo-mode": { DEMO_MODE: false },
+    "./fleet-api": { getToken: () => "token" },
+  });
+}
+
+function fakeResponse(identifier, data, actionIdentifier = "expo.modules.notifications.actions.DEFAULT") {
+  return {
+    actionIdentifier,
+    notification: { date: 1, request: { identifier, content: { data } } },
+  };
+}
+
+test("push taps resolve to the ride or dispatch chat", () => {
+  const push = loadPushNotificationsWith({ setNotificationHandler: () => {} });
+
+  assert.equal(
+    push.resolveNotificationTapHref({ type: "ride_request", ride_id: 42, url: "trustedriders://ride-details?rideId=42" }),
+    "/ride-details?rideId=42",
+  );
+  assert.equal(
+    push.resolveNotificationTapHref({ type: "ride_status", ride_id: 7, status: "cancelled", url: "trustedriders://ride-details?rideId=7" }),
+    "/ride-details?rideId=7",
+  );
+  // url wins; falls back to ride_id when url is missing or not a ride link
+  assert.equal(push.resolveNotificationTapHref({ type: "ride_status", ride_id: 9 }), "/ride-details?rideId=9");
+  assert.equal(push.resolveNotificationTapHref({ type: "ride_status", ride_id: "9", url: "https://example.test" }), "/ride-details?rideId=9");
+  assert.equal(push.resolveNotificationTapHref({ type: "ride_request" }), "/ride-requests");
+  assert.equal(push.resolveNotificationTapHref({ type: "ride_status" }), null);
+  assert.equal(push.resolveNotificationTapHref({ type: "chat_message", message_id: 5 }), "/chat");
+  assert.equal(push.resolveNotificationTapHref({ type: "gps_ask", command: "gps_ask", message_id: 5 }), null);
+  assert.equal(push.resolveNotificationTapHref(null), null);
+
+  assert.equal(push.readRideIdFromDeepLink("trustedriders://ride-details?rideId=ride%2012&x=1"), "ride 12");
+  assert.equal(push.readRideIdFromDeepLink("trustedriders://chat?rideId=12"), null);
+  assert.equal(push.readRideIdFromDeepLink(undefined), null);
+});
+
+test("push tap navigation handles cold start once and ignores dismissals", async () => {
+  const listeners = [];
+  const launch = fakeResponse("launch-1", { type: "ride_request", ride_id: 42, url: "trustedriders://ride-details?rideId=42" });
+  const push = loadPushNotificationsWith({
+    setNotificationHandler: () => {},
+    addNotificationResponseReceivedListener: (listener) => {
+      listeners.push(listener);
+      return { remove: () => listeners.splice(listeners.indexOf(listener), 1) };
+    },
+    getLastNotificationResponseAsync: async () => launch,
+  });
+
+  const hrefs = [];
+  const remove = push.addNotificationTapNavigationListener((href) => hrefs.push(href));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(hrefs, ["/ride-details?rideId=42"]);
+
+  // The same launch response delivered again (listener + remount) navigates only once.
+  listeners[0](launch);
+  remove();
+  const removeAgain = push.addNotificationTapNavigationListener((href) => hrefs.push(href));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(hrefs, ["/ride-details?rideId=42"]);
+
+  listeners[0](fakeResponse("chat-1", { type: "chat_message", message_id: 3 }));
+  listeners[0](fakeResponse("chat-2", { type: "chat_message", message_id: 4 }, "com.apple.UNNotificationDismissActionIdentifier"));
+  listeners[0](fakeResponse("gps-1", { type: "gps_ask", command: "gps_ask", message_id: 5 }));
+  assert.deepEqual(hrefs, ["/ride-details?rideId=42", "/chat"]);
+  removeAgain();
+  assert.equal(listeners.length, 0);
+});
+
+test("gps_ask pushes prompt in-app instead of showing a duplicate banner", async () => {
+  let handler = null;
+  const received = [];
+  const responses = [];
+  const presented = [{ request: { identifier: "push-9", content: { data: { type: "gps_ask", command: "gps_ask", message_id: 9 } } } }];
+  const scheduled = [];
+  const dismissed = [];
+  const push = loadPushNotificationsWith({
+    setNotificationHandler: (value) => { handler = value; },
+    getPermissionsAsync: async () => ({ granted: true }),
+    getPresentedNotificationsAsync: async () => presented,
+    dismissNotificationAsync: async (identifier) => { dismissed.push(identifier); },
+    scheduleNotificationAsync: async (notification) => { scheduled.push(notification); },
+    addNotificationReceivedListener: (listener) => { received.push(listener); return { remove() {} }; },
+    addNotificationResponseReceivedListener: (listener) => { responses.push(listener); return { remove() {} }; },
+    getLastNotificationResponseAsync: async () => fakeResponse("push-9", { type: "gps_ask", command: "gps_ask", message_id: 9 }),
+  });
+
+  const events = [];
+  push.addGpsAskNotificationListeners((event) => events.push(event));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  // Cold start from a gps_ask tap reaches the prompt handler.
+  assert.deepEqual(plain(events), [{ messageId: "9", source: "tap" }]);
+
+  received[0]({ request: { identifier: "push-10", content: { data: { type: "gps_ask", command: "gps_ask", message_id: 10 } } } });
+  assert.deepEqual(plain(events[1]), { messageId: "10", source: "received" });
+
+  const gpsBehavior = await handler.handleNotification({ request: { content: { data: { command: "gps_ask", message_id: 10 } } } });
+  assert.equal(gpsBehavior.shouldShowBanner, false);
+  assert.equal(gpsBehavior.shouldShowList, false);
+  const rideBehavior = await handler.handleNotification({ request: { content: { data: { type: "ride_request", ride_id: 1 } } } });
+  assert.equal(rideBehavior.shouldShowBanner, true);
+
+  // The push for 9 is already in Notification Center: no local duplicate.
+  assert.equal(await push.scheduleLocalGpsAskNotification({ messageId: "9" }), false);
+  assert.equal(await push.scheduleLocalGpsAskNotification({ messageId: "11" }), true);
+  assert.equal(scheduled.length, 1);
+  assert.equal(scheduled[0].content.data.message_id, "11");
+
+  await push.dismissGpsAskNotifications("9");
+  assert.deepEqual(dismissed, ["push-9"]);
+});
+
+test("gps_ask tracker prompts each message id at most once across sources", () => {
+  const { createGpsAskTracker, normalizeGpsAskMessageId } = loadTsModule("lib/gps-ask-dedupe.ts");
+  assert.equal(normalizeGpsAskMessageId(12), "12");
+  assert.equal(normalizeGpsAskMessageId(" 12 "), "12");
+  assert.equal(normalizeGpsAskMessageId(""), null);
+
+  // Chat poll while backgrounded: one local banner, then the tap prompts once.
+  const tracker = createGpsAskTracker();
+  assert.equal(tracker.claimLocalNotification("m1"), true);
+  assert.equal(tracker.claimLocalNotification("m1"), false);
+  assert.equal(tracker.claimPrompt("m1"), true);
+  assert.equal(tracker.claimPrompt("m1"), false);
+  assert.equal(tracker.hasPrompted("m1"), true);
+
+  // Push already delivered: the poll must not add a local banner, but a prompt is still allowed once.
+  tracker.markNotified(2);
+  assert.equal(tracker.claimLocalNotification("2"), false);
+  assert.equal(tracker.claimPrompt("2"), true);
+  assert.equal(tracker.claimPrompt(2), false);
+
+  // Prompted in the foreground first: no local banner afterwards.
+  assert.equal(tracker.claimPrompt("m3"), true);
+  assert.equal(tracker.claimLocalNotification("m3"), false);
+  assert.equal(tracker.claimPrompt(""), false);
+});
+
 test("fleet helpers map Suresh statuses and include active ride location context", () => {
   const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
     "./rides": {

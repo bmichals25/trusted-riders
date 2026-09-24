@@ -21,8 +21,10 @@ import {
 import { demoRides } from "./demo-data";
 import { DEMO_MODE } from "./demo-mode";
 import { shouldSuppressRideErrorPanel } from "./fleet-fetch-result";
+import { createGpsAskTracker } from "./gps-ask-dedupe";
 import {
   addGpsAskNotificationListeners,
+  dismissGpsAskNotifications,
   registerForPushNotifications,
   scheduleLocalGpsAskNotification,
   scheduleLocalGpsOffNotification,
@@ -164,7 +166,8 @@ export function DispatchProvider({
   const hasSeededChatCommandCursorRef = useRef(false);
   const gpsPromptOpenRef = useRef(false);
   const queuedGpsPromptRef = useRef<RideChatMessage | null>(null);
-  const locallyNotifiedGpsRequestIdsRef = useRef(new Set<string>());
+  // Each gps_ask message id prompts at most once, whether it arrives by push, push tap, local notification or chat poll.
+  const gpsAskTrackerRef = useRef(createGpsAskTracker());
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const gpsSharingApprovedRef = useRef(false);
   const sentEndpointGpsOffRideIdsRef = useRef(new Set<string>());
@@ -454,8 +457,11 @@ export function DispatchProvider({
 
   const promptForGpsRequest = useCallback((message: RideChatMessage) => {
     if (gpsPromptOpenRef.current) return;
-    queuedGpsPromptRef.current = null;
+    if (queuedGpsPromptRef.current?.id === message.id) queuedGpsPromptRef.current = null;
+    processedChatCommandIdsRef.current.add(message.id);
+    if (!gpsAskTrackerRef.current.claimPrompt(message.id)) return;
     gpsPromptOpenRef.current = true;
+    void dismissGpsAskNotifications(message.id).catch(() => {});
 
     const handleResponse = (approved: boolean) => {
       gpsPromptOpenRef.current = false;
@@ -485,14 +491,14 @@ export function DispatchProvider({
   }, [sendGpsResponse]);
 
   const handleGpsRequest = useCallback((message: RideChatMessage) => {
+    if (gpsAskTrackerRef.current.hasPrompted(message.id)) return;
     if (appStateRef.current === "active") {
       promptForGpsRequest(message);
       return;
     }
 
     queuedGpsPromptRef.current = message;
-    if (locallyNotifiedGpsRequestIdsRef.current.has(message.id)) return;
-    locallyNotifiedGpsRequestIdsRef.current.add(message.id);
+    if (!gpsAskTrackerRef.current.claimLocalNotification(message.id)) return;
     void scheduleLocalGpsAskNotification({ messageId: message.id }).catch((error) => {
       console.log("[push] local gps_ask notification failed", error instanceof Error ? error.message : error);
     });
@@ -504,6 +510,10 @@ export function DispatchProvider({
       if (nextState !== "active") return;
       const queuedMessage = queuedGpsPromptRef.current;
       if (!queuedMessage || gpsPromptOpenRef.current) return;
+      if (gpsAskTrackerRef.current.hasPrompted(queuedMessage.id)) {
+        queuedGpsPromptRef.current = null;
+        return;
+      }
       promptForGpsRequest(queuedMessage);
     });
 
@@ -520,8 +530,11 @@ export function DispatchProvider({
   useEffect(() => {
     if (DEMO_MODE) return;
     return addGpsAskNotificationListeners(({ messageId }) => {
+      // A push for this id reached the device, so the poll must not add a local banner for it.
+      gpsAskTrackerRef.current.markNotified(messageId);
+      if (gpsAskTrackerRef.current.hasPrompted(messageId)) return;
+      // Another prompt is open: leave this id unprocessed so the chat poll re-offers it afterwards.
       if (gpsPromptOpenRef.current) return;
-      processedChatCommandIdsRef.current.add(messageId);
       promptForGpsRequest({
         id: messageId,
         ride_id: "dispatch",
