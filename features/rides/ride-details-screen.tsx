@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackChevron } from "@/components/ui/BackChevron";
 import { RideRequestActions } from "@/features/home/home-screen-sections";
 import { CancelRideSheet } from "@/features/rides/cancel-ride-sheet";
+import { RideNotesPanel, useKeyboardVisible } from "@/features/rides/ride-notes";
+import { RidePassengerPanel } from "@/features/rides/ride-passenger";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { useDispatch } from "@/lib/dispatch-context";
@@ -26,6 +28,7 @@ export function RideDetailsScreenContent() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const { impact } = useHaptics();
   const [fetchedRide, setFetchedRide] = useState<DispatchedRide | null>(null);
+  const keyboardVisible = useKeyboardVisible();
   const ride = rides.find((item) => item.id === rideId) ?? rides.find((item) => normalizeRideId(item.id) === normalizeRideId(rideId)) ?? fetchedRide;
   const detailId = normalizeRideId(ride?.id ?? rideId);
 
@@ -88,6 +91,8 @@ export function RideDetailsScreenContent() {
         <ScrollView
           style={{ flex: 1 }}
           contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustKeyboardInsets
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ padding: spacing.md, paddingBottom: ride ? insets.bottom + 178 : insets.bottom + 28, gap: spacing.md }}
         >
           {ride ? (
@@ -111,9 +116,20 @@ export function RideDetailsScreenContent() {
               <FadeInBlock delay={145}>
                 <RouteDetailPanel ride={ride} />
               </FadeInBlock>
-              <FadeInBlock delay={175}>
-                <TripContextPanel ride={ride} />
+              {ride.passenger !== undefined ? (
+                <FadeInBlock delay={160}>
+                  <RidePassengerPanel ride={ride} />
+                </FadeInBlock>
+              ) : null}
+              <FadeInBlock delay={170}>
+                <RideNotesPanel ride={ride} />
               </FadeInBlock>
+              {/* Backends with ride notes carry dispatch instructions there; keep this for legacy ride-level notes. */}
+              {ride.notes?.trim() || ride.rideNotes === undefined ? (
+                <FadeInBlock delay={175}>
+                  <TripContextPanel ride={ride} />
+                </FadeInBlock>
+              ) : null}
             </>
           ) : (
             <FadeInBlock delay={60}>
@@ -122,7 +138,7 @@ export function RideDetailsScreenContent() {
           )}
         </ScrollView>
 
-        {ride ? (
+        {ride && !keyboardVisible ? (
           <RideDetailsActionBar
             bottomInset={insets.bottom}
             onChat={() => openChat(ride)}

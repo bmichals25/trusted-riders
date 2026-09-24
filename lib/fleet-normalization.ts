@@ -2,6 +2,9 @@ import {
   normalizeRouteGeometry,
   type DispatchedRide,
   type RideCoordinate,
+  type RideNote,
+  type RideNoteAuthorRole,
+  type RidePassenger,
   type RideStatus,
   type TransitType,
 } from "./rides";
@@ -57,6 +60,7 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
   const createdAt = createdAtDate ? createdAtDate.getTime() : Date.now();
 
   const status = normalizeRideStatus(pickString(raw, ["status", "ride_status"]) || "");
+  const passengerFields = pickPassengerFields(raw);
 
   return {
     id,
@@ -73,13 +77,15 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
     tripType: normalizeTripType(pickString(raw, ["trip_type", "tripType", "ride_type"])),
     notes:
       pickString(raw, ["notes", "care_notes", "careNotes", "special_instructions", "specialInstructions", "special_conditions", "specialConditions", "conditions", "medical_conditions", "medicalConditions", "accessibility_notes", "accessibilityNotes"]) ||
-      pickNestedString(raw, ["passenger", "rider", "client", "customer"], ["notes", "care_notes", "careNotes", "special_conditions", "specialConditions", "conditions", "medical_conditions", "medicalConditions", "accessibility_notes", "accessibilityNotes"]) ||
+      // A passenger record's notes are person-level notes, shown in the Passenger section instead.
+      (passengerFields.passenger !== undefined ? null : pickNestedString(raw, ["passenger", "rider", "client", "customer"], ["notes", "care_notes", "careNotes", "special_conditions", "specialConditions", "conditions", "medical_conditions", "medicalConditions", "accessibility_notes", "accessibilityNotes"])) ||
       "",
     emergencyContact: pickString(raw, ["emergency_contact", "emergencyContact", "contact_phone"]) || "",
     status,
     // Only an explicit `driver_accepted: false` means "waiting on the driver"; older backends omit the field.
     awaitingAcceptance: (status === "pending" || status === "accepted") && raw.driver_accepted === false,
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    ...passengerFields,
   };
 }
 
@@ -299,7 +305,7 @@ function formatRideTime(value: string | null): string {
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
-function parseBackendDate(value: string | null): Date | null {
+export function parseBackendDate(value: string | null): Date | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -311,4 +317,80 @@ function parseBackendDate(value: string | null): Date | null {
   const normalized = isoDateTimeWithoutZone.test(trimmed) ? `${trimmed}Z` : trimmed;
   const date = new Date(normalized);
   return Number.isFinite(date.getTime()) ? date : null;
+}
+
+// ---- Passenger + ride notes (BEN-13) ----
+
+/**
+ * Passenger id/record and ride notes, only for the keys the payload actually carries, so rides from an
+ * older backend (or list rows without ride detail) keep these fields undefined.
+ */
+function pickPassengerFields(raw: Record<string, unknown>): Pick<DispatchedRide, "passengerId" | "passenger" | "rideNotes"> {
+  const fields: Pick<DispatchedRide, "passengerId" | "passenger" | "rideNotes"> = {};
+  if ("passenger_id" in raw || "passengerId" in raw) {
+    fields.passengerId = pickString(raw, ["passenger_id", "passengerId"]);
+  }
+  const passenger = raw.passenger;
+  if (passenger === null) {
+    fields.passenger = null;
+  } else if (passenger && typeof passenger === "object" && !Array.isArray(passenger) && "id" in passenger) {
+    // Only a passenger record (it always has an id) — not an ad-hoc nested { name } object.
+    fields.passenger = normalizeRidePassenger(passenger as Record<string, unknown>);
+  }
+  const notes = raw.ride_notes ?? raw.rideNotes;
+  if (Array.isArray(notes)) {
+    fields.rideNotes = normalizeRideNotes(notes);
+  } else if ("ride_notes" in raw || "rideNotes" in raw) {
+    fields.rideNotes = [];
+  }
+  return fields;
+}
+
+export function normalizeRidePassenger(raw: Record<string, unknown>): RidePassenger {
+  return {
+    id: pickString(raw, ["id", "passenger_id"]) ?? "",
+    name: pickString(raw, ["name", "full_name"]) ?? "",
+    phone: pickString(raw, ["phone", "phone_number"]) ?? "",
+    mobilityNeeds: pickString(raw, ["mobility_needs", "mobilityNeeds"]) ?? "",
+    emergencyContactName: pickString(raw, ["emergency_contact_name", "emergencyContactName"]) ?? "",
+    emergencyContactPhone: pickString(raw, ["emergency_contact_phone", "emergencyContactPhone"]) ?? "",
+    notes: pickString(raw, ["notes"]) ?? "",
+  };
+}
+
+export function normalizeRideNoteAuthorRole(value: unknown): RideNoteAuthorRole {
+  const role = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return role === "tr" || role === "driver" || role === "trusted_rider" ? "tr" : "dispatch";
+}
+
+export function normalizeRideNote(raw: unknown): RideNote | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const note = raw as Record<string, unknown>;
+  const id = pickString(note, ["id", "note_id"]);
+  const text = typeof note.text === "string" ? note.text.trim() : "";
+  if (!id || !text) return null;
+  const authorRole = normalizeRideNoteAuthorRole(note.author_role ?? note.authorRole);
+  return {
+    id,
+    authorRole,
+    authorName: pickString(note, ["author_name", "authorName"]) ?? (authorRole === "tr" ? "TR" : "Dispatch"),
+    text,
+    createdAt: pickString(note, ["created_at", "createdAt"]) ?? "",
+  };
+}
+
+/** Oldest first (the backend already sends them that way; keep it true after local appends). */
+export function normalizeRideNotes(raw: unknown): RideNote[] {
+  if (!Array.isArray(raw)) return [];
+  return sortRideNotes(raw.map(normalizeRideNote).filter((note): note is RideNote => !!note));
+}
+
+export function sortRideNotes(notes: RideNote[]): RideNote[] {
+  return notes
+    .map((note, index) => ({ note, index, time: parseBackendDate(note.createdAt)?.getTime() ?? Number.NaN }))
+    .sort((a, b) => {
+      if (Number.isFinite(a.time) && Number.isFinite(b.time) && a.time !== b.time) return a.time - b.time;
+      return a.index - b.index;
+    })
+    .map((entry) => entry.note);
 }

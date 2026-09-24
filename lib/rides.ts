@@ -10,6 +10,30 @@ export type RideStatus =
 export type TransitType = "Sedan" | "Wheelchair" | "Stretcher" | "Ambulatory";
 export type RideCoordinate = { latitude: number; longitude: number };
 
+/** Who wrote a ride note: dispatch staff or a TR (the assigned driver). */
+export type RideNoteAuthorRole = "dispatch" | "tr";
+
+export type RideNote = {
+  id: string;
+  authorRole: RideNoteAuthorRole;
+  authorName: string;
+  text: string;
+  /** ISO-8601 timestamp from the backend (UTC). */
+  createdAt: string;
+};
+
+/** The ride's passenger as the assigned TR sees it. Missing values are empty strings. */
+export type RidePassenger = {
+  id: string;
+  name: string;
+  phone: string;
+  mobilityNeeds: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  /** Person-level notes written by dispatch; read-only for TRs. */
+  notes: string;
+};
+
 export type DispatchedRide = {
   id: string;
   passengerName: string;
@@ -29,6 +53,12 @@ export type DispatchedRide = {
   /** Dispatch assigned this ride and is waiting for the driver to accept or decline it. */
   awaitingAcceptance?: boolean;
   createdAt: number;
+  // Passenger + ride notes (BEN-13). Left undefined when the backend doesn't send them (older backends,
+  // or list rows without ride detail); `passenger: null` means the ride has no passenger attached.
+  passengerId?: string | null;
+  passenger?: RidePassenger | null;
+  /** Oldest first. */
+  rideNotes?: RideNote[];
 };
 
 export function normalizeRouteGeometry(value: unknown): RideCoordinate[] {
@@ -94,8 +124,9 @@ export function mergeRideSummaryAndDetail(
   if (summaryStatus) {
     merged.status = summaryStatus;
   }
-  // Ride details are cached; acceptance changes after the first fetch, so the fresh list wins.
-  for (const key of ["driver_accepted", "driver_accepted_at"]) {
+  // Ride details are cached; acceptance (and the attached passenger) can change after the first fetch,
+  // so the fresh list wins.
+  for (const key of ["driver_accepted", "driver_accepted_at", "passenger_id", "passenger_name"]) {
     if (key in summary) merged[key] = summary[key];
   }
   return merged;
