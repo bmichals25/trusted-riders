@@ -27,6 +27,25 @@ export const demoRides: DispatchedRide[] = [
     emergencyContact: "Elena Vega, +1 (404) 555-0198",
     status: "pending",
     createdAt: now - 16 * 60_000,
+    passengerId: "501",
+    passenger: {
+      id: "501",
+      name: "Marisol Vega",
+      phone: "+1 (404) 555-0122",
+      mobilityNeeds: "Folding wheelchair; needs help with the car transfer.",
+      emergencyContactName: "Elena Vega (daughter)",
+      emergencyContactPhone: "+1 (404) 555-0198",
+      notes: "Hard of hearing on the left side. Prefers a call over a text.",
+    },
+    rideNotes: [
+      {
+        id: "demo-1027-n1",
+        authorRole: "dispatch",
+        authorName: "Dispatch",
+        text: "Meet at entrance B. Front desk will page her when you arrive.",
+        createdAt: new Date(now - 40 * 60_000).toISOString(),
+      },
+    ],
   },
   {
     id: "1024",
@@ -51,6 +70,32 @@ export const demoRides: DispatchedRide[] = [
     emergencyContact: "Maya Bennett, +1 (678) 555-0144",
     status: "en_route",
     createdAt: now - 68 * 60_000,
+    passengerId: "502",
+    passenger: {
+      id: "502",
+      name: "Arthur Bennett",
+      phone: "+1 (678) 555-0107",
+      mobilityNeeds: "Walks with a cane. Allow extra time on stairs.",
+      emergencyContactName: "Maya Bennett",
+      emergencyContactPhone: "+1 (678) 555-0144",
+      notes: "",
+    },
+    rideNotes: [
+      {
+        id: "demo-1024-n1",
+        authorRole: "dispatch",
+        authorName: "Dispatch",
+        text: "Spouse is riding along. Use the north lobby pickup lane.",
+        createdAt: new Date(now - 70 * 60_000).toISOString(),
+      },
+      {
+        id: "demo-1024-n2",
+        authorRole: "tr",
+        authorName: "Jordan Mitchell",
+        text: "Lobby lane closed for construction, picking up at the side entrance.",
+        createdAt: new Date(now - 12 * 60_000).toISOString(),
+      },
+    ],
   },
   {
     id: "1031",
@@ -96,6 +141,17 @@ export const demoRides: DispatchedRide[] = [
     emergencyContact: "Jin Park, +1 (470) 555-0186",
     status: "accepted",
     createdAt: now - 22 * 60_000,
+    passengerId: "503",
+    passenger: {
+      id: "503",
+      name: "Lillian Park",
+      phone: "+1 (470) 555-0150",
+      mobilityNeeds: "Power wheelchair. Needs a ramp vehicle.",
+      emergencyContactName: "Jin Park",
+      emergencyContactPhone: "+1 (470) 555-0186",
+      notes: "",
+    },
+    rideNotes: [],
   },
 ];
 

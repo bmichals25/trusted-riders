@@ -12,6 +12,30 @@ import type { RideTrip } from "./round-trip";
 export type TransitType = "Sedan" | "Wheelchair" | "Stretcher" | "Ambulatory";
 export type RideCoordinate = { latitude: number; longitude: number };
 
+/** Who wrote a ride note: dispatch staff or a TR (the assigned driver). */
+export type RideNoteAuthorRole = "dispatch" | "tr";
+
+export type RideNote = {
+  id: string;
+  authorRole: RideNoteAuthorRole;
+  authorName: string;
+  text: string;
+  /** ISO-8601 timestamp from the backend (UTC). */
+  createdAt: string;
+};
+
+/** The ride's passenger as the assigned TR sees it. Missing values are empty strings. */
+export type RidePassenger = {
+  id: string;
+  name: string;
+  phone: string;
+  mobilityNeeds: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  /** Person-level notes written by dispatch; read-only for TRs. */
+  notes: string;
+};
+
 export type DispatchedRide = {
   id: string;
   passengerName: string;
@@ -33,6 +57,12 @@ export type DispatchedRide = {
   /** Round trip leg (lib/round-trip.ts); null/absent for a one-way ride. */
   trip?: RideTrip | null;
   createdAt: number;
+  // Passenger + ride notes (BEN-13). Left undefined when the backend doesn't send them (older backends,
+  // or list rows without ride detail); `passenger: null` means the ride has no passenger attached.
+  passengerId?: string | null;
+  passenger?: RidePassenger | null;
+  /** Oldest first. */
+  rideNotes?: RideNote[];
 };
 
 export function normalizeRouteGeometry(value: unknown): RideCoordinate[] {
@@ -98,9 +128,10 @@ export function mergeRideSummaryAndDetail(
   if (summaryStatus) {
     merged.status = summaryStatus;
   }
-  // Ride details are cached; acceptance changes after the first fetch, so the fresh list wins. Same for the
-  // round-trip block and the start time (Ready to Return gives an open return leg its start time).
-  for (const key of ["driver_accepted", "driver_accepted_at", "trip", "start_time"]) {
+  // Ride details are cached; acceptance (and the attached passenger) can change after the first fetch,
+  // so the fresh list wins. Same for the round-trip block and the start time (Ready to Return gives an
+  // open return leg its start time).
+  for (const key of ["driver_accepted", "driver_accepted_at", "passenger_id", "passenger_name", "trip", "start_time"]) {
     if (key in summary) merged[key] = summary[key];
   }
   return merged;
