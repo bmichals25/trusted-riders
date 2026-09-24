@@ -90,6 +90,8 @@ PODS:
   - ExpoRouter (55.0.16):
     - ExpoModulesCore
     - RNScreens
+  - ExpoSecureStore (55.0.18):
+    - ExpoModulesCore
   - ExpoSymbols (55.0.9):
     - ExpoModulesCore
   - ExpoTaskManager (55.0.16):
@@ -2303,6 +2305,7 @@ DEPENDENCIES:
   - ExpoModulesJSI (from `../node_modules/expo-modules-core`)
   - ExpoNotifications (from `../node_modules/expo-notifications/ios`)
   - ExpoRouter (from `../node_modules/expo-router/ios`)
+  - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
   - ExpoSymbols (from `../node_modules/expo-symbols/ios`)
   - ExpoTaskManager (from `../node_modules/expo-task-manager/ios`)
   - ExpoVideo (from `../node_modules/expo-video/ios`)
@@ -2437,6 +2440,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-notifications/ios"
   ExpoRouter:
     :path: "../node_modules/expo-router/ios"
+  ExpoSecureStore:
+    :path: "../node_modules/expo-secure-store/ios"
   ExpoSymbols:
     :path: "../node_modules/expo-symbols/ios"
   ExpoTaskManager:
@@ -2628,6 +2633,7 @@ SPEC CHECKSUMS:
   ExpoModulesJSI: 964334271fc77832736f66ee1785761cdc778dbe
   ExpoNotifications: 61c46aa5df088ff0ad41de0504a86a92333aec55
   ExpoRouter: e0e2aa4b03843e7abfa3e63e0cdd6c642d74780f
+  ExpoSecureStore: 422f8e24d8ba1693600bc3720f0a71a17ddcbea0
   ExpoSymbols: 896159288ad708e1a32dc12c92fe5f90bff01126
   ExpoTaskManager: a288a5a5eab33009b1fb7a413ba47ef7eac23fba
   ExpoVideo: 5e7aee124df2f7d9ffe1bd4dbf63119417b340a3
