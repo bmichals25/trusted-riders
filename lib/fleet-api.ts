@@ -365,7 +365,8 @@ export async function fetchRides(): Promise<DispatchedRide[]> {
     path,
     { headers },
     {
-      minIntervalMs: 15000,
+      // Low enough that a ride push or returning to the app can refresh right away.
+      minIntervalMs: 3000,
       failureBackoffMs: 30000,
       throttleKey: "GET /api/rides",
     },

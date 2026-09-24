@@ -212,6 +212,30 @@ export async function scheduleLocalGpsOffNotification({
   });
 }
 
+/** True for pushes that mean the driver's ride list changed (new assignment, status change, reminder). */
+export function isRideUpdateNotificationData(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const type = (raw as Record<string, unknown>).type;
+  return type === "ride_request" || type === "ride_status";
+}
+
+/** Calls onRideUpdate whenever a ride push arrives (foreground) or is tapped, so the list refreshes immediately. */
+export function addRideUpdateNotificationListener(onRideUpdate: () => void): () => void {
+  const notifications = getNotificationsModule();
+  if (!notifications) return () => {};
+  configureNotificationHandler(notifications);
+  const received = notifications.addNotificationReceivedListener((notification) => {
+    if (isRideUpdateNotificationData(notification.request.content.data)) onRideUpdate();
+  });
+  const response = notifications.addNotificationResponseReceivedListener((notificationResponse) => {
+    if (isRideUpdateNotificationData(notificationResponse.notification.request.content.data)) onRideUpdate();
+  });
+  return () => {
+    received.remove();
+    response.remove();
+  };
+}
+
 export function addGpsAskNotificationListeners(
   onGpsAsk: (event: GpsAskNotificationEvent) => void,
 ): () => void {

@@ -26,6 +26,7 @@ import { shouldSuppressRideErrorPanel } from "./fleet-fetch-result";
 import { createGpsAskTracker } from "./gps-ask-dedupe";
 import {
   addGpsAskNotificationListeners,
+  addRideUpdateNotificationListener,
   dismissGpsAskNotifications,
   registerForPushNotifications,
   scheduleLocalGpsAskNotification,
@@ -91,6 +92,7 @@ const DispatchActionsContext = createContext<DispatchActions>({
 });
 
 const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
+const RIDE_POLL_INTERVAL_MS = 10000;
 const AUTO_COMPLETE_DROPOFF_RADIUS_METERS = 150;
 
 export function isCurrentRideStatus(status: RideStatus): boolean {
@@ -395,10 +397,30 @@ export function DispatchProvider({
   useEffect(() => {
     void refreshRides();
     const interval = setInterval(() => {
-      void refreshRides();
-    }, 30000);
+      // Polling is the fallback; pushes and returning to the app refresh immediately (below).
+      if (appStateRef.current === "active") void refreshRides();
+    }, RIDE_POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
+  }, [refreshRides]);
+
+  useEffect(() => {
+    if (DEMO_MODE) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const refreshNow = () => {
+      void refreshRides();
+      // A refresh that lands inside the request throttle is skipped; try once more just after it.
+      timers.push(setTimeout(() => void refreshRides(), 3500));
+    };
+    const removePushListener = addRideUpdateNotificationListener(refreshNow);
+    const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") refreshNow();
+    });
+    return () => {
+      removePushListener();
+      appStateSubscription.remove();
+      timers.forEach(clearTimeout);
+    };
   }, [refreshRides]);
 
   useEffect(() => {
