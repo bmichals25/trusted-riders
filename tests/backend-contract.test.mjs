@@ -99,7 +99,7 @@ test("chat helpers use the driver-scoped backend contract", () => {
     created_at: "2026-05-28T12:01:00Z",
   });
   assert.equal(echoedDriverMessage.sender, "driver");
-  assert.equal(echoedDriverMessage.sender_name, "Driver");
+  assert.equal(echoedDriverMessage.sender_name, "Trusted Rider");
   assert.equal(
     chatApi.normalizeChatMessage({ id: 9, message: "Backend used message field" }).text,
     "Backend used message field",

@@ -209,7 +209,7 @@ export function DriverLoginScreen({
                   <View style={[s.inputShell, focusedField === "resetEmail" ? s.inputShellFocused : null]}>
                     <AnimatedTextInput
                       style={[s.input, inputAnimatedStyle, webInputStyle]}
-                      placeholder="driver@trustedriders.org"
+                      placeholder="you@trustedriders.org"
                       placeholderTextColor={colors.slate400}
                       value={resetEmail}
                       onChangeText={(value) => {
@@ -221,7 +221,7 @@ export function DriverLoginScreen({
                       autoCorrect={false}
                       autoFocus={!resetEmail}
                       accessibilityLabel="Email"
-                      accessibilityHint="The email address for your TrustedRide Certified driver account."
+                      accessibilityHint="The email address for your TrustedRide Certified account."
                       keyboardType="email-address"
                       textContentType="emailAddress"
                       returnKeyType="send"
@@ -305,7 +305,7 @@ export function DriverLoginScreen({
                   <View style={[s.inputShell, focusedField === "email" ? s.inputShellFocused : null]}>
                     <AnimatedTextInput
                       style={[s.input, inputAnimatedStyle, webInputStyle]}
-                      placeholder="driver@trustedriders.org"
+                      placeholder="you@trustedriders.org"
                       placeholderTextColor={colors.slate400}
                       value={email}
                       onChangeText={onEmailChange}
@@ -313,7 +313,7 @@ export function DriverLoginScreen({
                       autoComplete="username"
                       autoCorrect={false}
                       accessibilityLabel="Email"
-                      accessibilityHint="Enter the email address assigned to your TrustedRide Certified driver account."
+                      accessibilityHint="Enter the email address assigned to your TrustedRide Certified account."
                       keyboardType="email-address"
                       showSoftInputOnFocus
                       textContentType="username"
@@ -350,7 +350,7 @@ export function DriverLoginScreen({
                       secureTextEntry={!passwordVisible}
                       showSoftInputOnFocus
                       accessibilityLabel="Password"
-                      accessibilityHint="Enter your TrustedRide Certified driver account password."
+                      accessibilityHint="Enter your TrustedRide Certified account password."
                       accessibilityValue={{ text: password ? `${password.length} characters entered` : "No password entered" }}
                       autoCapitalize="none"
                       autoComplete="current-password"
@@ -400,7 +400,7 @@ export function DriverLoginScreen({
                   disabled={!canSubmit}
                   accessibilityRole="button"
                   accessibilityLabel={submitting ? "Signing in" : "Sign in"}
-                  accessibilityHint="Authenticates this device with the TrustedRide Certified driver portal."
+                  accessibilityHint="Signs this device in to your TrustedRide Certified account."
                   accessibilityState={{ disabled: !canSubmit, busy: submitting }}
                 >
                   {submitting ? (
