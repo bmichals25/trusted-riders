@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { AgreementGate } from "@/components/ui/AgreementGate";
 import { DriverNameGate } from "@/components/ui/DriverNameGate";
 import { DispatchMessageToast } from "@/components/ui/DispatchMessageToast";
 import { LocationSetupGate } from "@/components/ui/LocationSetupGate";
@@ -24,6 +25,8 @@ export default function RootLayout() {
       <AppErrorBoundary>
         <DriverNameGate>
           {(driverSession) => (
+            // Trusted Rider agreement (BEN-20): shown instead of the app until accepted.
+            <AgreementGate>
             <LocationProvider>
             <HapticsProvider>
             <DispatchProvider
@@ -58,6 +61,7 @@ export default function RootLayout() {
             </DispatchProvider>
             </HapticsProvider>
             </LocationProvider>
+            </AgreementGate>
           )}
         </DriverNameGate>
       </AppErrorBoundary>

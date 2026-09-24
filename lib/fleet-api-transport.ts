@@ -2,6 +2,7 @@ import {
   ApiRequestThrottle,
   type ApiRequestResult,
 } from "./api-request-throttle";
+import { detectAgreementRequired } from "./agreement-events";
 import { FLEET_API_URL } from "./config";
 
 const FLEET_UPSTREAM_UNAVAILABLE_BACKOFF_MS = 5 * 60 * 1000;
@@ -132,6 +133,8 @@ export async function fleetFetch(
     }
 
     await logApi(method, path, url, res);
+    // 403 {"code": "agreement_required"}: bring the Trusted Rider agreement back up (BEN-20).
+    if (res.status === 403) await detectAgreementRequired(res);
     result = res.ok ? "sent" : "failed";
     return { result, res };
   } catch (err) {
