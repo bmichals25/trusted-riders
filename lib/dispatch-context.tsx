@@ -223,6 +223,8 @@ export function DispatchProvider({
   const advanceRideStatus = useCallback(async (ride: DispatchedRide, nextStatus: RideStatus) => {
     if (nextStatus === "completed") {
       // Same path as auto-complete at dropoff: status + ride_end + gps_off + stop tracking.
+      // A tap is always deliberate, so it isn't blocked by the auto-complete de-duplication.
+      sentEndpointGpsOffRideIdsRef.current.delete(ride.id);
       completeRideAtDropoff(ride);
       return true;
     }
@@ -349,6 +351,10 @@ export function DispatchProvider({
 
       for (const ride of nextRides) {
         const previous = previousById.get(ride.id);
+        // Dispatch reopened a ride this phone already finished (reset and re-run): let it complete again.
+        if (isCurrentRideStatus(ride.status) || isUpcomingRideStatus(ride.status)) {
+          sentEndpointGpsOffRideIdsRef.current.delete(ride.id);
+        }
         if (
           shouldEndGpsAtRideEndpoint(previous, ride) &&
           !sentEndpointGpsOffRideIdsRef.current.has(ride.id)
