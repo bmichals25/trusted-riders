@@ -46,6 +46,7 @@ export const colors = {
 // Status badge color pairs — background + text for each operational state.
 export const statusColors = {
   pending:    { bg: "#FEF3C7", text: "#92400E" },
+  request:    { bg: "#FFEDD5", text: "#9A3412" },
   scheduled:  { bg: "#DBEAFE", text: "#1E40AF" },
   enRoute:    { bg: "#FEF3C7", text: "#92400E" },
   inTransit:  { bg: "#EDE9FE", text: "#5B21B6" },
@@ -62,6 +63,7 @@ export type StatusKey = keyof typeof statusColors;
 
 export const statusLabels: Record<StatusKey, string> = {
   pending:    "Upcoming",
+  request:    "New request",
   scheduled:  "Scheduled",
   enRoute:    "En Route",
   inTransit:  "In Transit",

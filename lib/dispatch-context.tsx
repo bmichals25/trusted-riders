@@ -6,9 +6,11 @@ import {
   getRecentlyTerminalRideIds,
   isFleetApiError,
   isFleetApiRefreshSkippedError,
+  respondToRideRequest,
   setActiveRideId,
   updateLocation,
   updateRideStatus,
+  type RideRequestResponse,
 } from "./fleet-api";
 import {
   getChatCommandType,
@@ -55,6 +57,8 @@ type DispatchData = {
 type DispatchActions = {
   /** Driver-initiated step: arrived at pickup -> passenger on board -> completed. Resolves false on failure. */
   advanceRideStatus: (ride: DispatchedRide, nextStatus: RideStatus) => Promise<boolean>;
+  /** Accept or decline a ride dispatch assigned. Resolves with a driver-facing message on failure. */
+  respondToRide: (ride: DispatchedRide, response: RideRequestResponse) => Promise<{ ok: boolean; message?: string }>;
   clearDispatchUnreadMessages: () => void;
   dismissStatusNotice: () => void;
   noteIncomingDispatchMessages: (count: number) => void;
@@ -75,6 +79,7 @@ const DispatchDataContext = createContext<DispatchData>({
 
 const DispatchActionsContext = createContext<DispatchActions>({
   advanceRideStatus: async () => false,
+  respondToRide: async () => ({ ok: false }),
   clearDispatchUnreadMessages: () => {},
   dismissStatusNotice: () => {},
   noteIncomingDispatchMessages: () => {},
@@ -231,6 +236,31 @@ export function DispatchProvider({
     });
     return true;
   }, [completeRideAtDropoff]);
+
+  const respondToRide = useCallback(async (ride: DispatchedRide, response: RideRequestResponse) => {
+    if (DEMO_MODE) return { ok: true };
+    let result: { ok: boolean; message?: string };
+    try {
+      result = await respondToRideRequest(ride.id, response);
+    } catch (error) {
+      console.log("[dispatch] ride request response failed", error instanceof Error ? error.message : error);
+      result = { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
+    }
+    if (!result.ok) return result;
+    setRides((prev) => {
+      const next = response === "decline"
+        // Declined rides go back to dispatch and are no longer this driver's.
+        ? prev.filter((candidate) => candidate.id !== ride.id)
+        : prev.map((candidate) =>
+            candidate.id === ride.id
+              ? { ...candidate, status: "accepted" as RideStatus, awaitingAcceptance: false }
+              : candidate,
+          );
+      ridesRef.current = next;
+      return next;
+    });
+    return result;
+  }, []);
 
   const refreshRides = useCallback(async () => {
     if (DEMO_MODE) {
@@ -623,12 +653,13 @@ export function DispatchProvider({
   const actionsValue = useMemo<DispatchActions>(
     () => ({
       advanceRideStatus,
+      respondToRide,
       clearDispatchUnreadMessages,
       dismissStatusNotice,
       noteIncomingDispatchMessages,
       refreshRides,
     }),
-    [advanceRideStatus, clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides],
+    [advanceRideStatus, respondToRide, clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides],
   );
 
   return (

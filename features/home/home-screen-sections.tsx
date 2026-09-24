@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SymbolIcon, type AppSymbolName } from "@/components/ui/SymbolIcon";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import Animated, {
   Easing,
@@ -95,19 +95,27 @@ export function CurrentRideCard({
   );
 }
 
+export type RideRequestResponder = (
+  ride: DispatchedRide,
+  response: "accept" | "decline",
+) => Promise<{ ok: boolean; message?: string }>;
+
 export function UpcomingRideCard({
   ride,
   onOpen,
   onNavigate,
+  onRespond,
 }: {
   ride: DispatchedRide;
   onOpen: () => void;
   onNavigate: () => void;
+  onRespond?: RideRequestResponder;
 }) {
   return (
     <View style={cardStyle}>
       <RideHeader ride={ride} />
       <RouteRows ride={ride} />
+      {ride.awaitingAcceptance && onRespond ? <RideRequestActions ride={ride} onRespond={onRespond} /> : null}
       <View style={{ gap: spacing.sm }}>
         <SecondaryActionButton label="View Ride" iconName="doc.text.magnifyingglass" onPress={onOpen} />
         <SecondaryActionButton label="Navigate" iconName="location.fill" onPress={onNavigate} />
@@ -116,14 +124,92 @@ export function UpcomingRideCard({
   );
 }
 
+/** Accept / Decline for a ride dispatch assigned but the driver hasn't answered yet. */
+export function RideRequestActions({ ride, onRespond }: { ride: DispatchedRide; onRespond: RideRequestResponder }) {
+  const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const respond = async (response: "accept" | "decline") => {
+    if (busy) return;
+    setBusy(response);
+    setError(null);
+    const result = await onRespond(ride, response);
+    setBusy(null);
+    if (!result.ok) setError(result.message ?? "Couldn't update dispatch. Try again.");
+  };
+
+  const confirmDecline = () => {
+    Alert.alert(
+      `Decline ride #${ride.id}?`,
+      "Dispatch will be told and will reassign it to another driver.",
+      [
+        { text: "Keep ride", style: "cancel" },
+        { text: "Decline", style: "destructive", onPress: () => void respond("decline") },
+      ],
+    );
+  };
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>
+        Dispatch assigned you this ride. Let them know if you can take it.
+      </Text>
+      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        <DeclineButton label={busy === "decline" ? "Declining…" : "Decline"} onPress={confirmDecline} disabled={!!busy} />
+        <PrimaryActionButton
+          label={busy === "accept" ? "Accepting…" : "Accept ride"}
+          iconName="checkmark.circle.fill"
+          onPress={() => void respond("accept")}
+          disabled={!!busy}
+        />
+      </View>
+      {error ? (
+        <Text accessibilityLiveRegion="polite" style={{ color: colors.error, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+          {error}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function DeclineButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: 52,
+        borderRadius: radii.sm,
+        borderWidth: 1.5,
+        borderColor: colors.error,
+        backgroundColor: pressed ? colors.errorSoft : colors.surface,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+        gap: spacing.sm,
+        opacity: disabled ? 0.6 : 1,
+      })}
+    >
+      <SymbolIcon name="xmark.circle.fill" size={18} type="hierarchical" tintColor={colors.error} weight="bold" />
+      <Text style={{ color: colors.error, fontSize: 16, fontWeight: "800" }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export function NextUpcomingRideCard({
   ride,
   onOpen,
   onNavigate,
+  onRespond,
 }: {
   ride: DispatchedRide;
   onOpen: () => void;
   onNavigate: () => void;
+  onRespond?: RideRequestResponder;
 }) {
   return (
     <View style={cardStyle}>
@@ -137,6 +223,7 @@ export function NextUpcomingRideCard({
         <RideMiniMap ride={ride} />
         <RouteRows ride={ride} />
       </Pressable>
+      {ride.awaitingAcceptance && onRespond ? <RideRequestActions ride={ride} onRespond={onRespond} /> : null}
       <View style={{ gap: spacing.sm }}>
         <SecondaryActionButton label="View Ride" iconName="doc.text.magnifyingglass" onPress={onOpen} />
         <SecondaryActionButton label="Navigate" iconName="location.fill" onPress={onNavigate} />
@@ -310,7 +397,7 @@ function RideHeader({ ride }: { ride: DispatchedRide }) {
           <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "800", flex: 1 }}>
             {ride.passengerName}
           </Text>
-          <StatusBadge status={badgeStatusFor(ride.status)} />
+          <StatusBadge status={ride.awaitingAcceptance ? "request" : badgeStatusFor(ride.status)} />
         </View>
         <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700" }}>
           {ride.scheduledDate} · {ride.scheduledTime} · {ride.transitType}

@@ -576,6 +576,40 @@ export async function updateRideStatus(rideId: string, status: RideStatus): Prom
   return res.ok;
 }
 
+export type RideRequestResponse = "accept" | "decline";
+
+/** Driver accepts or declines a ride dispatch assigned to them. Declining hands it back to dispatch. */
+export async function respondToRideRequest(
+  rideId: string,
+  response: RideRequestResponse,
+): Promise<{ ok: boolean; message?: string }> {
+  const headers = authHeaders();
+  if (!headers) return { ok: false, message: "You're signed out. Sign in and try again." };
+
+  const backendId = getRideBackendId(rideId);
+  const id = encodeURIComponent(String(backendId ?? rideId));
+  const path = `/api/rides/${id}/status`;
+  const { res } = await fleetFetch(
+    "PATCH",
+    path,
+    {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ status: response === "accept" ? "accepted" : "declined" }),
+    },
+    { minIntervalMs: 1000, failureBackoffMs: 0, throttleKey: `PATCH ${path} ${response}` },
+  );
+
+  if (!res) return { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
+  if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
+    await clearToken();
+    return { ok: false, message: "Your session expired. Sign in again." };
+  }
+  if (res.status === 409) return { ok: false, message: "This ride has already started, so it can't be changed here. Message dispatch instead." };
+  if (res.status === 404) return { ok: false, message: "This ride is no longer assigned to you." };
+  return res.ok ? { ok: true } : { ok: false, message: `Dispatch couldn't record that (${res.status}). Try again.` };
+}
+
 async function isAuthFailure(res: Response): Promise<boolean> {
   try {
     const body = await res.clone().json();

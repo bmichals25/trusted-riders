@@ -26,6 +26,8 @@ export type DispatchedRide = {
   notes: string;
   emergencyContact: string;
   status: RideStatus;
+  /** Dispatch assigned this ride and is waiting for the driver to accept or decline it. */
+  awaitingAcceptance?: boolean;
   createdAt: number;
 };
 
@@ -91,6 +93,10 @@ export function mergeRideSummaryAndDetail(
   const summaryStatus = pickString(summary, ["status", "ride_status"]);
   if (summaryStatus) {
     merged.status = summaryStatus;
+  }
+  // Ride details are cached; acceptance changes after the first fetch, so the fresh list wins.
+  for (const key of ["driver_accepted", "driver_accepted_at"]) {
+    if (key in summary) merged[key] = summary[key];
   }
   return merged;
 }

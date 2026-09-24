@@ -302,6 +302,9 @@ export function addNotificationTapNavigationListener(onTap: (href: string) => vo
     const key = request.identifier || `${href}@${notificationResponse.notification.date}`;
     if (handledTapResponseIds.has(key)) return;
     handledTapResponseIds.add(key);
+    // The native side keeps the last response for the whole process; clear it so a JS reload
+    // (dev refresh or OTA update) doesn't replay an old tap and reopen a finished ride.
+    void clearLastNotificationResponse(notifications);
     onTap(href);
   };
 
@@ -320,6 +323,18 @@ export function addNotificationTapNavigationListener(onTap: (href: string) => vo
 function isOpenNotificationResponse(notificationResponse: ExpoNotifications.NotificationResponse): boolean {
   // Swiping a notification away is a response too (iOS dismiss action); only a real open counts.
   return !/dismiss/i.test(notificationResponse.actionIdentifier ?? "");
+}
+
+async function clearLastNotificationResponse(notifications: typeof ExpoNotifications): Promise<void> {
+  try {
+    if (typeof notifications.clearLastNotificationResponseAsync === "function") {
+      await notifications.clearLastNotificationResponseAsync();
+    } else if (typeof notifications.clearLastNotificationResponse === "function") {
+      notifications.clearLastNotificationResponse();
+    }
+  } catch (error) {
+    console.log("[push] could not clear last notification response", error instanceof Error ? error.message : error);
+  }
 }
 
 async function readLastNotificationResponse(

@@ -313,14 +313,17 @@ test("push taps resolve to the ride or dispatch chat", () => {
 test("push tap navigation handles cold start once and ignores dismissals", async () => {
   const listeners = [];
   const launch = fakeResponse("launch-1", { type: "ride_request", ride_id: 42, url: "trustedriders://ride-details?rideId=42" });
-  const push = loadPushNotificationsWith({
+  let lastResponse = launch;
+  const nativeNotifications = {
     setNotificationHandler: () => {},
     addNotificationResponseReceivedListener: (listener) => {
       listeners.push(listener);
       return { remove: () => listeners.splice(listeners.indexOf(listener), 1) };
     },
-    getLastNotificationResponseAsync: async () => launch,
-  });
+    getLastNotificationResponseAsync: async () => lastResponse,
+    clearLastNotificationResponseAsync: async () => { lastResponse = null; },
+  };
+  const push = loadPushNotificationsWith(nativeNotifications);
 
   const hrefs = [];
   const remove = push.addNotificationTapNavigationListener((href) => hrefs.push(href));
@@ -340,6 +343,14 @@ test("push tap navigation handles cold start once and ignores dismissals", async
   assert.deepEqual(hrefs, ["/ride-details?rideId=42", "/chat"]);
   removeAgain();
   assert.equal(listeners.length, 0);
+
+  // A JS reload (fresh module state, same native process) must not replay the handled launch tap.
+  assert.equal(lastResponse, null);
+  const reloaded = loadPushNotificationsWith(nativeNotifications);
+  const removeReloaded = reloaded.addNotificationTapNavigationListener((href) => hrefs.push(href));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(hrefs, ["/ride-details?rideId=42", "/chat"]);
+  removeReloaded();
 });
 
 test("gps_ask pushes prompt in-app instead of showing a duplicate banner", async () => {
@@ -752,8 +763,16 @@ test("fleet normalization maps backend ride shapes into mobile ride models", () 
     notes: "Needs curbside handoff",
     emergencyContact: "555-0100",
     status: "in_transit",
+    awaitingAcceptance: false,
     createdAt: Date.parse("2026-05-28T12:30:00Z"),
   });
+
+  // Acceptance: only an explicit driver_accepted=false on an upcoming ride waits for the driver.
+  const awaiting = (raw) => fleetNormalization.normalizeRide({ ride_id: 9, start_lat: 1, start_lon: 1, ...raw }).awaitingAcceptance;
+  assert.equal(awaiting({ status: "scheduled-driver assigned", driver_accepted: false }), true);
+  assert.equal(awaiting({ status: "scheduled-driver assigned", driver_accepted: true }), false);
+  assert.equal(awaiting({ status: "scheduled-driver assigned" }), false);
+  assert.equal(awaiting({ status: "driver in transit", driver_accepted: false }), false);
 
   assert.equal(
     fleetNormalization.describeRoutePayload({
@@ -866,4 +885,15 @@ test("password reset helper posts the trimmed email to /api/forgot-password", as
 
   nextResponse = null;
   await assert.rejects(fleetApi.requestPasswordReset("x@example.com"), /Fleet API unavailable/);
+});
+
+test("fresh ride list acceptance wins over a cached ride detail", () => {
+  const rides = loadTsModule("lib/rides.ts", {});
+  const merged = rides.mergeRideSummaryAndDetail(
+    { ride_id: 23, status: "scheduled-driver assigned", driver_accepted: true, driver_accepted_at: "2026-09-24T18:47:26Z" },
+    { ride_id: 23, status: "scheduled-driver assigned", driver_accepted: false, driver_accepted_at: null, pickup_address: "1 Railroad Ave" },
+  );
+  assert.equal(merged.driver_accepted, true);
+  assert.equal(merged.driver_accepted_at, "2026-09-24T18:47:26Z");
+  assert.equal(merged.pickup_address, "1 Railroad Ave");
 });

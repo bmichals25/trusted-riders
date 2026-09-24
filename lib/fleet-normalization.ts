@@ -56,6 +56,8 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
   const createdAtDate = parseBackendDate(createdAtRaw);
   const createdAt = createdAtDate ? createdAtDate.getTime() : Date.now();
 
+  const status = normalizeRideStatus(pickString(raw, ["status", "ride_status"]) || "");
+
   return {
     id,
     passengerName,
@@ -74,7 +76,9 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
       pickNestedString(raw, ["passenger", "rider", "client", "customer"], ["notes", "care_notes", "careNotes", "special_conditions", "specialConditions", "conditions", "medical_conditions", "medicalConditions", "accessibility_notes", "accessibilityNotes"]) ||
       "",
     emergencyContact: pickString(raw, ["emergency_contact", "emergencyContact", "contact_phone"]) || "",
-    status: normalizeRideStatus(pickString(raw, ["status", "ride_status"]) || ""),
+    status,
+    // Only an explicit `driver_accepted: false` means "waiting on the driver"; older backends omit the field.
+    awaitingAcceptance: (status === "pending" || status === "accepted") && raw.driver_accepted === false,
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
   };
 }

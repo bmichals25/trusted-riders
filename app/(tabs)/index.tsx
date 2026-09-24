@@ -27,7 +27,7 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { activeRide, scheduledRides, backendError, hasLoadedRides, refreshRides, advanceRideStatus } = useDispatch();
+  const { activeRide, scheduledRides, backendError, hasLoadedRides, refreshRides, advanceRideStatus, respondToRide } = useDispatch();
   const { error: locationError, permissionStatus } = useLocation();
   const { impact } = useHaptics();
   const { startupAnimationComplete, startupAnimationExiting, startupAnimationVisible } = useStartupPresentation();
@@ -180,12 +180,14 @@ export default function HomeScreen() {
                             ride={ride}
                             onOpen={() => openRideDetails(ride)}
                             onNavigate={() => openNavigation(ride)}
+                            onRespond={respondToRide}
                           />
                         ) : (
                           <UpcomingRideCard
                             ride={ride}
                             onOpen={() => openRideDetails(ride)}
                             onNavigate={() => openNavigation(ride)}
+                            onRespond={respondToRide}
                           />
                         )}
                       </FadeInBlock>

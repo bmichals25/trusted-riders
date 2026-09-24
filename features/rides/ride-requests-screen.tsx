@@ -18,7 +18,7 @@ import { colors, radii, spacing } from "@/lib/theme";
 export function UpcomingRidesScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { scheduledRides, backendError, refreshRides } = useDispatch();
+  const { scheduledRides, backendError, refreshRides, respondToRide } = useDispatch();
   const { impact } = useHaptics();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -50,11 +50,12 @@ export function UpcomingRidesScreenContent() {
             ride={item}
             onOpen={() => openRideDetails(item)}
             onNavigate={() => openNavigation(item)}
+            onRespond={respondToRide}
           />
         </FadeInBlock>
       );
     },
-    [openRideDetails, openNavigation],
+    [openRideDetails, openNavigation, respondToRide],
   );
 
   return (
