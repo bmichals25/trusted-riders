@@ -6,6 +6,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron } from "@/components/ui/BackChevron";
+import { RideRequestActions } from "@/features/home/home-screen-sections";
+import { CancelRideSheet } from "@/features/rides/cancel-ride-sheet";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { useDispatch } from "@/lib/dispatch-context";
@@ -20,7 +22,8 @@ export function RideDetailsScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { rideId } = useLocalSearchParams<{ rideId?: string }>();
-  const { rides } = useDispatch();
+  const { rides, respondToRide } = useDispatch();
+  const [cancelOpen, setCancelOpen] = useState(false);
   const { impact } = useHaptics();
   const [fetchedRide, setFetchedRide] = useState<DispatchedRide | null>(null);
   const ride = rides.find((item) => item.id === rideId) ?? rides.find((item) => normalizeRideId(item.id) === normalizeRideId(rideId)) ?? fetchedRide;
@@ -53,6 +56,30 @@ export function RideDetailsScreenContent() {
     showMapProviderOptionsForRide(target);
   }, [impact]);
 
+  const isUpcoming = !!ride && (ride.status === "pending" || ride.status === "accepted");
+  const canCancel = isUpcoming && !ride?.awaitingAcceptance;
+
+  const cancelRide = useCallback(async (reason: string) => {
+    if (!ride) return { ok: false };
+    const result = await respondToRide(ride, "decline", reason);
+    if (result.ok) {
+      setCancelOpen(false);
+      impact(ImpactFeedbackStyle.Medium);
+      if (router.canGoBack()) router.back();
+      else router.replace("/");
+    }
+    return result;
+  }, [ride, respondToRide, impact, router]);
+
+  const respondFromDetails = useCallback(async (target: DispatchedRide, response: "accept" | "decline") => {
+    const result = await respondToRide(target, response);
+    if (result.ok && response === "decline") {
+      if (router.canGoBack()) router.back();
+      else router.replace("/");
+    }
+    return result;
+  }, [respondToRide, router]);
+
   return (
     <PageTransition>
       <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
@@ -71,6 +98,13 @@ export function RideDetailsScreenContent() {
               <FadeInBlock delay={85}>
                 <RideReadinessStrip ride={ride} />
               </FadeInBlock>
+              {ride.awaitingAcceptance && isUpcoming ? (
+                <FadeInBlock delay={100}>
+                  <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md }}>
+                    <RideRequestActions ride={ride} onRespond={respondFromDetails} />
+                  </View>
+                </FadeInBlock>
+              ) : null}
               <FadeInBlock delay={115}>
                 <RideDetailMap ride={ride} />
               </FadeInBlock>
@@ -93,7 +127,11 @@ export function RideDetailsScreenContent() {
             bottomInset={insets.bottom}
             onChat={() => openChat(ride)}
             onNavigate={() => openNavigation(ride)}
+            onCancel={canCancel ? () => setCancelOpen(true) : undefined}
           />
+        ) : null}
+        {ride && canCancel ? (
+          <CancelRideSheet ride={ride} visible={cancelOpen} onClose={() => setCancelOpen(false)} onConfirm={cancelRide} />
         ) : null}
       </View>
     </PageTransition>
@@ -130,10 +168,12 @@ function RideDetailsActionBar({
   bottomInset,
   onChat,
   onNavigate,
+  onCancel,
 }: {
   bottomInset: number;
   onChat: () => void;
   onNavigate: () => void;
+  onCancel?: () => void;
 }) {
   return (
     <View
@@ -154,6 +194,15 @@ function RideDetailsActionBar({
         <DetailActionButton iconName="location.fill" label="Navigate" tone="primary" onPress={onNavigate} />
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <DetailActionButton iconName="message.fill" label="Chat" tone="secondary" onPress={onChat} />
+          {onCancel ? (
+            <DetailActionButton
+              iconName="xmark.circle.fill"
+              label="Cancel ride"
+              tone="danger"
+              onPress={onCancel}
+              accessibilityHint="Gives this ride back to dispatch to reassign"
+            />
+          ) : null}
         </View>
       </View>
     </View>

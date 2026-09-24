@@ -773,6 +773,8 @@ test("fleet normalization maps backend ride shapes into mobile ride models", () 
   assert.equal(awaiting({ status: "scheduled-driver assigned", driver_accepted: true }), false);
   assert.equal(awaiting({ status: "scheduled-driver assigned" }), false);
   assert.equal(awaiting({ status: "driver in transit", driver_accepted: false }), false);
+  assert.equal(fleetNormalization.normalizeRideStatus("driver accepted"), "accepted");
+  assert.equal(awaiting({ status: "driver accepted", driver_accepted: true }), false);
 
   assert.equal(
     fleetNormalization.describeRoutePayload({

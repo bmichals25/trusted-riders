@@ -582,6 +582,7 @@ export type RideRequestResponse = "accept" | "decline";
 export async function respondToRideRequest(
   rideId: string,
   response: RideRequestResponse,
+  reason?: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const headers = authHeaders();
   if (!headers) return { ok: false, message: "You're signed out. Sign in and try again." };
@@ -595,7 +596,11 @@ export async function respondToRideRequest(
     {
       method: "PATCH",
       headers,
-      body: JSON.stringify({ status: response === "accept" ? "accepted" : "declined" }),
+      body: JSON.stringify(
+        response === "accept"
+          ? { status: "accepted" }
+          : { status: "declined", ...(reason?.trim() ? { reason: reason.trim().slice(0, 300) } : {}) },
+      ),
     },
     { minIntervalMs: 1000, failureBackoffMs: 0, throttleKey: `PATCH ${path} ${response}` },
   );

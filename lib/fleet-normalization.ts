@@ -247,7 +247,7 @@ function toNumber(value: unknown): number | null {
 export function normalizeRideStatus(status: string): RideStatus {
   const value = status.toLowerCase().replace(/[\/\-\s]+/g, "_");
   if (["requested", "request", "pending", "new"].includes(value)) return "pending";
-  if (["scheduled", "scheduled_driver_assigned", "booked", "assigned", "accepted"].includes(value)) return "accepted";
+  if (["scheduled", "scheduled_driver_assigned", "driver_accepted", "booked", "assigned", "accepted"].includes(value)) return "accepted";
   if (["active", "in_progress", "driver_in_transit", "en_route", "enroute", "on_way", "released"].includes(value)) return "en_route";
   if (["driver_at_pickup", "picked_up", "pickedup"].includes(value)) return "picked_up";
   if (["driver_passenger_in_transit", "in_transit", "intransit"].includes(value)) return "in_transit";

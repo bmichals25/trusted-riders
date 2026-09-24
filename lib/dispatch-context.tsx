@@ -58,7 +58,11 @@ type DispatchActions = {
   /** Driver-initiated step: arrived at pickup -> passenger on board -> completed. Resolves false on failure. */
   advanceRideStatus: (ride: DispatchedRide, nextStatus: RideStatus) => Promise<boolean>;
   /** Accept or decline a ride dispatch assigned. Resolves with a driver-facing message on failure. */
-  respondToRide: (ride: DispatchedRide, response: RideRequestResponse) => Promise<{ ok: boolean; message?: string }>;
+  respondToRide: (
+    ride: DispatchedRide,
+    response: RideRequestResponse,
+    reason?: string,
+  ) => Promise<{ ok: boolean; message?: string }>;
   clearDispatchUnreadMessages: () => void;
   dismissStatusNotice: () => void;
   noteIncomingDispatchMessages: (count: number) => void;
@@ -237,11 +241,11 @@ export function DispatchProvider({
     return true;
   }, [completeRideAtDropoff]);
 
-  const respondToRide = useCallback(async (ride: DispatchedRide, response: RideRequestResponse) => {
+  const respondToRide = useCallback(async (ride: DispatchedRide, response: RideRequestResponse, reason?: string) => {
     if (DEMO_MODE) return { ok: true };
     let result: { ok: boolean; message?: string };
     try {
-      result = await respondToRideRequest(ride.id, response);
+      result = await respondToRideRequest(ride.id, response, reason);
     } catch (error) {
       console.log("[dispatch] ride request response failed", error instanceof Error ? error.message : error);
       result = { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
