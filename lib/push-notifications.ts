@@ -18,6 +18,8 @@ type GpsAskNotificationData = {
 
 type GpsAskNotificationEvent = {
   messageId: string;
+  /** "received": delivered while the app is in the foreground; "tap": the driver opened the notification. */
+  source: "received" | "tap";
 };
 
 type LocalGpsAskNotificationInput = {
@@ -129,17 +131,22 @@ export function readGpsAskNotificationData(raw: unknown): GpsAskNotificationData
   return messageId ? { messageId } : {};
 }
 
+/** Resolves true when a local notification was scheduled, false when it was skipped. */
 export async function scheduleLocalGpsAskNotification({
   messageId,
-}: LocalGpsAskNotificationInput): Promise<void> {
-  if (DEMO_MODE || Platform.OS === "web") return;
+}: LocalGpsAskNotificationInput): Promise<boolean> {
+  if (DEMO_MODE || Platform.OS === "web") return false;
 
   const notifications = getNotificationsModule();
-  if (!notifications) return;
+  if (!notifications) return false;
   configureNotificationHandler(notifications);
 
   const existingPermission = await notifications.getPermissionsAsync();
-  if (!hasNotificationPermission(existingPermission)) return;
+  if (!hasNotificationPermission(existingPermission)) return false;
+
+  // The backend's gps_ask push may already be sitting in Notification Center; don't add a second banner.
+  const presented = await getPresentedGpsAskNotificationIds(notifications, messageId);
+  if (presented.length > 0) return false;
 
   await notifications.scheduleNotificationAsync({
     content: {
@@ -152,6 +159,31 @@ export async function scheduleLocalGpsAskNotification({
     },
     trigger: null,
   });
+  return true;
+}
+
+/** Remove any gps_ask banners (push or local) for a request the driver has already been prompted about. */
+export async function dismissGpsAskNotifications(messageId: string): Promise<void> {
+  if (DEMO_MODE || Platform.OS === "web") return;
+  const notifications = getNotificationsModule();
+  if (!notifications || typeof notifications.dismissNotificationAsync !== "function") return;
+  const identifiers = await getPresentedGpsAskNotificationIds(notifications, messageId);
+  await Promise.all(identifiers.map((identifier) => notifications.dismissNotificationAsync(identifier)));
+}
+
+async function getPresentedGpsAskNotificationIds(
+  notifications: typeof ExpoNotifications,
+  messageId: string,
+): Promise<string[]> {
+  if (typeof notifications.getPresentedNotificationsAsync !== "function") return [];
+  try {
+    const presented = await notifications.getPresentedNotificationsAsync();
+    return presented
+      .filter((notification) => readGpsAskNotificationData(notification.request.content.data)?.messageId === messageId)
+      .map((notification) => notification.request.identifier);
+  } catch {
+    return [];
+  }
 }
 
 export async function scheduleLocalGpsOffNotification({
@@ -186,24 +218,123 @@ export function addGpsAskNotificationListeners(
   if (!notifications) return () => {};
   configureNotificationHandler(notifications);
 
-  const handleData = (raw: unknown, fallbackId: string) => {
+  const handleData = (raw: unknown, fallbackId: string, source: GpsAskNotificationEvent["source"]) => {
     const gpsAsk = readGpsAskNotificationData(raw);
     if (!gpsAsk) return;
-    onGpsAsk({ messageId: gpsAsk.messageId ?? fallbackId });
+    onGpsAsk({ messageId: gpsAsk.messageId ?? fallbackId, source });
+  };
+
+  const handleResponse = (notificationResponse: ExpoNotifications.NotificationResponse) => {
+    if (!isOpenNotificationResponse(notificationResponse)) return;
+    const notification = notificationResponse.notification;
+    handleData(notification.request.content.data, notification.request.identifier, "tap");
   };
 
   const received = notifications.addNotificationReceivedListener((notification) => {
-    handleData(notification.request.content.data, notification.request.identifier);
+    handleData(notification.request.content.data, notification.request.identifier, "received");
   });
-  const response = notifications.addNotificationResponseReceivedListener((notificationResponse) => {
-    const notification = notificationResponse.notification;
-    handleData(notification.request.content.data, notification.request.identifier);
+  const response = notifications.addNotificationResponseReceivedListener(handleResponse);
+
+  // Cold start: the tap that launched the app arrives before this listener existed.
+  let active = true;
+  void readLastNotificationResponse(notifications).then((last) => {
+    if (active && last) handleResponse(last);
   });
 
   return () => {
+    active = false;
     received.remove();
     response.remove();
   };
+}
+
+export type NotificationTapData = Record<string, unknown>;
+
+/**
+ * Where a tapped push should take the driver, as an expo-router href.
+ * ride_request / ride_status -> the ride (same route as trustedriders://ride-details?rideId=<id>),
+ * chat_message -> dispatch chat. gps_ask is handled by the GPS prompt, not navigation.
+ */
+export function resolveNotificationTapHref(raw: unknown): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const data = raw as NotificationTapData;
+  const type = typeof data.type === "string" ? data.type.trim().toLowerCase() : "";
+
+  if (type === "chat_message") return "/chat";
+  if (type !== "ride_request" && type !== "ride_status") return null;
+
+  const rideId = readRideIdFromDeepLink(data.url) ?? pickString(data, ["ride_id", "rideId"]);
+  if (rideId) return `/ride-details?rideId=${encodeURIComponent(rideId)}`;
+  return type === "ride_request" ? "/ride-requests" : null;
+}
+
+/** Reads rideId from trustedriders://ride-details?rideId=<id> (or /ride-details?rideId=<id>). */
+export function readRideIdFromDeepLink(url: unknown): string | null {
+  if (typeof url !== "string" || !/ride-details/i.test(url)) return null;
+  const match = url.match(/[?&]rideId=([^&#]+)/);
+  if (!match) return null;
+  try {
+    const value = decodeURIComponent(match[1].replace(/\+/g, " ")).trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+const handledTapResponseIds = new Set<string>();
+
+/**
+ * Calls onTap once per tapped notification with a navigation target, including the tap that
+ * cold-started the app. The handled-set is module level so a remount (sign out / sign in) never
+ * replays the launch notification.
+ */
+export function addNotificationTapNavigationListener(onTap: (href: string) => void): () => void {
+  const notifications = getNotificationsModule();
+  if (!notifications) return () => {};
+  configureNotificationHandler(notifications);
+
+  const handleResponse = (notificationResponse: ExpoNotifications.NotificationResponse) => {
+    if (!isOpenNotificationResponse(notificationResponse)) return;
+    const request = notificationResponse.notification.request;
+    const href = resolveNotificationTapHref(request.content.data);
+    if (!href) return;
+    const key = request.identifier || `${href}@${notificationResponse.notification.date}`;
+    if (handledTapResponseIds.has(key)) return;
+    handledTapResponseIds.add(key);
+    onTap(href);
+  };
+
+  const response = notifications.addNotificationResponseReceivedListener(handleResponse);
+  let active = true;
+  void readLastNotificationResponse(notifications).then((last) => {
+    if (active && last) handleResponse(last);
+  });
+
+  return () => {
+    active = false;
+    response.remove();
+  };
+}
+
+function isOpenNotificationResponse(notificationResponse: ExpoNotifications.NotificationResponse): boolean {
+  // Swiping a notification away is a response too (iOS dismiss action); only a real open counts.
+  return !/dismiss/i.test(notificationResponse.actionIdentifier ?? "");
+}
+
+async function readLastNotificationResponse(
+  notifications: typeof ExpoNotifications,
+): Promise<ExpoNotifications.NotificationResponse | null> {
+  try {
+    if (typeof notifications.getLastNotificationResponseAsync === "function") {
+      return await notifications.getLastNotificationResponseAsync();
+    }
+    if (typeof notifications.getLastNotificationResponse === "function") {
+      return notifications.getLastNotificationResponse();
+    }
+  } catch (error) {
+    console.log("[push] last notification response unavailable", error instanceof Error ? error.message : error);
+  }
+  return null;
 }
 
 function pickString(record: Record<string, unknown>, keys: string[]): string | null {
@@ -224,13 +355,17 @@ function hasNotificationPermission(permission: unknown): boolean {
 function configureNotificationHandler(notifications: typeof ExpoNotifications): void {
   if (notificationHandlerConfigured) return;
   notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowAlert: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
+    handleNotification: async (notification) => {
+      // In the foreground a gps_ask opens the in-app prompt directly; a banner on top would be a duplicate.
+      const show = !readGpsAskNotificationData(notification?.request?.content?.data);
+      return {
+        shouldPlaySound: show,
+        shouldSetBadge: false,
+        shouldShowAlert: show,
+        shouldShowBanner: show,
+        shouldShowList: show,
+      };
+    },
   });
   notificationHandlerConfigured = true;
 }
