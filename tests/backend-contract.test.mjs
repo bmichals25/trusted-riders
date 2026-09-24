@@ -577,7 +577,8 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
   const activeRide = {
     id: "184",
     passengerName: "Ava Passenger",
-    passengerPhotoUrl: "",
+    passengerHasPhoto: false,
+    passengerPhotoUpdatedAt: null,
     pickupAddress: "67 West St",
     dropoffAddress: "420 W 14th St",
     pickupCoords: null,
@@ -737,7 +738,8 @@ test("fleet normalization maps backend ride shapes into mobile ride models", () 
   assert.deepEqual(plain(ride), {
     id: "184",
     passengerName: "Ava Passenger",
-    passengerPhotoUrl: "",
+    passengerHasPhoto: false,
+    passengerPhotoUpdatedAt: null,
     pickupAddress: "67 West St, Brooklyn, NY",
     dropoffAddress: "420 W 14th St, New York, NY",
     pickupCoords: {
@@ -901,4 +903,72 @@ test("fresh ride list acceptance wins over a cached ride detail", () => {
   assert.equal(merged.driver_accepted, true);
   assert.equal(merged.driver_accepted_at, "2026-09-24T18:47:26Z");
   assert.equal(merged.pickup_address, "1 Railroad Ave");
+});
+
+test("passenger photo flags come from the fresh list row first, then the ride detail's passenger", () => {
+  const rides = loadTsModule("lib/rides.ts", {});
+  const fleetNormalization = loadTsModule("lib/fleet-normalization.ts", {
+    "./round-trip": loadTsModule("lib/round-trip.ts"),
+    "./rides": rides,
+  });
+  const photoFlags = (raw) => {
+    const ride = fleetNormalization.normalizeRide({ ride_id: 31, ...raw });
+    return { hasPhoto: ride.passengerHasPhoto, updatedAt: ride.passengerPhotoUpdatedAt };
+  };
+
+  assert.deepEqual(photoFlags({}), { hasPhoto: false, updatedAt: null });
+  assert.deepEqual(
+    photoFlags({ passenger_has_photo: true, passenger_photo_updated_at: "2026-09-24T18:00:00Z" }),
+    { hasPhoto: true, updatedAt: "2026-09-24T18:00:00Z" },
+  );
+  assert.deepEqual(
+    photoFlags({ passenger: { id: 5, name: "Ava", has_photo: true, photo_updated_at: "2026-09-20T10:00:00Z" } }),
+    { hasPhoto: true, updatedAt: "2026-09-20T10:00:00Z" },
+  );
+  // A timestamp without the flag is ignored.
+  assert.deepEqual(photoFlags({ passenger_has_photo: false, passenger_photo_updated_at: "2026-09-24T18:00:00Z" }), {
+    hasPhoto: false,
+    updatedAt: null,
+  });
+
+  // A cached detail still says has_photo, but the fresh list row says the TR may no longer see it.
+  const merged = rides.mergeRideSummaryAndDetail(
+    { ride_id: 31, status: "completed", passenger_has_photo: false, passenger_photo_updated_at: null },
+    { ride_id: 31, passenger_has_photo: true, passenger: { id: 5, name: "Ava", has_photo: true, photo_updated_at: "2026-09-20T10:00:00Z" } },
+  );
+  assert.equal(merged.passenger_has_photo, false);
+  assert.deepEqual(photoFlags(merged), { hasPhoto: false, updatedAt: null });
+});
+
+test("passenger photo requests use the authenticated API path, never the token in the URL", () => {
+  const passengerPhoto = loadTsModule("lib/passenger-photo.ts", {
+    "expo-image": { Image: { clearMemoryCache: async () => true } },
+    react: { useMemo: (fn) => fn() },
+    "./config": { FLEET_API_URL: "https://fleet.example.test" },
+    "./demo-mode": { DEMO_MODE: false },
+    "./fleet-api": { getToken: () => "jwt-abc" },
+    "./rides": loadTsModule("lib/rides.ts", {}),
+  });
+  const ride = { id: "184", passengerHasPhoto: true, passengerPhotoUpdatedAt: "2026-09-24T18:00:00+00:00" };
+
+  assert.equal(
+    passengerPhoto.buildPassengerPhotoPath(184, "thumb", null),
+    "/api/rides/184/passenger-photo?size=thumb",
+  );
+  const source = plain(passengerPhoto.passengerPhotoSource(ride, "full", "jwt-abc"));
+  assert.deepEqual(source, {
+    uri: "https://fleet.example.test/api/rides/184/passenger-photo?size=full&v=2026-09-24T18%3A00%3A00%2B00%3A00",
+    headers: { Authorization: "Bearer jwt-abc" },
+  });
+  assert.doesNotMatch(source.uri, /jwt-abc/);
+  assert.deepEqual(plain(passengerPhoto.usePassengerPhotoSource(ride, "thumb")), {
+    uri: "https://fleet.example.test/api/rides/184/passenger-photo?size=thumb&v=2026-09-24T18%3A00%3A00%2B00%3A00",
+    headers: { Authorization: "Bearer jwt-abc" },
+  });
+
+  // Nothing to load: no photo, signed out, a ride without a backend id, or demo mode.
+  assert.equal(passengerPhoto.passengerPhotoSource({ ...ride, passengerHasPhoto: false }, "thumb", "jwt-abc"), null);
+  assert.equal(passengerPhoto.passengerPhotoSource(ride, "thumb", null), null);
+  assert.equal(passengerPhoto.passengerPhotoSource({ ...ride, id: "demo-ride" }, "thumb", "jwt-abc"), null);
+  assert.equal(passengerPhoto.passengerPhotoSource(ride, "thumb", "jwt-abc", { demoMode: true }), null);
 });

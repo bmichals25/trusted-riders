@@ -7,7 +7,8 @@ export const demoRides: DispatchedRide[] = [
   {
     id: "1027",
     passengerName: "Marisol Vega",
-    passengerPhotoUrl: "",
+    passengerHasPhoto: false,
+    passengerPhotoUpdatedAt: null,
     pickupAddress: "Northside Medical Center, 980 Johnson Ferry Rd NE",
     dropoffAddress: "Lenox Village Dialysis, 3379 Peachtree Rd NE",
     pickupCoords: { latitude: 33.9087, longitude: -84.3514 },
@@ -50,7 +51,8 @@ export const demoRides: DispatchedRide[] = [
   {
     id: "1024",
     passengerName: "Arthur Bennett",
-    passengerPhotoUrl: "",
+    passengerHasPhoto: false,
+    passengerPhotoUpdatedAt: null,
     pickupAddress: "The Georgian Lakeside, 1100 Glenridge Dr",
     dropoffAddress: "Piedmont Atlanta Hospital, 1968 Peachtree Rd NW",
     pickupCoords: { latitude: 33.9183, longitude: -84.3634 },
@@ -100,7 +102,8 @@ export const demoRides: DispatchedRide[] = [
   {
     id: "1031",
     passengerName: "Denise Holloway",
-    passengerPhotoUrl: "",
+    passengerHasPhoto: false,
+    passengerPhotoUpdatedAt: null,
     pickupAddress: "Emory Clinic, 1365 Clifton Rd",
     dropoffAddress: "Oak Grove Rehabilitation, 3145 Lavista Rd",
     pickupCoords: { latitude: 33.7904, longitude: -84.3217 },
@@ -123,7 +126,8 @@ export const demoRides: DispatchedRide[] = [
   {
     id: "1038",
     passengerName: "Lillian Park",
-    passengerPhotoUrl: "",
+    passengerHasPhoto: false,
+    passengerPhotoUpdatedAt: null,
     pickupAddress: "Brookhaven Family Practice, 3929 Peachtree Rd",
     dropoffAddress: "Sunrise at Buckhead, 1000 Lenox Park Blvd",
     pickupCoords: { latitude: 33.8603, longitude: -84.3396 },

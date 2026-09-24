@@ -11,10 +11,11 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { Avatar } from "@/components/ui/Avatar";
+import { Avatar, initialsFor } from "@/components/ui/Avatar";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TripLegLine } from "@/features/rides/ready-to-return";
+import { usePassengerPhotoSource } from "@/lib/passenger-photo";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate, type RideStatus } from "@/lib/rides";
 import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
 
@@ -394,9 +395,10 @@ export function Notice({ tone, title, body }: { tone: "error" | "warning"; title
 
 function RideHeader({ ride }: { ride: DispatchedRide }) {
   const initials = useMemo(() => initialsFor(ride.passengerName), [ride.passengerName]);
+  const photo = usePassengerPhotoSource(ride, "thumb");
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-      <Avatar initials={initials} size={48} />
+      <Avatar initials={initials} size={48} source={photo} />
       <View style={{ flex: 1, gap: 4 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.sm, alignItems: "center" }}>
           <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "800", flex: 1 }}>
@@ -641,18 +643,6 @@ function primaryActionLabelFor(status: RideStatus) {
 
 function primaryActionIconFor(status: RideStatus): AppSymbolName {
   return status === "accepted" ? "play.fill" : "arrow.right.circle.fill";
-}
-
-function initialsFor(name: string) {
-  // Rides without a rider name are labelled "Ride #11": show "#11" rather than the meaningless "R#".
-  const rideNumber = /^ride\s*#?\s*(\d+)$/i.exec(name.trim());
-  if (rideNumber) return `#${rideNumber[1]}`;
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "TR";
 }
 
 function regionFor(coords: RideCoordinate[]) {

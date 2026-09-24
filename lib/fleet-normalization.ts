@@ -32,30 +32,7 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
     pickString(raw, ["passenger_name", "rider_name", "passengerName", "client_name", "customer_name", "name"]) ||
     pickNestedString(raw, ["passenger", "rider", "client", "customer"], ["name", "full_name", "fullName"]) ||
     `Ride #${id}`;
-  const passengerPhotoUrl =
-    pickString(raw, [
-      "passenger_photo_url",
-      "passengerPhotoUrl",
-      "rider_photo_url",
-      "riderPhotoUrl",
-      "client_photo_url",
-      "clientPhotoUrl",
-      "profile_photo_url",
-      "profilePhotoUrl",
-      "avatar_url",
-      "avatarUrl",
-      "photo_url",
-      "photoUrl",
-    ]) ||
-    pickNestedString(raw, ["passenger", "rider", "client", "customer"], [
-      "photo_url",
-      "photoUrl",
-      "profile_photo_url",
-      "profilePhotoUrl",
-      "avatar_url",
-      "avatarUrl",
-    ]) ||
-    "";
+  const passengerPhoto = pickPassengerPhoto(raw);
   const createdAtRaw = pickString(raw, ["created_at", "createdAt", "start_time", "startTime"]);
   const createdAtDate = parseBackendDate(createdAtRaw);
   const createdAt = createdAtDate ? createdAtDate.getTime() : Date.now();
@@ -69,7 +46,7 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
   return {
     id,
     passengerName,
-    passengerPhotoUrl,
+    ...passengerPhoto,
     pickupAddress: pickRideAddress(raw, "pickup") || "Pickup address pending",
     dropoffAddress: pickRideAddress(raw, "dropoff") || "Drop-off address pending",
     pickupCoords: pickCoords(raw, "pickup"),
@@ -331,6 +308,35 @@ export function parseBackendDate(value: string | null): Date | null {
  * Passenger id/record and ride notes, only for the keys the payload actually carries, so rides from an
  * older backend (or list rows without ride detail) keep these fields undefined.
  */
+/**
+ * Passenger photo flags. The list row's `passenger_has_photo` / `passenger_photo_updated_at` win over
+ * the ride detail's `passenger.has_photo` / `photo_updated_at`: details are cached, the list is fresh,
+ * and the flag turns false the moment the TR may no longer see the passenger. Only flags are kept here;
+ * the image itself is fetched from the authenticated API (lib/passenger-photo.ts), never a stored URL.
+ */
+function pickPassengerPhoto(raw: Record<string, unknown>): Pick<DispatchedRide, "passengerHasPhoto" | "passengerPhotoUpdatedAt"> {
+  let source: Record<string, unknown> | null = null;
+  let hasKey = "";
+  let updatedKey = "";
+  if ("passenger_has_photo" in raw) {
+    source = raw;
+    hasKey = "passenger_has_photo";
+    updatedKey = "passenger_photo_updated_at";
+  } else {
+    const passenger = pickNestedRecord(raw, ["passenger"]);
+    if (passenger && "has_photo" in passenger) {
+      source = passenger;
+      hasKey = "has_photo";
+      updatedKey = "photo_updated_at";
+    }
+  }
+  const hasPhoto = source?.[hasKey] === true;
+  return {
+    passengerHasPhoto: hasPhoto,
+    passengerPhotoUpdatedAt: hasPhoto && source ? pickString(source, [updatedKey]) : null,
+  };
+}
+
 function pickPassengerFields(raw: Record<string, unknown>): Pick<DispatchedRide, "passengerId" | "passenger" | "rideNotes"> {
   const fields: Pick<DispatchedRide, "passengerId" | "passenger" | "rideNotes"> = {};
   if ("passenger_id" in raw || "passengerId" in raw) {

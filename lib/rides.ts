@@ -39,7 +39,14 @@ export type RidePassenger = {
 export type DispatchedRide = {
   id: string;
   passengerName: string;
-  passengerPhotoUrl: string;
+  /**
+   * The TR may load the passenger's photo from GET /api/rides/<id>/passenger-photo (ride assigned to
+   * them, not finished, agreement accepted). The app never stores a photo URL: lib/passenger-photo.ts
+   * builds the authenticated request from these flags.
+   */
+  passengerHasPhoto: boolean;
+  /** ISO timestamp of the current photo (cache busting); null whenever passengerHasPhoto is false. */
+  passengerPhotoUpdatedAt: string | null;
   pickupAddress: string;
   dropoffAddress: string;
   pickupCoords: RideCoordinate | null;
@@ -129,9 +136,9 @@ export function mergeRideSummaryAndDetail(
     merged.status = summaryStatus;
   }
   // Ride details are cached; acceptance (and the attached passenger) can change after the first fetch,
-  // so the fresh list wins. Same for the round-trip block and the start time (Ready to Return gives an
-  // open return leg its start time).
-  for (const key of ["driver_accepted", "driver_accepted_at", "passenger_id", "passenger_name", "trip", "start_time"]) {
+  // so the fresh list wins. Same for the round-trip block, the start time (Ready to Return gives an
+  // open return leg its start time) and the passenger photo flags (photo access ends with the ride).
+  for (const key of ["driver_accepted", "driver_accepted_at", "passenger_id", "passenger_name", "passenger_has_photo", "passenger_photo_updated_at", "trip", "start_time"]) {
     if (key in summary) merged[key] = summary[key];
   }
   return merged;

@@ -1,9 +1,11 @@
 import { useCallback } from "react";
 import { Alert, Linking, Pressable, Text, View } from "react-native";
 
+import { Avatar, initialsFor } from "@/components/ui/Avatar";
 import { SymbolIcon } from "@/components/ui/SymbolIcon";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
+import { usePassengerPhotoSource } from "@/lib/passenger-photo";
 import { type DispatchedRide, type RidePassenger } from "@/lib/rides";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
@@ -39,20 +41,32 @@ export function RidePassengerPanel({ ride }: { ride: DispatchedRide }) {
     );
   }
 
-  return <PassengerDetails passenger={ride.passenger} fallbackName={ride.passengerName} />;
+  return <PassengerDetails ride={ride} passenger={ride.passenger} fallbackName={ride.passengerName} />;
 }
 
-function PassengerDetails({ passenger, fallbackName }: { passenger: RidePassenger; fallbackName: string }) {
+function PassengerDetails({
+  ride,
+  passenger,
+  fallbackName,
+}: {
+  ride: DispatchedRide;
+  passenger: RidePassenger;
+  fallbackName: string;
+}) {
   const name = passenger.name || fallbackName;
   const emergencyLabel = [passenger.emergencyContactName, passenger.emergencyContactPhone].filter(Boolean).join(" · ");
+  const photo = usePassengerPhotoSource(ride, "full");
 
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: radii.md, padding: spacing.md, gap: spacing.md, ...shadows.soft }}>
-      <View style={{ gap: 4 }}>
-        <SectionKicker>Passenger</SectionKicker>
-        <Text selectable style={{ color: colors.primary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>
-          {name}
-        </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        {photo ? <Avatar initials={initialsFor(name)} size={64} source={photo} /> : null}
+        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+          <SectionKicker>Passenger</SectionKicker>
+          <Text selectable style={{ color: colors.primary, fontSize: 18, fontWeight: "900", lineHeight: 24 }}>
+            {name}
+          </Text>
+        </View>
       </View>
 
       {passenger.phone ? (
