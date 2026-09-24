@@ -1,5 +1,6 @@
 // Ride notes for the assigned TR (BEN-13): GET/POST /api/rides/<id>/notes.
 
+import { isAgreementRequiredBody } from "./agreement-events";
 import { demoRides } from "./demo-data";
 import { DEMO_MODE } from "./demo-mode";
 import { getToken } from "./fleet-api";
@@ -105,6 +106,13 @@ function requireAuthHeaders(): HeadersInit {
 
 async function toRideNotesError(res: Response, fallback: string): Promise<RideNotesError> {
   if (res.status === 401) return new RideNotesError(401, "Your session expired. Sign in again.");
+  if (res.status === 403) {
+    // The transport already re-opened the agreement screen for this 403 (BEN-20); just explain it here.
+    const body = await res.clone().json().catch(() => null);
+    if (isAgreementRequiredBody(body)) {
+      return new RideNotesError(403, "Accept the Trusted Rider agreement to see and add ride notes.");
+    }
+  }
   if (res.status === 404 || res.status === 403) return new RideNotesError(res.status, "This ride is no longer assigned to you.");
   const message = res.status === 400 ? await readApiErrorMessage(res) : null;
   return new RideNotesError(res.status, message ?? fallback);

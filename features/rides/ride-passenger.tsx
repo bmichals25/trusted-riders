@@ -21,12 +21,20 @@ export function RidePassengerPanel({ ride }: { ride: DispatchedRide }) {
   if (ride.passenger === undefined) return null;
 
   if (!ride.passenger) {
+    // The backend only sends passenger details while the ride is active (minimum necessary); a finished ride
+    // still carries the passenger's name.
+    const knownName = ride.passengerId && !/^Ride #/.test(ride.passengerName) ? ride.passengerName : null;
     return (
       <View style={{ backgroundColor: colors.surfaceLow, borderRadius: radii.sm, padding: spacing.md, gap: 4 }}>
         <SectionKicker>Passenger</SectionKicker>
         <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>
-          No passenger details
+          {knownName ?? "No passenger details"}
         </Text>
+        {knownName ? (
+          <Text style={{ color: colors.slate500, fontSize: 13, lineHeight: 18 }}>
+            Contact details are shown only while the ride is active.
+          </Text>
+        ) : null}
       </View>
     );
   }
