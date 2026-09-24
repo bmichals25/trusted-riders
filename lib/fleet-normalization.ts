@@ -252,8 +252,19 @@ export function normalizeRideStatus(status: string): RideStatus {
   return "pending";
 }
 
+// Canonical ride statuses shared with the dispatch dashboard and backend.
+const BACKEND_STATUS: Record<RideStatus, string> = {
+  pending: "pending",
+  accepted: "scheduled-driver assigned",
+  en_route: "driver in transit",
+  picked_up: "driver at pickup",
+  in_transit: "driver/passenger in transit",
+  completed: "driver/passenger at dropoff",
+  cancelled: "cancelled",
+};
+
 export function toBackendStatus(status: RideStatus): string {
-  return status === "cancelled" ? "cancelled" : status;
+  return BACKEND_STATUS[status] ?? status;
 }
 
 function normalizeTransitType(value: string | null): TransitType {

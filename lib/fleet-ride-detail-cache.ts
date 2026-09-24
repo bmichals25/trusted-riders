@@ -49,6 +49,10 @@ const rideDetailFallbacks: Record<string, Record<string, unknown>> = {
   },
 };
 
+export function clearRideDetailCache(): void {
+  rideDetailCache.clear();
+}
+
 export function getCachedRideDetail(cacheKey: string): Record<string, unknown> | null | undefined {
   const cached = rideDetailCache.get(cacheKey);
   if (!cached || cached.expiresAt <= Date.now()) return undefined;

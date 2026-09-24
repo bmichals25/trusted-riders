@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SymbolIcon, type AppSymbolName } from "@/components/ui/SymbolIcon";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
@@ -17,17 +17,40 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate, type RideStatus } from "@/lib/rides";
 import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
 
+/** The driver's next step for an in-progress ride, shown as the card's primary action. */
+function nextDriverStepFor(status: RideStatus): { label: string; icon: AppSymbolName; next: RideStatus } | null {
+  if (status === "en_route") return { label: "Arrived at pickup", icon: "mappin.circle.fill", next: "picked_up" };
+  if (status === "picked_up") return { label: "Passenger on board", icon: "person.fill.checkmark", next: "in_transit" };
+  if (status === "in_transit") return { label: "Complete ride", icon: "flag.checkered", next: "completed" };
+  return null;
+}
+
 export function CurrentRideCard({
   ride,
   onOpen,
   onChat,
   onNavigate,
+  onAdvance,
 }: {
   ride: DispatchedRide;
   onOpen: () => void;
   onChat: () => void;
   onNavigate: () => void;
+  onAdvance?: (next: RideStatus) => Promise<boolean>;
 }) {
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+  const step = onAdvance ? nextDriverStepFor(ride.status) : null;
+
+  const handleAdvance = async () => {
+    if (!step || !onAdvance || advancing) return;
+    setAdvancing(true);
+    setAdvanceError(null);
+    const ok = await onAdvance(step.next);
+    setAdvancing(false);
+    if (!ok) setAdvanceError("Couldn't update dispatch. Check your connection and try again.");
+  };
+
   return (
     <View style={cardStyle}>
       <Pressable
@@ -41,12 +64,29 @@ export function CurrentRideCard({
         <RouteRows ride={ride} />
       </Pressable>
       <View style={{ gap: spacing.sm }}>
-        <PrimaryActionButton
-          label={primaryActionLabelFor(ride.status)}
-          iconName={primaryActionIconFor(ride.status)}
-          onPress={onOpen}
-        />
+        {step ? (
+          <PrimaryActionButton
+            label={advancing ? "Updating…" : step.label}
+            iconName={step.icon}
+            onPress={handleAdvance}
+            disabled={advancing}
+          />
+        ) : (
+          <PrimaryActionButton
+            label={primaryActionLabelFor(ride.status)}
+            iconName={primaryActionIconFor(ride.status)}
+            onPress={onOpen}
+          />
+        )}
+        {advanceError ? (
+          <Text accessibilityLiveRegion="polite" style={{ color: colors.error, fontSize: 13, fontWeight: "600", textAlign: "center" }}>
+            {advanceError}
+          </Text>
+        ) : null}
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          {step ? (
+            <SecondaryActionButton label="Details" iconName="doc.text.magnifyingglass" onPress={onOpen} />
+          ) : null}
           <SecondaryActionButton label="Chat" iconName="bubble.left.and.bubble.right.fill" onPress={onChat} />
           <SecondaryActionButton label="Navigate" iconName="location.fill" onPress={onNavigate} />
         </View>
@@ -332,6 +372,8 @@ function RideMiniMap({ ride }: { ride: DispatchedRide }) {
         showsScale={false}
         showsTraffic={false}
         toolbarEnabled={false}
+        // Show the driver's own position on in-progress rides so the card reflects progress along the route.
+        showsUserLocation={ride.status === "en_route" || ride.status === "picked_up" || ride.status === "in_transit"}
         loadingEnabled
         loadingBackgroundColor={colors.mapPlaceholder}
         loadingIndicatorColor={colors.blueStrong}
@@ -412,17 +454,22 @@ function PrimaryActionButton({
   label,
   iconName,
   onPress,
+  disabled = false,
 }: {
   label: string;
   iconName: AppSymbolName;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled, busy: disabled }}
       style={({ pressed }) => ({
+        opacity: disabled ? 0.7 : 1,
         flex: 1,
         minHeight: 52,
         borderRadius: radii.sm,
@@ -489,7 +536,8 @@ function SecondaryActionButton({
 function badgeStatusFor(status: RideStatus): StatusKey {
   if (status === "pending" || status === "accepted") return "scheduled";
   if (status === "en_route") return "enRoute";
-  if (status === "picked_up" || status === "in_transit") return "inTransit";
+  if (status === "picked_up") return "arrived";
+  if (status === "in_transit") return "inTransit";
   if (status === "completed") return "completed";
   return "cancelled";
 }
@@ -503,6 +551,9 @@ function primaryActionIconFor(status: RideStatus): AppSymbolName {
 }
 
 function initialsFor(name: string) {
+  // Rides without a rider name are labelled "Ride #11": show "#11" rather than the meaningless "R#".
+  const rideNumber = /^ride\s*#?\s*(\d+)$/i.exec(name.trim());
+  if (rideNumber) return `#${rideNumber[1]}`;
   return name
     .split(/\s+/)
     .filter(Boolean)

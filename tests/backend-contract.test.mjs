@@ -328,7 +328,8 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
       useState: (value) => [value, () => {}],
     },
     "react-native": { Alert: { alert: () => {} } },
-    "./fleet-api": {},
+    "./fleet-api": { getRecentlyTerminalRideIds: () => new Set() },
+    "./session-cache": { LAST_ACTIVE_RIDE_KEY: "trustedriders-last-active-ride" },
     "./chat-api": {},
     "./demo-data": { demoRides: [] },
     "./demo-mode": { DEMO_MODE: false },
@@ -384,12 +385,13 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
     ),
     true,
   );
+  // "picked_up" = driver arrived at pickup (passenger not yet on board): never auto-complete, even near dropoff.
   assert.equal(
     dispatchContext.shouldAutoCompleteRideAtDropoff(
       { status: "picked_up", dropoffCoords: { latitude: 40.7401, longitude: -73.9998 } },
       { latitude: 40.7402, longitude: -73.9997 },
     ),
-    true,
+    false,
   );
   assert.equal(
     dispatchContext.shouldAutoCompleteRideAtDropoff(
@@ -615,6 +617,18 @@ test("fleet normalization maps backend ride shapes into mobile ride models", () 
     }),
     "planned_route:2",
   );
+
+  // Driver status updates use the dispatch dashboard's vocabulary, and round-trip back to the same app status.
+  const pairs = [
+    ["en_route", "driver in transit"],
+    ["picked_up", "driver at pickup"],
+    ["in_transit", "driver/passenger in transit"],
+    ["completed", "driver/passenger at dropoff"],
+  ];
+  for (const [appStatus, backendStatus] of pairs) {
+    assert.equal(fleetNormalization.toBackendStatus(appStatus), backendStatus);
+    assert.equal(fleetNormalization.normalizeRideStatus(backendStatus), appStatus);
+  }
 });
 
 test("login helpers preserve passwords and accept common auth token shapes", () => {

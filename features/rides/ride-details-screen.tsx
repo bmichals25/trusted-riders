@@ -459,7 +459,7 @@ function rideStatusLabel(status: DispatchedRide["status"]) {
   if (status === "pending") return "Upcoming";
   if (status === "accepted") return "Scheduled";
   if (status === "en_route") return "En Route";
-  if (status === "picked_up") return "Picked Up";
+  if (status === "picked_up") return "At Pickup";
   if (status === "in_transit") return "In Transit";
   if (status === "completed") return "Completed";
   if (status === "cancelled") return "Cancelled";

@@ -3,6 +3,7 @@ import { Alert, AppState, type AppStateStatus } from "react-native";
 import {
   fetchRides,
   clearActiveRideId,
+  getRecentlyTerminalRideIds,
   isFleetApiError,
   isFleetApiRefreshSkippedError,
   setActiveRideId,
@@ -29,6 +30,7 @@ import {
 import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideCoordinate, type RideStatus } from "./rides";
 import { useLocation, type DriverLocation } from "./location-context";
 import * as storage from "./storage";
+import { LAST_ACTIVE_RIDE_KEY } from "./session-cache";
 
 export type RideStatusNotice = {
   id: string;
@@ -49,6 +51,8 @@ type DispatchData = {
 };
 
 type DispatchActions = {
+  /** Driver-initiated step: arrived at pickup -> passenger on board -> completed. Resolves false on failure. */
+  advanceRideStatus: (ride: DispatchedRide, nextStatus: RideStatus) => Promise<boolean>;
   clearDispatchUnreadMessages: () => void;
   dismissStatusNotice: () => void;
   noteIncomingDispatchMessages: (count: number) => void;
@@ -68,6 +72,7 @@ const DispatchDataContext = createContext<DispatchData>({
 });
 
 const DispatchActionsContext = createContext<DispatchActions>({
+  advanceRideStatus: async () => false,
   clearDispatchUnreadMessages: () => {},
   dismissStatusNotice: () => {},
   noteIncomingDispatchMessages: () => {},
@@ -75,7 +80,6 @@ const DispatchActionsContext = createContext<DispatchActions>({
 });
 
 const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
-const LAST_ACTIVE_RIDE_KEY = "trustedriders-last-active-ride";
 const AUTO_COMPLETE_DROPOFF_RADIUS_METERS = 150;
 
 export function isCurrentRideStatus(status: RideStatus): boolean {
@@ -108,7 +112,9 @@ export function shouldAutoCompleteRideAtDropoff(
   radiusMeters = AUTO_COMPLETE_DROPOFF_RADIUS_METERS,
 ): boolean {
   if (!location || !ride.dropoffCoords) return false;
-  if (ride.status !== "picked_up" && ride.status !== "in_transit") return false;
+  // Only once the passenger is on board. "picked_up" now means "driver arrived at pickup", which must never
+  // auto-complete even when the pickup is within the dropoff radius.
+  if (ride.status !== "in_transit") return false;
   return distanceMetersBetween(
     { latitude: location.latitude, longitude: location.longitude },
     ride.dropoffCoords,
@@ -199,6 +205,29 @@ export function DispatchProvider({
       console.log("[dispatch] auto-complete gps_off command failed", error instanceof Error ? error.message : error);
     });
   }, [stopTracking]);
+
+  const advanceRideStatus = useCallback(async (ride: DispatchedRide, nextStatus: RideStatus) => {
+    if (nextStatus === "completed") {
+      // Same path as auto-complete at dropoff: status + ride_end + gps_off + stop tracking.
+      completeRideAtDropoff(ride);
+      return true;
+    }
+    let ok = false;
+    try {
+      ok = await updateRideStatus(ride.id, nextStatus);
+    } catch (error) {
+      console.log("[dispatch] driver status update failed", error instanceof Error ? error.message : error);
+    }
+    if (!ok) return false;
+    setRides((prev) => {
+      const next = prev.map((candidate) =>
+        candidate.id === ride.id ? { ...candidate, status: nextStatus } : candidate,
+      );
+      ridesRef.current = next;
+      return next;
+    });
+    return true;
+  }, [completeRideAtDropoff]);
 
   const refreshRides = useCallback(async () => {
     if (DEMO_MODE) {
@@ -580,12 +609,13 @@ export function DispatchProvider({
 
   const actionsValue = useMemo<DispatchActions>(
     () => ({
+      advanceRideStatus,
       clearDispatchUnreadMessages,
       dismissStatusNotice,
       noteIncomingDispatchMessages,
       refreshRides,
     }),
-    [clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides],
+    [advanceRideStatus, clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides],
   );
 
   return (
@@ -622,6 +652,13 @@ export function preserveTransientlyMissingActiveRide(
 ): DispatchedRide[] {
   const previousActiveRide = previousRides.find((ride) => isCurrentRideStatus(ride.status));
   if (!previousActiveRide) {
+    missingActiveRideRefreshesRef.current = 0;
+    return nextRides;
+  }
+
+  // The backend explicitly reported this ride as completed/cancelled: it is gone, not a transient miss.
+  const previousBackendId = String(getRideBackendId(previousActiveRide.id) ?? previousActiveRide.id);
+  if (getRecentlyTerminalRideIds().has(previousBackendId)) {
     missingActiveRideRefreshesRef.current = 0;
     return nextRides;
   }

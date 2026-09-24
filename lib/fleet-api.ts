@@ -34,6 +34,7 @@ import {
   type FleetUser,
 } from "./fleet-normalization";
 import * as storage from "./storage";
+import { clearSessionScopedCaches } from "./session-cache";
 
 const TOKEN_KEY = "trustedriders-auth-token";
 const ACTIVE_RIDE_KEY = "trustedriders-active-ride";
@@ -170,6 +171,7 @@ function authHeaders(): HeadersInit | null {
 export async function clearToken(): Promise<void> {
   token = null;
   await storage.remove(TOKEN_KEY);
+  await clearSessionScopedCaches();
 }
 
 // Rehydrate the in-memory token from persistent storage on app boot.
@@ -370,6 +372,15 @@ export async function fetchRides(): Promise<DispatchedRide[]> {
         .join(", ") || "none"}`,
     );
 
+    recentlyTerminalRideIds = new Set(
+      rawRides.flatMap((ride) => {
+        const summary = ride && typeof ride === "object" ? ride as Record<string, unknown> : {};
+        const id = pickString(summary, ["id", "ride_id", "rideId", "uuid"]);
+        const rawStatus = pickString(summary, ["status", "ride_status"]);
+        const status = rawStatus ? normalizeRideStatus(rawStatus) : null;
+        return id && (status === "completed" || status === "cancelled") ? [id] : [];
+      }),
+    );
     const visibleRawRides = rawRides.filter((ride) => {
       const summary = ride && typeof ride === "object" ? ride as Record<string, unknown> : {};
       return shouldHydrateRideSummary(summary);
@@ -398,6 +409,14 @@ export async function fetchRides(): Promise<DispatchedRide[]> {
     console.log(`[api] failed to parse ${path} response ${String(err)}`);
     throw new FleetApiError(0, "Unable to parse rides response.", path);
   }
+}
+
+// Backend ids of rides the latest /api/rides response reported as completed/cancelled. Lets the dispatch
+// context drop a finished current ride immediately instead of treating its absence as a network blip.
+let recentlyTerminalRideIds = new Set<string>();
+
+export function getRecentlyTerminalRideIds(): ReadonlySet<string> {
+  return recentlyTerminalRideIds;
 }
 
 function shouldHydrateRideSummary(summary: Record<string, unknown>): boolean {
@@ -499,7 +518,8 @@ export async function updateRideStatus(rideId: string, status: RideStatus): Prom
     {
       minIntervalMs: 2000,
       failureBackoffMs: 30000,
-      throttleKey: `PATCH /api/rides/${id}/status`,
+      // Keyed per target status: a quick "arrived" -> "on board" -> "completed" sequence must never drop a step.
+      throttleKey: `PATCH /api/rides/${id}/status ${status}`,
     },
   );
 

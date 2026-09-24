@@ -13,8 +13,8 @@ const STATUS_LABELS: Record<RideStatus, string> = {
   pending: "pending",
   accepted: "accepted",
   en_route: "in progress",
-  picked_up: "picked up",
-  in_transit: "in transit",
+  picked_up: "at pickup",
+  in_transit: "passenger on board",
   completed: "completed",
   cancelled: "cancelled",
 };
@@ -27,7 +27,12 @@ function getNoticeTitle(notice: RideStatusNotice): string {
 }
 
 function getNoticeMessage(notice: RideStatusNotice): string {
-  return `${notice.passengerName} changed from ${STATUS_LABELS[notice.previousStatus]} to ${STATUS_LABELS[notice.nextStatus]}.`;
+  // Tell the driver what to do next rather than echoing internal status names.
+  if (notice.nextStatus === "en_route") return `Dispatch started ${notice.passengerName}. Head to the pickup.`;
+  if (notice.nextStatus === "completed") return `${notice.passengerName} is complete. Nice work.`;
+  if (notice.nextStatus === "cancelled") return `Dispatch cancelled ${notice.passengerName}. No action needed.`;
+  if (notice.nextStatus === "accepted") return `${notice.passengerName} is scheduled for you.`;
+  return `${notice.passengerName} is now ${STATUS_LABELS[notice.nextStatus]}.`;
 }
 
 export function RideStatusToast() {

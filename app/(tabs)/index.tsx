@@ -27,7 +27,7 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { activeRide, scheduledRides, backendError, hasLoadedRides, refreshRides } = useDispatch();
+  const { activeRide, scheduledRides, backendError, hasLoadedRides, refreshRides, advanceRideStatus } = useDispatch();
   const { error: locationError, permissionStatus } = useLocation();
   const { impact } = useHaptics();
   const { startupAnimationComplete, startupAnimationExiting, startupAnimationVisible } = useStartupPresentation();
@@ -148,6 +148,7 @@ export default function HomeScreen() {
                   onOpen={() => openRideDetails(activeRide)}
                   onChat={() => openChat(activeRide)}
                   onNavigate={() => openNavigation(activeRide)}
+                  onAdvance={(next) => advanceRideStatus(activeRide, next)}
                 />
               </Section>
             </FadeInBlock>
