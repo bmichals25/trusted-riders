@@ -667,3 +667,56 @@ test("login helpers preserve passwords and accept common auth token shapes", () 
   assert.equal(fleetApi.extractAuthToken({}), null);
   assert.equal(fleetApi.LOGIN_FETCH_OPTIONS.failureBackoffMs, 0);
 });
+
+test("password reset helper posts the trimmed email to /api/forgot-password", async () => {
+  const calls = [];
+  let nextResponse = new Response(JSON.stringify({ message: "ok" }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+  const fleetApi = loadTsModule("lib/fleet-api.ts", {
+    react: {},
+    "react-native": { Platform: { OS: "ios" } },
+    "./api-request-throttle": { ApiRequestThrottle: class {} },
+    "./config": { FLEET_API_URL: "https://example.test" },
+    "./demo-data": { demoRides: [] },
+    "./demo-mode": { DEMO_MODE: false },
+    "./fleet-api-transport": {
+      fleetFetch: async (method, path, init, options) => {
+        calls.push({ method, path, body: JSON.parse(init.body), throttleKey: options.throttleKey });
+        return nextResponse
+          ? { result: nextResponse.ok ? "sent" : "failed", res: nextResponse }
+          : { result: "failed", res: null };
+      },
+      readApiErrorMessage: async (res) => (await res.clone().json()).error ?? null,
+    },
+    "./fleet-fetch-result": { shouldSuppressRideFetchError: () => false },
+    "./fleet-normalization": {},
+    "./rides": {},
+    "./storage": {},
+  });
+
+  await fleetApi.requestPasswordReset("  Driver@Example.com ");
+  assert.deepEqual(plain(calls), [{
+    method: "POST",
+    path: "/api/forgot-password",
+    body: { email: "Driver@Example.com" },
+    throttleKey: "POST /api/forgot-password",
+  }]);
+  assert.equal(
+    fleetApi.PASSWORD_RESET_CONFIRMATION,
+    "If that email has an account, we've sent a reset link.",
+  );
+
+  await assert.rejects(fleetApi.requestPasswordReset("   "), /Enter your email address/);
+  assert.equal(calls.length, 1);
+
+  nextResponse = new Response(JSON.stringify({ error: "Email required" }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+  });
+  await assert.rejects(fleetApi.requestPasswordReset("x@example.com"), /Email required/);
+
+  nextResponse = null;
+  await assert.rejects(fleetApi.requestPasswordReset("x@example.com"), /Fleet API unavailable/);
+});

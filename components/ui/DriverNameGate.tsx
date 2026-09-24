@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { StyleSheet, View } from "react-native";
 import { AppLoadingAnimation } from "@/components/ui/AppLoadingAnimation";
 import { DriverLoginScreen } from "@/features/auth/driver-login-screen";
-import { clearToken, login, restoreToken } from "@/lib/fleet-api";
+import { clearToken, login, requestPasswordReset, restoreToken } from "@/lib/fleet-api";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import * as storage from "@/lib/storage";
 
@@ -197,6 +197,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
       error={error}
       onEmailChange={handleEmailChange}
       onPasswordChange={handlePasswordChange}
+      onRequestPasswordReset={requestPasswordReset}
       onSubmit={handleLogin}
       onTogglePasswordVisible={() => setPasswordVisible((visible) => !visible)}
       password={password}
