@@ -6,7 +6,7 @@ Expo / React Native; iOS-first with a web preview for day-to-day development.
 Production backend data comes from Suresh's Fleet Tracking API at:
 
 ```text
-https://trdev.tailff74b1.ts.net
+https://api.app.trcertified.com
 ```
 
 ## Current V1 Scope
@@ -54,7 +54,7 @@ The default Fleet API URL is defined in [lib/config.ts](/Users/benmichals/Claude
 ```ts
 export const FLEET_API_URL =
   process.env.EXPO_PUBLIC_FLEET_API_URL ??
-  "https://trdev.tailff74b1.ts.net";
+  "https://api.app.trcertified.com";
 ```
 
 Override it when needed:

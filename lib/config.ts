@@ -1,7 +1,8 @@
 // Fleet Tracking API (Flask backend) — the single source for backend data.
-// Set EXPO_PUBLIC_FLEET_API_URL when the backend URL rotates.
+// Production API (AWS, us-east-1). Set EXPO_PUBLIC_FLEET_API_URL to point elsewhere, e.g. http://localhost:5001 for
+// the local backend (.env.local); eas.json pins production for preview/production builds.
 export const FLEET_API_URL = (
-  process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://trdev.tailff74b1.ts.net"
+  process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://api.app.trcertified.com"
 ).replace(/\/+$/, "");
 
 // TrustedRiders dispatch line used by the Admin Chat call button.

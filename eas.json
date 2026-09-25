@@ -9,6 +9,9 @@
       "autoIncrement": true,
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_FLEET_API_URL": "https://api.app.trcertified.com"
       }
     },
     "development": {
@@ -16,7 +19,10 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_FLEET_API_URL": "https://api.app.trcertified.com"
+      }
     }
   },
   "submit": {

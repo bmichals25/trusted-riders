@@ -73,7 +73,7 @@ The app reads the backend URL from `EXPO_PUBLIC_FLEET_API_URL`.
 Default:
 
 ```text
-https://trdev.tailff74b1.ts.net
+https://api.app.trcertified.com
 ```
 
 The value is trimmed so trailing slashes do not matter.
@@ -82,7 +82,7 @@ Source: `lib/config.ts`
 
 ```ts
 export const FLEET_API_URL = (
-  process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://trdev.tailff74b1.ts.net"
+  process.env.EXPO_PUBLIC_FLEET_API_URL ?? "https://api.app.trcertified.com"
 ).replace(/\/+$/, "");
 ```
 
