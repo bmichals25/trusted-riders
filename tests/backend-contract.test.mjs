@@ -675,6 +675,7 @@ test("dispatch helpers keep scheduled rides separate from current ride candidate
 test("schedule model includes active rides in calendar views", () => {
   const scheduleModel = loadTsModule("features/schedule/schedule-model.ts", {
     "@/lib/rides": {},
+    "@/lib/round-trip": loadTsModule("lib/round-trip.ts"),
     "@/lib/theme": {},
   });
 
@@ -691,6 +692,10 @@ test("schedule model includes active rides in calendar views", () => {
   assert.equal(scheduleModel.scheduleStatusKey({ status: "en_route" }), "enRoute");
   assert.equal(scheduleModel.scheduleStatusKey({ status: "picked_up" }), "arrived");
   assert.equal(scheduleModel.scheduleStatusKey({ status: "in_transit" }), "inTransit");
+
+  // A round trip is one ride on the schedule, numbered by its outbound leg.
+  assert.equal(scheduleModel.rideShortLabel({ id: "12", trip: null }), "#12");
+  assert.equal(scheduleModel.rideShortLabel({ id: "41", trip: { outboundRideId: "40" } }), "#40 · Round trip");
 });
 
 test("fleet normalization maps backend ride shapes into mobile ride models", () => {

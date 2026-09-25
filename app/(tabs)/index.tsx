@@ -24,12 +24,12 @@ import { useHaptics } from "@/lib/haptics-context";
 import { useLocation } from "@/lib/location-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide } from "@/lib/rides";
-import { findReadyToReturnRide } from "@/lib/round-trip";
+import { findReadyToReturnRide, isSameTrip } from "@/lib/round-trip";
 import { colors, spacing } from "@/lib/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { activeRide, scheduledRides, backendError, hasLoadedRides, refreshRides, advanceRideStatus, respondToRide } = useDispatch();
+  const { activeRide, scheduledRides, upcomingTrips, backendError, hasLoadedRides, refreshRides, advanceRideStatus, respondToRide } = useDispatch();
   const { error: locationError, permissionStatus } = useLocation();
   const { impact } = useHaptics();
   const { startupAnimationComplete, startupAnimationExiting, startupAnimationVisible } = useStartupPresentation();
@@ -48,7 +48,10 @@ export default function HomeScreen() {
   const homeEntranceReady = !startupAnimationVisible || startupAnimationExiting || startupAnimationComplete;
   // Round trip: passenger at the appointment -> "Ready to Return" card instead of a plain upcoming card.
   const readyRide = activeRide ? null : findReadyToReturnRide(scheduledRides);
-  const upcomingRides = readyRide ? scheduledRides.filter((ride) => ride.id !== readyRide.id) : scheduledRides;
+  // One card per trip (its current leg). The Ready to Return card already stands for its trip.
+  const upcomingEntries = readyRide
+    ? upcomingTrips.filter((entry) => entry.ride.id !== readyRide.id && !isSameTrip(entry.ride, readyRide))
+    : upcomingTrips;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -176,7 +179,7 @@ export default function HomeScreen() {
                 />
               </Section>
             </FadeInBlock>
-          ) : hasLoadedRides && !backendError && upcomingRides.length > 0 ? (
+          ) : hasLoadedRides && !backendError && upcomingEntries.length > 0 ? (
             <FadeInBlock
               delay={145}
               duration={520}
@@ -185,13 +188,13 @@ export default function HomeScreen() {
               ready={homeEntranceReady}
               replayOnFocus={replayHomeEntrance}
             >
-              <Section title="Upcoming Rides" count={upcomingRides.length}>
+              <Section title="Upcoming Rides" count={upcomingEntries.length}>
                 <View style={{ gap: spacing.md }}>
-                  {upcomingRides.map((ride, index) => {
+                  {upcomingEntries.map(({ key, ride }, index) => {
                     const isNextUpcomingRide = index === 0;
                     return (
                       <FadeInBlock
-                        key={ride.id}
+                        key={key}
                         delay={185 + index * 38}
                         duration={480}
                         exitOnBlur={blockExitOnBlur}

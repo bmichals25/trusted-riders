@@ -13,12 +13,13 @@ import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide } from "@/lib/rides";
+import { type TripEntry } from "@/lib/round-trip";
 import { colors, radii, spacing } from "@/lib/theme";
 
 export function UpcomingRidesScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { scheduledRides, backendError, refreshRides, respondToRide } = useDispatch();
+  const { upcomingTrips, backendError, refreshRides, respondToRide } = useDispatch();
   const { impact } = useHaptics();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -42,14 +43,16 @@ export function UpcomingRidesScreenContent() {
   }, [impact]);
 
   const renderUpcomingRide = useCallback(
-    ({ item, index }: { item: DispatchedRide; index: number }) => {
+    ({ item, index }: { item: TripEntry<DispatchedRide>; index: number }) => {
       const Card = index === 0 ? NextUpcomingRideCard : UpcomingRideCard;
+      // One card per round trip: `item.ride` is the trip's current leg.
+      const ride = item.ride;
       return (
         <FadeInBlock delay={90 + index * 35}>
           <Card
-            ride={item}
-            onOpen={() => openRideDetails(item)}
-            onNavigate={() => openNavigation(item)}
+            ride={ride}
+            onOpen={() => openRideDetails(ride)}
+            onNavigate={() => openNavigation(ride)}
             onRespond={respondToRide}
           />
         </FadeInBlock>
@@ -61,11 +64,11 @@ export function UpcomingRidesScreenContent() {
   return (
     <PageTransition>
       <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
-        <UpcomingRidesHeader count={scheduledRides.length} topInset={insets.top} />
+        <UpcomingRidesHeader count={upcomingTrips.length} topInset={insets.top} />
 
         <FlashList
-          data={scheduledRides}
-          keyExtractor={(ride) => ride.id}
+          data={upcomingTrips}
+          keyExtractor={(entry) => entry.key}
           renderItem={renderUpcomingRide}
           contentInsetAdjustmentBehavior="never"
           contentContainerStyle={{ padding: spacing.md, paddingBottom: insets.bottom + 28 }}

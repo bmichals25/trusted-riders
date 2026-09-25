@@ -14,9 +14,10 @@ import Animated, {
 import { Avatar, initialsFor } from "@/components/ui/Avatar";
 import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { TripLegLine } from "@/features/rides/ready-to-return";
+import { TripLegProgress } from "@/features/rides/ready-to-return";
 import { usePassengerPhotoSource } from "@/lib/passenger-photo";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate, type RideStatus } from "@/lib/rides";
+import { tripDisplayNumber } from "@/lib/round-trip";
 import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
 
 /** The driver's next step for an in-progress ride, shown as the card's primary action. */
@@ -58,7 +59,7 @@ export function CurrentRideCard({
       <Pressable
         onPress={onOpen}
         accessibilityRole="button"
-        accessibilityLabel={`Open current ride details for ride ${ride.id}`}
+        accessibilityLabel={`Open current ride details for ride ${tripDisplayNumber(ride)}`}
         style={({ pressed }) => ({ gap: spacing.md, opacity: pressed ? 0.78 : 1 })}
       >
         <RideHeader ride={ride} />
@@ -406,10 +407,11 @@ function RideHeader({ ride }: { ride: DispatchedRide }) {
           </Text>
           <StatusBadge status={ride.awaitingAcceptance ? "request" : badgeStatusFor(ride.status)} />
         </View>
+        {/* Round trip: one card for both legs. `ride` is the current leg; the time line below is that leg's. */}
+        <TripLegProgress ride={ride} />
         <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700" }}>
           {ride.scheduledDate} · {ride.scheduledTime} · {ride.transitType}
         </Text>
-        <TripLegLine ride={ride} />
       </View>
     </View>
   );

@@ -1,4 +1,5 @@
 import { type DispatchedRide } from "@/lib/rides";
+import { tripDisplayNumber } from "@/lib/round-trip";
 import { type StatusKey } from "@/lib/theme";
 
 export type CalendarMode = "list" | "day" | "week" | "month";
@@ -207,8 +208,10 @@ export function weekdayShort(date: Date) {
   return date.toLocaleDateString([], { weekday: "short" }).slice(0, 3);
 }
 
+/** "#12", or "#40 · Round trip" for either leg of a round trip (the trip goes by its outbound ride). */
 export function rideShortLabel(ride: DispatchedRide) {
-  return `#${ride.id.replace(/^ride-?/i, "")}`;
+  const number = `#${tripDisplayNumber(ride).replace(/^ride-?/i, "")}`;
+  return ride.trip ? `${number} · Round trip` : number;
 }
 
 export function isPendingRide(ride: DispatchedRide) {

@@ -24,6 +24,7 @@ import { fetchRides } from "@/lib/fleet-api";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { type DispatchedRide } from "@/lib/rides";
+import { groupRidesByTrip } from "@/lib/round-trip";
 import { colors, spacing } from "@/lib/theme";
 
 
@@ -46,8 +47,12 @@ export default function ScheduleScreen() {
     () => scheduleSourceRides.filter((ride) => isCalendarRideStatus(ride.status)),
     [scheduleSourceRides],
   );
+  // One item per round trip (its current leg), so day counts and the agenda count trips, not legs.
   const scheduledItems = useMemo(
-    () => calendarRides.map(toScheduledItem).sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()),
+    () =>
+      groupRidesByTrip(calendarRides)
+        .map((entry) => toScheduledItem(entry.ride))
+        .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()),
     [calendarRides],
   );
   const selectedDayItems = scheduledItems.filter((item) => item.dayKey === selectedKey);

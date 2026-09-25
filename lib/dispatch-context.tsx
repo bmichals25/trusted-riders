@@ -33,7 +33,7 @@ import {
   scheduleLocalGpsOffNotification,
 } from "./push-notifications";
 import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideCoordinate, type RideStatus } from "./rides";
-import { isSameTrip } from "./round-trip";
+import { groupRidesByTrip, isSameTrip, type TripEntry } from "./round-trip";
 import { useLocation, type DriverLocation } from "./location-context";
 import * as storage from "./storage";
 import { LAST_ACTIVE_RIDE_KEY } from "./session-cache";
@@ -49,6 +49,11 @@ export type RideStatusNotice = {
 type DispatchData = {
   rides: DispatchedRide[];
   scheduledRides: DispatchedRide[];
+  /**
+   * Upcoming rides as the TR sees them: one entry per round trip (its current leg), one-way rides as-is.
+   * A trip whose outbound leg is under way isn't upcoming (it's the current ride).
+   */
+  upcomingTrips: TripEntry<DispatchedRide>[];
   activeRide: DispatchedRide | null;
   backendError: string | null;
   hasLoadedRides: boolean;
@@ -76,6 +81,7 @@ type DispatchState = DispatchData & DispatchActions;
 const DispatchDataContext = createContext<DispatchData>({
   rides: [],
   scheduledRides: [],
+  upcomingTrips: [],
   activeRide: null,
   backendError: null,
   hasLoadedRides: false,
@@ -671,19 +677,24 @@ export function DispatchProvider({
   }, [processChatCommands]);
 
   const scheduledRides = useMemo(() => rides.filter((r) => isUpcomingRideStatus(r.status)), [rides]);
+  const upcomingTrips = useMemo(
+    () => groupRidesByTrip(rides).filter((entry) => isUpcomingRideStatus(entry.ride.status)),
+    [rides],
+  );
   const activeRide = activeRideInState;
 
   const dataValue = useMemo<DispatchData>(
     () => ({
       rides,
       scheduledRides,
+      upcomingTrips,
       activeRide,
       backendError,
       hasLoadedRides,
       statusNotice,
       unreadDispatchMessageCount,
     }),
-    [rides, scheduledRides, activeRide, backendError, hasLoadedRides, statusNotice, unreadDispatchMessageCount],
+    [rides, scheduledRides, upcomingTrips, activeRide, backendError, hasLoadedRides, statusNotice, unreadDispatchMessageCount],
   );
 
   const actionsValue = useMemo<DispatchActions>(

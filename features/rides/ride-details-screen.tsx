@@ -19,6 +19,7 @@ import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate } from "@/lib/rides";
+import { readyToReturnState, tripTitle } from "@/lib/round-trip";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
 export function RideDetailsScreenContent() {
@@ -101,6 +102,16 @@ export function RideDetailsScreenContent() {
               <FadeInBlock delay={50}>
                 <RideDetailHero ride={ride} />
               </FadeInBlock>
+              {ride.trip ? (
+                // Round trip: the leg progress near the top so both legs read as one trip.
+                <FadeInBlock delay={70}>
+                  <TripLegPanel
+                    ride={ride}
+                    rides={rides}
+                    onOpenRide={(id) => router.push(`/ride-details?rideId=${encodeURIComponent(id)}`)}
+                  />
+                </FadeInBlock>
+              ) : null}
               <FadeInBlock delay={85}>
                 <RideReadinessStrip ride={ride} />
               </FadeInBlock>
@@ -111,18 +122,9 @@ export function RideDetailsScreenContent() {
                   </View>
                 </FadeInBlock>
               ) : null}
-              {ride.trip ? (
+              {ride.trip?.leg === "return" && readyToReturnState(ride) !== null ? (
                 <FadeInBlock delay={105}>
-                  <View style={{ gap: spacing.md }}>
-                    {ride.trip.leg === "return" ? (
-                      <ReadyToReturnCard ride={ride} onChat={() => openChat(ride)} />
-                    ) : null}
-                    <TripLegPanel
-                      ride={ride}
-                      rides={rides}
-                      onOpenRide={(id) => router.push(`/ride-details?rideId=${encodeURIComponent(id)}`)}
-                    />
-                  </View>
+                  <ReadyToReturnCard ride={ride} onChat={() => openChat(ride)} />
                 </FadeInBlock>
               ) : null}
               <FadeInBlock delay={115}>
@@ -188,7 +190,7 @@ function RideDetailsHeader({ detailId, ride, topInset }: { detailId: string; rid
           {ride ? rideHeaderEyebrow(ride.status) : "Ride Details"}
         </Text>
         <Text style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 27 }} numberOfLines={1}>
-          {detailId ? `Ride #${detailId}` : "Ride Details"}
+          {ride?.trip ? tripTitle(ride) : detailId ? `Ride #${detailId}` : "Ride Details"}
         </Text>
       </View>
     </View>

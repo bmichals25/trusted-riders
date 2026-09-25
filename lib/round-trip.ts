@@ -89,6 +89,98 @@ export function tripLinkText(ride: { trip?: RideTrip | null }): string {
   return trip.returnRideId ? `Ride home is ride #${trip.returnRideId}` : "Ride there";
 }
 
+// ---------- One trip, one card ----------
+// The TR sees a round trip as ONE ride: lists group the two legs by trip id and show the trip's current leg
+// (the first leg, outbound then return, that isn't completed or cancelled). Actions on the card act on that
+// leg's ride. The dispatch dashboard follows the same rules and wording ("Outbound" / "Ride home").
+
+export type TripLegState = "done" | "current" | "upcoming";
+export type TripLegStep = { leg: TripLeg; state: TripLegState };
+
+export type TripEntry<T> = {
+  /** Stable list key: "trip-<id>" for a round trip, the ride id for a one-way ride. */
+  key: string;
+  /** The ride the card shows and acts on: the trip's current leg (or the one-way ride). */
+  ride: T;
+  /** The legs present in the list ({} for a one-way ride). */
+  legs: { outbound?: T; return?: T };
+  /** [] for a one-way ride, else Outbound then Ride home. */
+  legSteps: TripLegStep[];
+};
+
+type LegCarrier = { id: string; status: string; trip?: RideTrip | null };
+
+/** Step labels for the leg progress indicator. */
+export const TRIP_LEG_LABELS: Record<TripLeg, string> = { outbound: "Outbound", return: "Ride home" };
+
+export function isFinishedRideStatus(status: string): boolean {
+  return status === "completed" || status === "cancelled";
+}
+
+/**
+ * Outbound / Ride home steps for a trip whose current leg is `ride`. Everything before the current leg is
+ * finished (that's what makes it current), everything after it hasn't started.
+ */
+export function tripLegSteps(ride: LegCarrier): TripLegStep[] {
+  const trip = ride.trip;
+  if (!trip) return [];
+  const current: TripLegState = isFinishedRideStatus(ride.status) ? "done" : "current";
+  return trip.leg === "outbound"
+    ? [{ leg: "outbound", state: current }, { leg: "return", state: "upcoming" }]
+    : [{ leg: "outbound", state: "done" }, { leg: "return", state: current }];
+}
+
+/**
+ * One entry per trip, in the order the trip first appears in `rides`; one-way rides pass through unchanged.
+ * The current leg is the first unfinished leg (outbound, then return). A leg missing from the list (the app
+ * hides finished rides) doesn't count; if both listed legs are finished the later one stands in.
+ */
+export function groupRidesByTrip<T extends LegCarrier>(rides: readonly T[]): TripEntry<T>[] {
+  const entries: TripEntry<T>[] = [];
+  const byTrip = new Map<string, TripEntry<T>>();
+  for (const ride of rides) {
+    const trip = ride.trip;
+    if (!trip) {
+      entries.push({ key: ride.id, ride, legs: {}, legSteps: [] });
+      continue;
+    }
+    let entry = byTrip.get(trip.tripId);
+    if (!entry) {
+      entry = { key: `trip-${trip.tripId}`, ride, legs: {}, legSteps: [] };
+      byTrip.set(trip.tripId, entry);
+      entries.push(entry);
+    }
+    // A duplicate row for the same leg: keep the first, like the rest of the app's id lookups.
+    if (!entry.legs[trip.leg]) entry.legs[trip.leg] = ride;
+  }
+  for (const entry of byTrip.values()) {
+    const { outbound, return: ret } = entry.legs;
+    const current =
+      [outbound, ret].find((leg): leg is T => !!leg && !isFinishedRideStatus(leg.status)) ?? ret ?? outbound ?? entry.ride;
+    entry.ride = current;
+    entry.legSteps = tripLegSteps(current);
+  }
+  return entries;
+}
+
+/** The trip's entry for `ride` (either leg), grouped from `rides`; null when the trip isn't listed. */
+export function findTripEntry<T extends LegCarrier>(rides: readonly T[], ride: LegCarrier): TripEntry<T> | null {
+  const tripId = ride.trip?.tripId;
+  if (!tripId) return null;
+  return groupRidesByTrip(rides.filter((candidate) => candidate.trip?.tripId === tripId))[0] ?? null;
+}
+
+/** The number the TR sees for a ride: a round trip goes by its outbound ride ("#40" for both legs). */
+export function tripDisplayNumber(ride: TripCarrier): string {
+  return ride.trip?.outboundRideId ?? ride.id;
+}
+
+/** "Ride #40 · Round trip" / "Ride #12" */
+export function tripTitle(ride: TripCarrier): string {
+  const number = tripDisplayNumber(ride);
+  return ride.trip ? `Ride #${number} · Round trip` : `Ride #${number}`;
+}
+
 /** Short time label for an open return leg (the card shows "date · time"). */
 export const OPEN_RETURN_DATE_LABEL = "Ride home";
 export const OPEN_RETURN_TIME_LABEL = "when you're ready";

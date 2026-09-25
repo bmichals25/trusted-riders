@@ -138,3 +138,81 @@ test("Ready to Return note joins the picked suggestion and details", () => {
   assert.equal(roundTrip.isSameTrip(a, b), true);
   assert.equal(roundTrip.isSameTrip(a, { trip: null }), false);
 });
+
+// One trip, one card: lists group the legs by trip and show the trip's current leg.
+function leg(id, legName, status, extra = {}) {
+  const outbound = legName === "outbound";
+  return {
+    id: String(id),
+    status,
+    trip: roundTrip.normalizeTrip(backendTrip({
+      id: 40, leg: legName, outbound_ride_id: 40, return_ride_id: 41, other_ride_id: outbound ? 41 : 40, ...extra,
+    })),
+  };
+}
+
+const stepsOf = (entry) => entry.legSteps.map((step) => `${step.leg}:${step.state}`).join(" ");
+
+test("groupRidesByTrip shows a round trip once, on its first unfinished leg", () => {
+  const oneWay = { id: "7", status: "accepted", trip: null };
+  const entries = roundTrip.groupRidesByTrip([leg(40, "outbound", "pending"), oneWay, leg(41, "return", "pending")]);
+  assert.deepEqual(plain(entries.map((entry) => entry.key)), ["trip-40", "7"]);
+  assert.equal(entries[0].ride.id, "40");
+  assert.equal(entries[0].legs.outbound.id, "40");
+  assert.equal(entries[0].legs.return.id, "41");
+  assert.equal(stepsOf(entries[0]), "outbound:current return:upcoming");
+  assert.equal(entries[1].ride, oneWay);
+  assert.deepEqual(plain(entries[1].legs), {});
+  assert.deepEqual(plain(entries[1].legSteps), []);
+
+  // Return listed before outbound: still one entry, current leg is the outbound.
+  const reversed = roundTrip.groupRidesByTrip([leg(41, "return", "accepted"), leg(40, "outbound", "en_route")]);
+  assert.equal(reversed.length, 1);
+  assert.equal(reversed[0].ride.id, "40");
+
+  // Outbound finished but still in the list (auto-complete before the next refresh): the ride home is current.
+  const done = roundTrip.groupRidesByTrip([leg(40, "outbound", "completed"), leg(41, "return", "accepted")]);
+  assert.equal(done[0].ride.id, "41");
+  assert.equal(stepsOf(done[0]), "outbound:done return:current");
+
+  // Only the return leg listed (the completed outbound is hidden): it's the current leg.
+  const onlyReturn = roundTrip.groupRidesByTrip([leg(41, "return", "accepted")]);
+  assert.equal(onlyReturn[0].key, "trip-40");
+  assert.equal(onlyReturn[0].ride.id, "41");
+  assert.equal(onlyReturn[0].legs.outbound, undefined);
+  assert.equal(stepsOf(onlyReturn[0]), "outbound:done return:current");
+
+  // Both legs finished: the later leg stands in, and nothing is current.
+  const finished = roundTrip.groupRidesByTrip([leg(40, "outbound", "completed"), leg(41, "return", "cancelled")]);
+  assert.equal(finished[0].ride.id, "41");
+  assert.equal(stepsOf(finished[0]), "outbound:done return:done");
+});
+
+test("trip entries count trips and drop the return leg while the outbound is under way", () => {
+  const rides = [leg(40, "outbound", "in_transit"), leg(41, "return", "accepted"), { id: "7", status: "pending", trip: null }];
+  const upcoming = roundTrip.groupRidesByTrip(rides).filter((entry) => entry.ride.status === "pending" || entry.ride.status === "accepted");
+  assert.deepEqual(plain(upcoming.map((entry) => entry.key)), ["7"]);
+  assert.equal(roundTrip.groupRidesByTrip(rides).length, 2);
+
+  const entry = roundTrip.findTripEntry(rides, rides[1]);
+  assert.equal(entry.ride.id, "40");
+  assert.equal(roundTrip.findTripEntry(rides, rides[2]), null);
+});
+
+test("Ready to Return ride and the trip's upcoming entry are the same trip", () => {
+  const ret = leg(41, "return", "accepted");
+  const rides = [ret, { id: "7", status: "accepted", trip: null }];
+  const ready = roundTrip.findReadyToReturnRide(rides);
+  assert.equal(ready.id, "41");
+  const rest = roundTrip.groupRidesByTrip(rides).filter((entry) => !roundTrip.isSameTrip(entry.ride, ready));
+  assert.deepEqual(plain(rest.map((entry) => entry.key)), ["7"]);
+});
+
+test("a round trip goes by its outbound ride number", () => {
+  assert.equal(roundTrip.tripDisplayNumber(leg(41, "return", "accepted")), "40");
+  assert.equal(roundTrip.tripTitle(leg(41, "return", "accepted")), "Ride #40 · Round trip");
+  assert.equal(roundTrip.tripTitle({ id: "12", trip: null }), "Ride #12");
+  assert.deepEqual(plain(roundTrip.tripLegSteps({ id: "12", status: "accepted", trip: null })), []);
+  assert.equal(roundTrip.TRIP_LEG_LABELS.outbound, "Outbound");
+  assert.equal(roundTrip.TRIP_LEG_LABELS.return, "Ride home");
+});

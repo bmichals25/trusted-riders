@@ -31,20 +31,25 @@ export function useKeyboardVisible(): boolean {
 /**
  * Ride notes shared between dispatch and the assigned TR. Starts from the notes in the ride detail
  * payload, refreshes from GET /api/rides/<id>/notes, and lets the TR add notes.
+ * Round trip: notes are stored per ride, so the other leg's notes are fetched too and merged in time order
+ * (best effort; new notes go on this leg).
  */
 export function RideNotesPanel({ ride }: { ride: DispatchedRide }) {
   const { session } = useAuth();
   const { impact } = useHaptics();
   const [loaded, setLoaded] = useState<RideNote[] | null>(null);
+  const [otherLegLoaded, setOtherLegLoaded] = useState<RideNote[]>([]);
   const [added, setAdded] = useState<RideNote[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const hasDetailNotes = ride.rideNotes !== undefined;
+  const otherLegId = ride.trip?.otherRideId ?? null;
 
   const load = useCallback(async () => {
     setLoadState("loading");
+    const otherLeg = otherLegId ? fetchRideNotes(otherLegId).catch(() => null) : Promise.resolve(null);
     try {
       setLoaded(await fetchRideNotes(ride.id));
       setLoadState("ready");
@@ -53,7 +58,8 @@ export function RideNotesPanel({ ride }: { ride: DispatchedRide }) {
       // A 404 with no notes in the ride detail means this backend (or this ride) has no notes for us.
       setLoadState(status === 404 && !hasDetailNotes ? "unavailable" : "error");
     }
-  }, [ride.id, hasDetailNotes]);
+    setOtherLegLoaded((await otherLeg) ?? []);
+  }, [ride.id, otherLegId, hasDetailNotes]);
 
   useEffect(() => {
     void load();
@@ -61,9 +67,9 @@ export function RideNotesPanel({ ride }: { ride: DispatchedRide }) {
 
   const notes = useMemo(() => {
     const byId = new Map<string, RideNote>();
-    for (const note of [...(loaded ?? ride.rideNotes ?? []), ...added]) byId.set(note.id, note);
+    for (const note of [...otherLegLoaded, ...(loaded ?? ride.rideNotes ?? []), ...added]) byId.set(note.id, note);
     return sortRideNotes([...byId.values()]);
-  }, [loaded, ride.rideNotes, added]);
+  }, [otherLegLoaded, loaded, ride.rideNotes, added]);
 
   const ownIds = useMemo(() => new Set(added.map((note) => note.id)), [added]);
   const driverName = session?.name?.trim().toLowerCase() ?? "";

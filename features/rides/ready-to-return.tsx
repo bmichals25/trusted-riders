@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -9,27 +9,83 @@ import { NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import {
   buildReadyToReturnNote,
+  findTripEntry,
   READY_TO_RETURN_NOTE_MAX,
   READY_TO_RETURN_NOTES,
   readyToReturnState,
   readyToReturnTargetId,
-  tripLinkText,
+  TRIP_LEG_LABELS,
+  tripDisplayNumber,
+  type TripLegStep,
+  tripLegSteps,
 } from "@/lib/round-trip";
 import { sendReadyToReturn } from "@/lib/round-trip-api";
 import { type DispatchedRide } from "@/lib/rides";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
-/** "Leg 1 of 2 · Outbound · Ride home is ride #32" — one line for ride cards and details. */
-export function TripLegLine({ ride }: { ride: DispatchedRide }) {
-  const trip = ride.trip;
-  if (!trip) return null;
-  const icon: AppSymbolName = trip.leg === "outbound" ? "arrow.up.right.circle.fill" : "arrow.uturn.left.circle.fill";
-  const text = `${trip.label} · ${tripLinkText(ride)}`;
+/**
+ * "Round trip" tag + the two legs as steps: Outbound, then Ride home, each done (check) / current / upcoming.
+ * Cards pass nothing and get the steps from the ride (its current leg); ride details pass the trip's steps.
+ */
+export function TripLegProgress({ ride, steps }: { ride: DispatchedRide; steps?: TripLegStep[] }) {
+  const legSteps = steps ?? tripLegSteps(ride);
+  if (!ride.trip || legSteps.length === 0) return null;
+  const summary = legSteps.map((step) => `${TRIP_LEG_LABELS[step.leg]} ${LEG_STATE_WORDS[step.state]}`).join(", ");
   return (
-    <View accessible accessibilityLabel={`Round trip. ${text}`} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-      <SymbolIcon name={icon} size={14} type="hierarchical" tintColor={colors.purple} weight="semibold" />
-      <Text numberOfLines={1} style={{ flex: 1, color: colors.purpleStrong, fontSize: 12, fontWeight: "800" }}>
-        {text}
+    <View
+      accessible
+      accessibilityLabel={`Round trip. ${summary}.`}
+      style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", columnGap: spacing.sm, rowGap: 4 }}
+    >
+      <View style={{ backgroundColor: colors.purpleSoft, borderRadius: radii.xs, paddingHorizontal: 6, paddingVertical: 2 }}>
+        <Text style={{ color: colors.purpleStrong, fontSize: 11, fontWeight: "900", letterSpacing: 0.4 }}>Round trip</Text>
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        {legSteps.map((step, index) => (
+          <Fragment key={step.leg}>
+            {index > 0 ? (
+              <View
+                style={{ width: 14, height: 2, borderRadius: 1, backgroundColor: step.state === "upcoming" ? colors.slate200 : colors.purple }}
+              />
+            ) : null}
+            <TripLegStepView step={step} />
+          </Fragment>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const LEG_STATE_WORDS: Record<TripLegStep["state"], string> = { done: "done", current: "now", upcoming: "next" };
+
+function TripLegStepView({ step }: { step: TripLegStep }) {
+  const done = step.state === "done";
+  const current = step.state === "current";
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+      <View
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: 8,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: done ? colors.purple : current ? colors.purpleSoft : colors.surface,
+          borderWidth: done ? 0 : 2,
+          borderColor: current ? colors.purple : colors.slate300,
+        }}
+      >
+        {done ? (
+          <SymbolIcon name="checkmark" size={9} type="monochrome" tintColor={colors.surface} weight="bold" />
+        ) : current ? (
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.purple }} />
+        ) : null}
+      </View>
+      <Text
+        numberOfLines={1}
+        style={{ color: current ? colors.purpleStrong : done ? colors.slate500 : colors.slate400, fontSize: 12, fontWeight: current ? "900" : "700" }}
+      >
+        {TRIP_LEG_LABELS[step.leg]}
       </Text>
     </View>
   );
@@ -88,7 +144,7 @@ export function ReadyToReturnCard({
         onPress={onOpen}
         disabled={!onOpen}
         accessibilityRole={onOpen ? "button" : undefined}
-        accessibilityLabel={`Ride ${ride.id}, the ride home for ${ride.passengerName}`}
+        accessibilityLabel={`Ride ${tripDisplayNumber(ride)}, the ride home for ${ride.passengerName}`}
         style={({ pressed }) => ({ gap: spacing.md, opacity: pressed ? 0.78 : 1 })}
       >
         <View style={{ gap: 4 }}>
@@ -96,7 +152,7 @@ export function ReadyToReturnCard({
             {state === "offer" ? "At the appointment" : "Waiting for the ride home"}
           </Text>
           <Text style={{ color: colors.primary, fontSize: 19, fontWeight: "800" }}>{ride.passengerName}</Text>
-          <TripLegLine ride={ride} />
+          <TripLegProgress ride={ride} />
         </View>
         <View style={{ gap: spacing.md }}>
           <LocationRow color={colors.green} label="Pickup" address={ride.pickupAddress} />
@@ -350,8 +406,8 @@ export function ReadyToReturnSheet({
 }
 
 /**
- * Round-trip panel for the ride details screen: which leg this is and a link to the other leg (when this
- * phone still lists it — a completed leg isn't shown in the app).
+ * Round-trip panel for the ride details screen: the trip's leg progress (so the two legs read as one ride)
+ * and a link to the other leg when this phone still lists it (a completed leg isn't shown in the app).
  */
 export function TripLegPanel({
   ride,
@@ -364,28 +420,23 @@ export function TripLegPanel({
 }) {
   const trip = ride.trip;
   if (!trip) return null;
+  // Progress follows the whole trip; the details below are for `ride`, which may be the leg after the current one.
+  const entry = findTripEntry([ride, ...rides.filter((candidate) => candidate.id !== ride.id)], ride);
   const other = trip.otherRideId ? rides.find((candidate) => candidate.id === trip.otherRideId) ?? null : null;
+  const thisLabel = trip.leg === "outbound" ? "ride there" : "ride home";
   const otherLabel = trip.leg === "outbound" ? "ride home" : "ride there";
   return (
     <View style={[cardStyle, { gap: spacing.sm }]}>
-      <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "800" }}>Round trip</Text>
-      <TripLegLine ride={ride} />
+      <TripLegProgress ride={ride} steps={entry?.legSteps} />
       <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
-        {trip.leg === "outbound"
-          ? trip.returnTimeOpen
-            ? "The ride home starts when you tap Ready to Return after the appointment."
-            : "The ride home is booked for a set time."
-          : trip.returnTimeOpen
-            ? "This ride starts when you tap Ready to Return after the appointment."
-            : "The ride home is booked for a set time."}{" "}
+        {entry && entry.ride.id !== ride.id ? `These details are for the ${thisLabel}. ` : ""}
+        {trip.returnTimeOpen
+          ? "The ride home starts when you tap Ready to Return after the appointment."
+          : "The ride home is booked for a set time."}{" "}
         Accepting or declining covers both legs.
       </Text>
       {other ? (
-        <SmallButton label={`Open the ${otherLabel} (#${other.id})`} icon="arrow.left.arrow.right" onPress={() => onOpenRide(other.id)} />
-      ) : trip.otherRideId ? (
-        <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "600" }}>
-          The {otherLabel} is ride #{trip.otherRideId}.
-        </Text>
+        <SmallButton label={`View the ${otherLabel}`} icon="arrow.left.arrow.right" onPress={() => onOpenRide(other.id)} />
       ) : null}
     </View>
   );

@@ -72,9 +72,14 @@ export function CancelRideSheet({
         >
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: spacing.md }}>
             <View style={{ gap: 6 }}>
-              <Text style={{ color: colors.primary, fontSize: 21, fontWeight: "900" }}>Cancel ride #{ride.id}?</Text>
+              <Text style={{ color: colors.primary, fontSize: 21, fontWeight: "900" }}>
+                {ride.trip ? "Cancel this round trip?" : `Cancel ride #${ride.id}?`}
+              </Text>
               <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
-                The ride goes back to dispatch to reassign to another Trusted Rider. The passenger's trip isn't cancelled.
+                {ride.trip
+                  ? "Both rides (there and home) go back to dispatch to reassign to another Trusted Rider."
+                  : "The ride goes back to dispatch to reassign to another Trusted Rider."}{" "}
+                The passenger's trip isn't cancelled.
                 {"\n"}Pickup: {ride.scheduledDate} · {ride.scheduledTime}
               </Text>
             </View>
