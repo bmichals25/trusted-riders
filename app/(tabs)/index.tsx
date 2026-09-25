@@ -10,6 +10,7 @@ import { LocationPermissionBanner } from "@/components/ui/LocationPermissionBann
 import { HomeBrandHeader } from "@/features/home/home-brand-header";
 import { ReadyToReturnCard } from "@/features/rides/ready-to-return";
 import {
+  CompletedRideCard,
   CurrentRideCard,
   EmptyRideState,
   LoadingState,
@@ -29,7 +30,17 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { activeRide, scheduledRides, upcomingTrips, backendError, hasLoadedRides, refreshRides, advanceRideStatus, respondToRide } = useDispatch();
+  const {
+    activeRide,
+    scheduledRides,
+    upcomingTrips,
+    recentCompletedTrips,
+    backendError,
+    hasLoadedRides,
+    refreshRides,
+    advanceRideStatus,
+    respondToRide,
+  } = useDispatch();
   const { error: locationError, permissionStatus } = useLocation();
   const { impact } = useHaptics();
   const { startupAnimationComplete, startupAnimationExiting, startupAnimationVisible } = useStartupPresentation();
@@ -250,6 +261,33 @@ export default function HomeScreen() {
               </Section>
             </FadeInBlock>
           )}
+
+          {/* Finished in the last 24 hours: reopen one to leave a note for dispatch. */}
+          {hasLoadedRides && recentCompletedTrips.length > 0 ? (
+            <FadeInBlock
+              delay={225}
+              duration={480}
+              distance={10}
+              exitOnBlur={blockExitOnBlur}
+              ready={homeEntranceReady}
+              replayOnFocus={replayHomeEntrance}
+            >
+              <Section title="Recently Completed" count={recentCompletedTrips.length}>
+                <View style={{ gap: spacing.sm }}>
+                  {recentCompletedTrips.map(({ key, ride, legSteps, completedAt }) => (
+                    <CompletedRideCard
+                      key={key}
+                      ride={ride}
+                      legSteps={legSteps}
+                      completedAt={completedAt}
+                      now={Date.now()}
+                      onOpen={() => openRideDetails(ride)}
+                    />
+                  ))}
+                </View>
+              </Section>
+            </FadeInBlock>
+          ) : null}
         </ScrollView>
 
         <FadeInBlock

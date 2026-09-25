@@ -28,10 +28,12 @@ import {
   normalizeRide,
   normalizeRideStatus,
   normalizeUser,
+  parseBackendDate,
   pickString,
   toBackendStatus,
   type FleetUser,
 } from "./fleet-normalization";
+import { pickRecentFinishedRows } from "./recent-rides";
 import * as storage from "./storage";
 import { deleteSecureItem, getSecureItem, setSecureItem } from "./secure-token-store";
 import { ACTIVE_RIDE_KEY, clearSessionScopedCaches } from "./session-cache";
@@ -376,8 +378,24 @@ function tokenFingerprint(value: string | null): string | null {
   return `${value.slice(0, 8)}...${value.slice(-6)}`;
 }
 
+export type RideList = {
+  /** Rides the TR still has to do or is doing (hydrated with ride detail). */
+  rides: DispatchedRide[];
+  /**
+   * Rides finished (completed or cancelled) in the last 24 hours, newest first and capped
+   * (lib/recent-rides.ts), so Home can offer "Add a note" after a ride. Kept in memory only.
+   */
+  recentlyFinished: DispatchedRide[];
+};
+
+/** The TR's current and upcoming rides. */
 export async function fetchRides(): Promise<DispatchedRide[]> {
-  if (DEMO_MODE) return demoRides;
+  return (await fetchRideList()).rides;
+}
+
+/** One GET /api/rides: the TR's current and upcoming rides, plus the ones they finished recently. */
+export async function fetchRideList(): Promise<RideList> {
+  if (DEMO_MODE) return { rides: demoRides, recentlyFinished: [] };
 
   const headers = authHeaders();
   if (!headers) {
@@ -476,7 +494,8 @@ export async function fetchRides(): Promise<DispatchedRide[]> {
         .map((ride) => `${ride.id}:${ride.status}`)
         .join(", ") || "none"}`,
     );
-    return normalizedRides;
+    const recentlyFinished = await hydrateRecentlyFinishedRides(rawRides, headers);
+    return { rides: normalizedRides, recentlyFinished };
   } catch (err) {
     console.log(`[api] failed to parse ${path} response ${String(err)}`);
     throw new FleetApiError(0, "Unable to parse rides response.", path);
@@ -491,13 +510,46 @@ export function getRecentlyTerminalRideIds(): ReadonlySet<string> {
   return recentlyTerminalRideIds;
 }
 
+// A finished ride's detail barely changes (its notes load separately), so it's kept in memory longer.
+const FINISHED_RIDE_DETAIL_CACHE_MS = 10 * 60 * 1000;
+
+/**
+ * The TR's recently finished rides (lib/recent-rides.ts). Completed rides get their ride detail (addresses,
+ * route) for the ride details screen; it is never written to disk. Cancelled rows only tell a round trip's
+ * story, so they stay as the list row.
+ */
+async function hydrateRecentlyFinishedRides(rawRides: unknown[], headers: HeadersInit): Promise<DispatchedRide[]> {
+  const rows = rawRides.flatMap((ride) => {
+    if (!ride || typeof ride !== "object" || Array.isArray(ride)) return [];
+    const summary = ride as Record<string, unknown>;
+    const rawStatus = pickString(summary, ["status", "ride_status"]);
+    if (!rawStatus) return [];
+    const endedAt = parseBackendDate(pickString(summary, ["end_time", "endTime"]))?.getTime() ?? null;
+    return [{ summary, status: normalizeRideStatus(rawStatus), endedAt }];
+  });
+  const finished: DispatchedRide[] = [];
+  for (const row of pickRecentFinishedRows(rows, Date.now())) {
+    const rideId = pickString(row.summary, ["id", "ride_id", "rideId", "uuid"]);
+    const detail = rideId && row.status === "completed"
+      ? await fetchRideDetail(rideId, headers, { persist: false, cacheMs: FINISHED_RIDE_DETAIL_CACHE_MS })
+      : null;
+    const ride = normalizeRide(mergeRideSummaryAndDetail(row.summary, detail));
+    if (ride) finished.push(ride);
+  }
+  return finished;
+}
+
 function shouldHydrateRideSummary(summary: Record<string, unknown>): boolean {
   const rawStatus = pickString(summary, ["status", "ride_status"]);
   const status = rawStatus ? normalizeRideStatus(rawStatus) : "pending";
   return VISIBLE_RIDE_STATUSES.has(status);
 }
 
-async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Record<string, unknown> | null> {
+async function fetchRideDetail(
+  rideId: string,
+  headers: HeadersInit,
+  { persist = true, cacheMs }: { persist?: boolean; cacheMs?: number } = {},
+): Promise<Record<string, unknown> | null> {
   const backendId = getRideBackendId(rideId);
   const id = encodeURIComponent(String(backendId ?? rideId));
   const path = `/api/rides/${id}`;
@@ -539,8 +591,8 @@ async function fetchRideDetail(rideId: string, headers: HeadersInit): Promise<Re
     const body = await res.json();
     const data = extractRideDetail(body);
     console.log(`[api] ${path} route detail ${describeRoutePayload(data)}`);
-    setCachedRideDetail(cacheKey, data);
-    if (data) void persistRideDetail(cacheKey, data);
+    setCachedRideDetail(cacheKey, data, cacheMs);
+    if (data && persist) void persistRideDetail(cacheKey, data);
     return data;
   } catch {
     if (cached) return cached;

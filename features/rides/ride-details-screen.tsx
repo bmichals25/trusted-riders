@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SymbolIcon, type AppSymbolName } from "@/components/ui/SymbolIcon";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
@@ -14,19 +14,24 @@ import { RidePassengerPanel } from "@/features/rides/ride-passenger";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { useDispatch } from "@/lib/dispatch-context";
-import { fetchRides } from "@/lib/fleet-api";
+import { fetchRideList } from "@/lib/fleet-api";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { showMapProviderOptionsForRide } from "@/lib/map-navigation";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate } from "@/lib/rides";
-import { readyToReturnState, tripTitle } from "@/lib/round-trip";
+import { isFinishedRideStatus, readyToReturnState, tripTitle } from "@/lib/round-trip";
 import { colors, radii, shadows, spacing } from "@/lib/theme";
 
 export function RideDetailsScreenContent() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { rideId } = useLocalSearchParams<{ rideId?: string }>();
-  const { rides, respondToRide } = useDispatch();
+  const { rides: activeRides, recentlyFinishedRides, respondToRide } = useDispatch();
+  // A finished ride (Home's "Recently completed") opens here too, so the TR can add a note after the ride.
+  const rides = useMemo(() => {
+    const listed = new Set(activeRides.map((item) => item.id));
+    return [...activeRides, ...recentlyFinishedRides.filter((item) => !listed.has(item.id))];
+  }, [activeRides, recentlyFinishedRides]);
   const [cancelOpen, setCancelOpen] = useState(false);
   const { impact } = useHaptics();
   const [fetchedRide, setFetchedRide] = useState<DispatchedRide | null>(null);
@@ -36,8 +41,9 @@ export function RideDetailsScreenContent() {
 
   useEffect(() => {
     if (ride || !rideId) return;
-    void fetchRides()
-      .then((nextRides) => {
+    void fetchRideList()
+      .then(({ rides: listed, recentlyFinished }) => {
+        const nextRides = [...listed, ...recentlyFinished];
         const nextRide = nextRides.find((item) => item.id === rideId)
           ?? nextRides.find((item) => normalizeRideId(item.id) === normalizeRideId(rideId))
           ?? null;
@@ -63,6 +69,8 @@ export function RideDetailsScreenContent() {
 
   const isUpcoming = !!ride && (ride.status === "pending" || ride.status === "accepted");
   const canCancel = isUpcoming && !ride?.awaitingAcceptance;
+  // Completed or cancelled: nothing to drive to; Chat and the notes stay.
+  const isFinished = !!ride && isFinishedRideStatus(ride.status);
 
   const cancelRide = useCallback(async (reason: string) => {
     if (!ride) return { ok: false };
@@ -95,7 +103,7 @@ export function RideDetailsScreenContent() {
           contentInsetAdjustmentBehavior="never"
           automaticallyAdjustKeyboardInsets
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: spacing.md, paddingBottom: ride ? insets.bottom + 178 : insets.bottom + 28, gap: spacing.md }}
+          contentContainerStyle={{ padding: spacing.md, paddingBottom: ride ? insets.bottom + (isFinished ? 116 : 178) : insets.bottom + 28, gap: spacing.md }}
         >
           {ride ? (
             <>
@@ -159,7 +167,7 @@ export function RideDetailsScreenContent() {
           <RideDetailsActionBar
             bottomInset={insets.bottom}
             onChat={() => openChat(ride)}
-            onNavigate={() => openNavigation(ride)}
+            onNavigate={isFinished ? undefined : () => openNavigation(ride)}
             onCancel={canCancel ? () => setCancelOpen(true) : undefined}
           />
         ) : null}
@@ -205,7 +213,8 @@ function RideDetailsActionBar({
 }: {
   bottomInset: number;
   onChat: () => void;
-  onNavigate: () => void;
+  /** Omitted for a finished ride. */
+  onNavigate?: () => void;
   onCancel?: () => void;
 }) {
   return (
@@ -224,7 +233,9 @@ function RideDetailsActionBar({
       }}
     >
       <View style={{ gap: spacing.sm }}>
-        <DetailActionButton iconName="location.fill" label="Navigate" tone="primary" onPress={onNavigate} />
+        {onNavigate ? (
+          <DetailActionButton iconName="location.fill" label="Navigate" tone="primary" onPress={onNavigate} />
+        ) : null}
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <DetailActionButton iconName="message.fill" label="Chat" tone="secondary" onPress={onChat} />
           {onCancel ? (

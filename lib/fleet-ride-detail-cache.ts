@@ -21,8 +21,12 @@ export function getCachedRideDetail(cacheKey: string): Record<string, unknown> |
   return cached.data;
 }
 
-export function setCachedRideDetail(cacheKey: string, data: Record<string, unknown> | null): void {
-  rideDetailCache.set(cacheKey, { expiresAt: Date.now() + RIDE_DETAIL_CACHE_MS, data });
+export function setCachedRideDetail(
+  cacheKey: string,
+  data: Record<string, unknown> | null,
+  ttlMs = RIDE_DETAIL_CACHE_MS,
+): void {
+  rideDetailCache.set(cacheKey, { expiresAt: Date.now() + ttlMs, data });
 }
 
 export async function persistRideDetail(cacheKey: string, data: Record<string, unknown>): Promise<void> {

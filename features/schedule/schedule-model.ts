@@ -88,6 +88,19 @@ export function dayKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+/** Milliseconds from `now` until the next local midnight. */
+export function msUntilNextDay(now: Date) {
+  return Math.max(0, addDays(startOfDay(now), 1).getTime() - now.getTime());
+}
+
+/**
+ * The schedule's selected day once the date changes (midnight, or back from the background). Someone looking
+ * at "today" moves to the new today; a day they picked on purpose stays put.
+ */
+export function selectedDayAfterDateChange(selected: Date, previousToday: Date, nextToday: Date) {
+  return dayKey(selected) === dayKey(previousToday) ? nextToday : selected;
+}
+
 export function buildWeek(today: Date) {
   const start = addDays(today, -today.getDay());
   return Array.from({ length: 7 }, (_, index) => {

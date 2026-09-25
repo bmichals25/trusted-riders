@@ -59,6 +59,11 @@ export type DispatchedRide = {
   notes: string;
   emergencyContact: string;
   status: RideStatus;
+  /**
+   * When the ride ended (backend `end_time`, epoch ms). Set on finished rides; the Home "Recently completed"
+   * list uses it (lib/recent-rides.ts).
+   */
+  endedAt?: number;
   /** Dispatch assigned this ride and is waiting for the driver to accept or decline it. */
   awaitingAcceptance?: boolean;
   /** Round trip leg (lib/round-trip.ts); null/absent for a one-way ride. */
@@ -138,10 +143,21 @@ export function mergeRideSummaryAndDetail(
   // Ride details are cached; acceptance (and the attached passenger) can change after the first fetch,
   // so the fresh list wins. Same for the round-trip block, the start time (Ready to Return gives an
   // open return leg its start time) and the passenger photo flags (photo access ends with the ride).
-  for (const key of ["driver_accepted", "driver_accepted_at", "passenger_id", "passenger_name", "passenger_has_photo", "passenger_photo_updated_at", "trip", "start_time"]) {
+  for (const key of ["driver_accepted", "driver_accepted_at", "passenger_id", "passenger_name", "passenger_has_photo", "passenger_photo_updated_at", "trip", "start_time", "end_time"]) {
     if (key in summary) merged[key] = summary[key];
   }
+  // A finished ride's passenger block (phone, needs, emergency contact) is no longer the TR's to see. The
+  // backend already leaves it out, but a detail cached while the ride was active may still carry it.
+  if (summaryStatus && isFinishedBackendStatus(summaryStatus) && "passenger" in merged) {
+    merged.passenger = null;
+  }
   return merged;
+}
+
+/** Backend status strings for a completed or cancelled ride (same vocabulary as normalizeRideStatus). */
+export function isFinishedBackendStatus(status: string): boolean {
+  const value = status.toLowerCase().replace(/[\/\-\s]+/g, "_");
+  return ["driver_passenger_at_dropoff", "completed", "complete", "done", "cancelled", "canceled", "declined"].includes(value);
 }
 
 function pickString(raw: Record<string, unknown>, keys: string[]): string | null {

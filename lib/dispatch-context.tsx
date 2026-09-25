@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, type AppStateStatus } from "react-native";
 import {
-  fetchRides,
+  fetchRideList,
   clearActiveRideId,
   getRecentlyTerminalRideIds,
   isFleetApiError,
@@ -33,7 +33,8 @@ import {
   scheduleLocalGpsOffNotification,
 } from "./push-notifications";
 import { getRideBackendId, hasDrawableRoute, type DispatchedRide, type RideCoordinate, type RideStatus } from "./rides";
-import { groupRidesByTrip, isSameTrip, type TripEntry } from "./round-trip";
+import { recentCompletedTrips, type RecentCompletedTrip } from "./recent-rides";
+import { applyLegCompleted, groupRidesByTrip, isSameTrip, type TripEntry } from "./round-trip";
 import { useLocation, type DriverLocation } from "./location-context";
 import * as storage from "./storage";
 import { LAST_ACTIVE_RIDE_KEY } from "./session-cache";
@@ -54,6 +55,13 @@ type DispatchData = {
    * A trip whose outbound leg is under way isn't upcoming (it's the current ride).
    */
   upcomingTrips: TripEntry<DispatchedRide>[];
+  /**
+   * Rides the TR finished in the last 24 hours (memory only), so ride details can still open them. Not part
+   * of `rides`, which stays the TR's unfinished work.
+   */
+  recentlyFinishedRides: DispatchedRide[];
+  /** Home's "Recently completed": finished trips, newest first (lib/recent-rides.ts). */
+  recentCompletedTrips: RecentCompletedTrip<DispatchedRide>[];
   activeRide: DispatchedRide | null;
   backendError: string | null;
   hasLoadedRides: boolean;
@@ -74,6 +82,11 @@ type DispatchActions = {
   dismissStatusNotice: () => void;
   noteIncomingDispatchMessages: (count: number) => void;
   refreshRides: () => Promise<void>;
+  /**
+   * Refresh right after the TR changed something (completed a ride, Ready to Return, a push). If the
+   * request throttle skips it, one follow-up runs just after the throttle; repeated calls share it.
+   */
+  refreshRidesSoon: () => Promise<void>;
 };
 
 type DispatchState = DispatchData & DispatchActions;
@@ -82,6 +95,8 @@ const DispatchDataContext = createContext<DispatchData>({
   rides: [],
   scheduledRides: [],
   upcomingTrips: [],
+  recentlyFinishedRides: [],
+  recentCompletedTrips: [],
   activeRide: null,
   backendError: null,
   hasLoadedRides: false,
@@ -96,10 +111,13 @@ const DispatchActionsContext = createContext<DispatchActions>({
   dismissStatusNotice: () => {},
   noteIncomingDispatchMessages: () => {},
   refreshRides: async () => {},
+  refreshRidesSoon: async () => {},
 });
 
 const MAX_TRANSIENT_ACTIVE_RIDE_MISSES = 3;
 const RIDE_POLL_INTERVAL_MS = 10000;
+// GET /api/rides allows one request every 3s (lib/fleet-api.ts); a skipped refresh retries just after that.
+const FOLLOW_UP_REFRESH_MS = 3500;
 const AUTO_COMPLETE_DROPOFF_RADIUS_METERS = 150;
 
 export function isCurrentRideStatus(status: RideStatus): boolean {
@@ -168,6 +186,7 @@ export function DispatchProvider({
   children: React.ReactNode;
 }) {
   const [rides, setRides] = useState<DispatchedRide[]>([]);
+  const [recentlyFinishedRides, setRecentlyFinishedRides] = useState<DispatchedRide[]>([]);
   const [backendError, setBackendError] = useState<string | null>(null);
   const [hasLoadedRides, setHasLoadedRides] = useState(false);
   const [statusNotice, setStatusNotice] = useState<RideStatusNotice | null>(null);
@@ -177,6 +196,9 @@ export function DispatchProvider({
   const hasLoadedRidesRef = useRef(false);
   const ridesRef = useRef<DispatchedRide[]>([]);
   const missingActiveRideRefreshesRef = useRef(0);
+  const followUpRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set once refreshRidesSoon exists (it's declared below the callbacks that use it).
+  const refreshRidesSoonRef = useRef<() => Promise<void>>(async () => {});
 
   const processedChatCommandIdsRef = useRef(new Set<string>());
   const chatCommandPollInFlightRef = useRef(false);
@@ -207,18 +229,20 @@ export function DispatchProvider({
     stopTracking();
 
     setRides((prev) => {
-      const next = prev.map((candidate) =>
-        candidate.id === ride.id
-          ? { ...candidate, status: "completed" as RideStatus }
-          : candidate,
-      );
+      // Completed now; for a round trip's outbound leg the ride home offers Ready to Return right away.
+      const next = applyLegCompleted(prev, ride.id, Date.now());
       ridesRef.current = next;
       return next;
     });
 
-    void updateRideStatus(ride.id, "completed").catch((error) => {
-      console.log("[dispatch] auto-complete ride status failed", error instanceof Error ? error.message : error);
-    });
+    void updateRideStatus(ride.id, "completed")
+      .then((ok) => {
+        // Show the backend's next state (Ready to Return, Recently completed) now rather than on the next poll.
+        if (ok) void refreshRidesSoonRef.current();
+      })
+      .catch((error) => {
+        console.log("[dispatch] auto-complete ride status failed", error instanceof Error ? error.message : error);
+      });
     void sendRideEndCommandMessage().catch((error) => {
       console.log("[dispatch] auto-complete ride_end command failed", error instanceof Error ? error.message : error);
     });
@@ -280,19 +304,22 @@ export function DispatchProvider({
     return result;
   }, []);
 
-  const refreshRides = useCallback(async () => {
+  /** One ride list refresh. "skipped": the request throttle (or a request already in flight) held it back. */
+  const loadRides = useCallback(async (): Promise<"loaded" | "skipped" | "failed"> => {
     if (DEMO_MODE) {
       setBackendError(null);
       ridesRef.current = demoRides;
       setRides(demoRides);
       hasLoadedRidesRef.current = true;
       setHasLoadedRides(true);
-      return;
+      return "loaded";
     }
 
     let nextRides: DispatchedRide[];
+    let nextFinishedRides: DispatchedRide[];
     try {
-      const fetchedRides = await fetchRides();
+      const { rides: fetchedRides, recentlyFinished } = await fetchRideList();
+      nextFinishedRides = recentlyFinished;
       const previousById = new Map(ridesRef.current.map((ride) => [ride.id, ride]));
       nextRides = fetchedRides.map((ride) => mergeSparseRideDetail(previousById.get(ride.id), ride));
       nextRides = preserveTransientlyMissingActiveRide(
@@ -310,7 +337,7 @@ export function DispatchProvider({
           hasLoadedRidesRef.current = true;
           setHasLoadedRides(true);
         }
-        return;
+        return "skipped";
       }
       if (isFleetApiError(error)) {
         if (shouldSuppressRideErrorPanel(error.status)) {
@@ -319,7 +346,7 @@ export function DispatchProvider({
             hasLoadedRidesRef.current = true;
             setHasLoadedRides(true);
           }
-          return;
+          return "failed";
         }
         setBackendError(
           `${error.message} (${error.status})`,
@@ -328,7 +355,7 @@ export function DispatchProvider({
         setBackendError("Unable to load your rides from the backend.");
       }
       setHasLoadedRides(true);
-      return;
+      return "failed";
     }
 
     if (hasLoadedRidesRef.current) {
@@ -394,8 +421,28 @@ export function DispatchProvider({
 
     ridesRef.current = nextRides;
     setRides(nextRides);
+    setRecentlyFinishedRides(nextFinishedRides);
     setHasLoadedRides(true);
+    return "loaded";
   }, [stopTracking]);
+
+  const refreshRides = useCallback(async () => {
+    await loadRides();
+  }, [loadRides]);
+
+  const refreshRidesSoon = useCallback(async () => {
+    const outcome = await loadRides();
+    if (outcome !== "skipped" || followUpRefreshTimerRef.current) return;
+    followUpRefreshTimerRef.current = setTimeout(() => {
+      followUpRefreshTimerRef.current = null;
+      void loadRides();
+    }, FOLLOW_UP_REFRESH_MS);
+  }, [loadRides]);
+  refreshRidesSoonRef.current = refreshRidesSoon;
+
+  useEffect(() => () => {
+    if (followUpRefreshTimerRef.current) clearTimeout(followUpRefreshTimerRef.current);
+  }, []);
 
   const dismissStatusNotice = useCallback(() => {
     setStatusNotice(null);
@@ -422,12 +469,8 @@ export function DispatchProvider({
 
   useEffect(() => {
     if (DEMO_MODE) return;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const refreshNow = () => {
-      void refreshRides();
-      // A refresh that lands inside the request throttle is skipped; try once more just after it.
-      timers.push(setTimeout(() => void refreshRides(), 3500));
-    };
+    // A refresh that lands inside the request throttle is skipped; refreshRidesSoon tries once more after it.
+    const refreshNow = () => void refreshRidesSoon();
     const removePushListener = addRideUpdateNotificationListener(refreshNow);
     const appStateSubscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") refreshNow();
@@ -435,9 +478,8 @@ export function DispatchProvider({
     return () => {
       removePushListener();
       appStateSubscription.remove();
-      timers.forEach(clearTimeout);
     };
-  }, [refreshRides]);
+  }, [refreshRidesSoon]);
 
   useEffect(() => {
     if (isTracking) {
@@ -681,6 +723,11 @@ export function DispatchProvider({
     () => groupRidesByTrip(rides).filter((entry) => isUpcomingRideStatus(entry.ride.status)),
     [rides],
   );
+  const recentCompleted = useMemo(() => {
+    // `rides` first: a ride completed on this phone is there (with its end time) until the next refresh.
+    const listed = new Set(rides.map((ride) => ride.id));
+    return recentCompletedTrips([...rides, ...recentlyFinishedRides.filter((ride) => !listed.has(ride.id))], Date.now());
+  }, [rides, recentlyFinishedRides]);
   const activeRide = activeRideInState;
 
   const dataValue = useMemo<DispatchData>(
@@ -688,13 +735,15 @@ export function DispatchProvider({
       rides,
       scheduledRides,
       upcomingTrips,
+      recentlyFinishedRides,
+      recentCompletedTrips: recentCompleted,
       activeRide,
       backendError,
       hasLoadedRides,
       statusNotice,
       unreadDispatchMessageCount,
     }),
-    [rides, scheduledRides, upcomingTrips, activeRide, backendError, hasLoadedRides, statusNotice, unreadDispatchMessageCount],
+    [rides, scheduledRides, upcomingTrips, recentlyFinishedRides, recentCompleted, activeRide, backendError, hasLoadedRides, statusNotice, unreadDispatchMessageCount],
   );
 
   const actionsValue = useMemo<DispatchActions>(
@@ -705,8 +754,9 @@ export function DispatchProvider({
       dismissStatusNotice,
       noteIncomingDispatchMessages,
       refreshRides,
+      refreshRidesSoon,
     }),
-    [advanceRideStatus, respondToRide, clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides],
+    [advanceRideStatus, respondToRide, clearDispatchUnreadMessages, dismissStatusNotice, noteIncomingDispatchMessages, refreshRides, refreshRidesSoon],
   );
 
   return (

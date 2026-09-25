@@ -223,6 +223,59 @@ export function findReadyToReturnRide<T extends { id: string; status: string; tr
   );
 }
 
+/**
+ * The rides right after the TR completes `rideId` on this phone, before the next refresh: that ride is
+ * completed (ended `now`), and when it's a round trip's outbound leg the ride home is offered for Ready to
+ * Return straight away (the backend's can_ready_to_return: outbound at dropoff, ride home not started, not
+ * marked ready yet). The next ride refresh replaces all of this with the backend's view.
+ */
+export function applyLegCompleted<T extends LegCarrier & { endedAt?: number }>(
+  rides: readonly T[],
+  rideId: string,
+  now: number,
+): T[] {
+  const completed = rides.find((ride) => ride.id === rideId);
+  if (!completed) return [...rides];
+  const outboundTrip = completed.trip?.leg === "outbound" ? completed.trip : null;
+  return rides.map((ride) => {
+    if (ride.id === rideId) return { ...ride, status: "completed", endedAt: now } as T;
+    const trip = ride.trip;
+    if (
+      outboundTrip &&
+      trip?.leg === "return" &&
+      trip.tripId === outboundTrip.tripId &&
+      (ride.status === "pending" || ride.status === "accepted") &&
+      !trip.readyToReturnAt &&
+      !trip.needsReturnPlan
+    ) {
+      return { ...ride, trip: { ...trip, canReadyToReturn: true, otherRideStatus: "driver/passenger at dropoff" } } as T;
+    }
+    return ride;
+  });
+}
+
+/** `text` as a sentence: adds a period unless it already ends with . ! or ? (before any closing quote/bracket). */
+export function asSentence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return "";
+  return /[.!?]["'”’)\]]*$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+/**
+ * The line under "Dispatch is arranging the ride home" / "Ride home: <method>":
+ * "You told dispatch at 12:09 AM. Note: Appointment ran long. Stay with the passenger; check chat for updates."
+ */
+export function readyToReturnStatusText(state: "waiting" | "arranged", readyAt: string, note: string): string {
+  const sentences = [
+    readyAt ? `You told dispatch at ${readyAt}.` : "Dispatch has your message.",
+    note.trim() ? `Note: ${asSentence(note)}` : "",
+    state === "arranged"
+      ? "Dispatch will start the ride home in the app when it's time."
+      : "Stay with the passenger; check chat for updates.",
+  ];
+  return sentences.filter(Boolean).join(" ");
+}
+
 /** The ride id to send Ready to Return for: the outbound leg (the backend accepts either leg). */
 export function readyToReturnTargetId(ride: TripCarrier): string {
   return ride.trip?.outboundRideId ?? ride.id;

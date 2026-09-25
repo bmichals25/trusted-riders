@@ -73,7 +73,8 @@ export function RideNotesPanel({ ride }: { ride: DispatchedRide }) {
 
   const ownIds = useMemo(() => new Set(added.map((note) => note.id)), [added]);
   const driverName = session?.name?.trim().toLowerCase() ?? "";
-  const canAdd = ride.status !== "completed" && ride.status !== "cancelled";
+  // The assigned TR can add notes after dropoff too (post-trip observations for dispatch).
+  const canAdd = ride.status !== "cancelled";
   const trimmedDraft = draft.trim();
   const canSend = canAdd && !sending && trimmedDraft.length > 0;
 

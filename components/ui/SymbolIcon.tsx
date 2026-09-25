@@ -38,6 +38,7 @@ const ANDROID_GLYPHS: Partial<Record<SFSymbol, string>> = {
   "phone.fill": "☎",
   "rectangle.portrait.and.arrow.right": "↪",
   "slider.horizontal.3": "≡",
+  "square.and.pencil": "✎",
   "xmark.circle.fill": "×",
 };
 

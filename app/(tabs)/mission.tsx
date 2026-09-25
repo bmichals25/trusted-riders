@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
@@ -16,9 +16,11 @@ import {
   dayKey,
   isCalendarRideStatus,
   mergeRideLists,
+  selectedDayAfterDateChange,
   startOfDay,
   toScheduledItem,
 } from "@/features/schedule/schedule-model";
+import { useToday } from "@/features/schedule/use-today";
 import { useDispatch } from "@/lib/dispatch-context";
 import { fetchRides } from "@/lib/fleet-api";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
@@ -37,10 +39,20 @@ export default function ScheduleScreen() {
   const [fetchedRides, setFetchedRides] = useState<DispatchedRide[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [mode, setMode] = useState<CalendarMode>("day");
-  const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
-  const today = useMemo(() => startOfDay(new Date()), []);
+  // "Today" follows the clock (it used to be fixed when the tab first mounted, so after midnight the
+  // schedule still opened on yesterday).
+  const today = useToday(isFocused);
+  const [selectedDate, setSelectedDate] = useState(() => today);
   const todayKey = dayKey(today);
   const selectedKey = dayKey(selectedDate);
+  const previousTodayRef = useRef(today);
+
+  useEffect(() => {
+    const previousToday = previousTodayRef.current;
+    if (previousToday.getTime() === today.getTime()) return;
+    previousTodayRef.current = today;
+    setSelectedDate((selected) => selectedDayAfterDateChange(selected, previousToday, today));
+  }, [today]);
 
   const scheduleSourceRides = useMemo(() => mergeRideLists(rides, fetchedRides), [fetchedRides, rides]);
   const calendarRides = useMemo(

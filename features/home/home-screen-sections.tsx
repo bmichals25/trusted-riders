@@ -16,8 +16,9 @@ import { LocationRow } from "@/components/ui/LocationRow";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TripLegProgress } from "@/features/rides/ready-to-return";
 import { usePassengerPhotoSource } from "@/lib/passenger-photo";
+import { completedTimeLabel } from "@/lib/recent-rides";
 import { type DispatchedRide, hasDrawableRoute, type RideCoordinate, type RideStatus } from "@/lib/rides";
-import { tripDisplayNumber } from "@/lib/round-trip";
+import { tripDisplayNumber, type TripLegStep } from "@/lib/round-trip";
 import { colors, radii, shadows, spacing, type StatusKey } from "@/lib/theme";
 
 /** The driver's next step for an in-progress ride, shown as the card's primary action. */
@@ -235,6 +236,51 @@ export function NextUpcomingRideCard({
         <SecondaryActionButton label="View Ride" iconName="doc.text.magnifyingglass" onPress={onOpen} />
         <SecondaryActionButton label="Navigate" iconName="location.fill" onPress={onNavigate} />
       </View>
+    </View>
+  );
+}
+
+/**
+ * A ride (or round trip) the TR finished recently. Compact: who, when, and a way back into the ride to leave
+ * a note for dispatch. `ride` is the leg to open (the ride home for a round trip).
+ */
+export function CompletedRideCard({
+  ride,
+  legSteps,
+  completedAt,
+  now,
+  onOpen,
+}: {
+  ride: DispatchedRide;
+  legSteps: TripLegStep[];
+  completedAt: number;
+  now: number;
+  onOpen: () => void;
+}) {
+  const initials = useMemo(() => initialsFor(ride.passengerName), [ride.passengerName]);
+  // Photo access ends with the ride, so this is normally the initials.
+  const photo = usePassengerPhotoSource(ride, "thumb");
+  const completedLabel = completedTimeLabel(completedAt, now);
+  return (
+    <View style={[cardStyle, { gap: spacing.sm }]}>
+      <Pressable
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={`${ride.passengerName}, ${ride.trip ? "round trip" : "ride"} ${tripDisplayNumber(ride)}. ${completedLabel}. Open ride details`}
+        style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: spacing.md, opacity: pressed ? 0.78 : 1 })}
+      >
+        <Avatar initials={initials} size={40} source={photo} />
+        <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+          <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800" }} numberOfLines={1}>
+            {ride.passengerName}
+          </Text>
+          {ride.trip ? <TripLegProgress ride={ride} steps={legSteps} /> : null}
+          <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700" }} numberOfLines={1}>
+            {completedLabel}
+          </Text>
+        </View>
+      </Pressable>
+      <SecondaryActionButton label="Add a note" iconName="square.and.pencil" onPress={onOpen} />
     </View>
   );
 }

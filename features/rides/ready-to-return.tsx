@@ -10,9 +10,11 @@ import { useHaptics } from "@/lib/haptics-context";
 import {
   buildReadyToReturnNote,
   findTripEntry,
+  isFinishedRideStatus,
   READY_TO_RETURN_NOTE_MAX,
   READY_TO_RETURN_NOTES,
   readyToReturnState,
+  readyToReturnStatusText,
   readyToReturnTargetId,
   TRIP_LEG_LABELS,
   tripDisplayNumber,
@@ -111,7 +113,7 @@ export function ReadyToReturnCard({
   onOpen?: () => void;
   onChat: () => void;
 }) {
-  const { refreshRides } = useDispatchActions();
+  const { refreshRidesSoon } = useDispatchActions();
   const { notification } = useHaptics();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sent, setSent] = useState(false);
@@ -129,9 +131,7 @@ export function ReadyToReturnCard({
     setSentAt(new Date().toISOString());
     setSheetOpen(false);
     notification(NotificationFeedbackType.Success);
-    void refreshRides();
-    // A refresh inside the request throttle is skipped; try again just after it.
-    setTimeout(() => void refreshRides(), 3500);
+    void refreshRidesSoon();
     return result;
   };
 
@@ -201,9 +201,7 @@ export function ReadyToReturnCard({
             <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>{trip.transportNote}</Text>
           ) : null}
           <Text style={{ color: colors.primarySoft, fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
-            {readyAt ? `You told dispatch at ${readyAt}.` : "Dispatch has your message."}
-            {note ? ` Note: ${note}` : ""}
-            {state === "arranged" ? " Dispatch will start the ride home in the app when it's time." : " Stay with the passenger; check chat for updates."}
+            {readyToReturnStatusText(state, readyAt, note)}
           </Text>
         </View>
       )}
@@ -407,7 +405,7 @@ export function ReadyToReturnSheet({
 
 /**
  * Round-trip panel for the ride details screen: the trip's leg progress (so the two legs read as one ride)
- * and a link to the other leg when this phone still lists it (a completed leg isn't shown in the app).
+ * and a link to the other leg when this phone still lists it (`rides` includes recently finished legs).
  */
 export function TripLegPanel({
   ride,
@@ -425,15 +423,18 @@ export function TripLegPanel({
   const other = trip.otherRideId ? rides.find((candidate) => candidate.id === trip.otherRideId) ?? null : null;
   const thisLabel = trip.leg === "outbound" ? "ride there" : "ride home";
   const otherLabel = trip.leg === "outbound" ? "ride home" : "ride there";
+  // Every listed leg is finished (completed or cancelled): nothing left to start, accept or decline.
+  const tripFinished = isFinishedRideStatus((entry?.ride ?? ride).status);
   return (
     <View style={[cardStyle, { gap: spacing.sm }]}>
       <TripLegProgress ride={ride} steps={entry?.legSteps} />
       <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
         {entry && entry.ride.id !== ride.id ? `These details are for the ${thisLabel}. ` : ""}
-        {trip.returnTimeOpen
-          ? "The ride home starts when you tap Ready to Return after the appointment."
-          : "The ride home is booked for a set time."}{" "}
-        Accepting or declining covers both legs.
+        {tripFinished
+          ? `This round trip is finished.${ride.status === "completed" ? " You can still add a note for dispatch below." : ""}`
+          : `${trip.returnTimeOpen
+              ? "The ride home starts when you tap Ready to Return after the appointment."
+              : "The ride home is booked for a set time."} Accepting or declining covers both legs.`}
       </Text>
       {other ? (
         <SmallButton label={`View the ${otherLabel}`} icon="arrow.left.arrow.right" onPress={() => onOpenRide(other.id)} />

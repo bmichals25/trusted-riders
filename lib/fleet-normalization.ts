@@ -38,6 +38,10 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
   const createdAt = createdAtDate ? createdAtDate.getTime() : Date.now();
 
   const status = normalizeRideStatus(pickString(raw, ["status", "ride_status"]) || "");
+  // Only meaningful once the ride is over (the backend sets end_time at dropoff or cancellation).
+  const endedAt = status === "completed" || status === "cancelled"
+    ? parseBackendDate(pickString(raw, ["end_time", "endTime"]))?.getTime() ?? null
+    : null;
   const trip = normalizeTrip(raw.trip);
   // Open return leg: no pickup time until the TR taps Ready to Return.
   const openReturn = trip?.leg === "return" && !pickupTime;
@@ -63,6 +67,7 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
       "",
     emergencyContact: pickString(raw, ["emergency_contact", "emergencyContact", "contact_phone"]) || "",
     status,
+    ...(endedAt !== null ? { endedAt } : {}),
     // Only an explicit `driver_accepted: false` means "waiting on the driver"; older backends omit the field.
     awaitingAcceptance: (status === "pending" || status === "accepted") && raw.driver_accepted === false,
     ...(trip ? { trip } : {}),
