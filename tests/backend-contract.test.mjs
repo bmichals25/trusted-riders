@@ -436,6 +436,7 @@ test("fleet helpers map Suresh statuses and include active ride location context
     "./config": { FLEET_API_URL: "https://example.test" },
     "./demo-data": { demoRides: [] },
     "./demo-mode": { DEMO_MODE: false },
+    "./fleet-api-transport": { setSessionRefresher: () => {} },
     "./fleet-fetch-result": { shouldSuppressRideFetchError: () => false },
     "./fleet-normalization": fleetNormalization,
     "./rides": {
@@ -822,6 +823,7 @@ test("login helpers preserve passwords and accept common auth token shapes", () 
     "./config": { FLEET_API_URL: "https://example.test" },
     "./demo-data": { demoRides: [] },
     "./demo-mode": { DEMO_MODE: false },
+    "./fleet-api-transport": { setSessionRefresher: () => {} },
     "./fleet-fetch-result": { shouldSuppressRideFetchError: () => false },
     "./fleet-normalization": fleetNormalization,
     "./rides": {
@@ -860,6 +862,7 @@ test("password reset helper posts the trimmed email to /api/forgot-password", as
     "./demo-data": { demoRides: [] },
     "./demo-mode": { DEMO_MODE: false },
     "./fleet-api-transport": {
+      setSessionRefresher: () => {},
       fleetFetch: async (method, path, init, options) => {
         calls.push({ method, path, body: JSON.parse(init.body), throttleKey: options.throttleKey });
         return nextResponse

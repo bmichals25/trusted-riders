@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { StyleSheet, View } from "react-native";
 import { AppLoadingAnimation } from "@/components/ui/AppLoadingAnimation";
 import { DriverLoginScreen } from "@/features/auth/driver-login-screen";
-import { login, requestPasswordReset, restoreToken } from "@/lib/fleet-api";
+import { login, onSessionExpired, requestPasswordReset, restoreToken } from "@/lib/fleet-api";
 import { signOutDriver } from "@/lib/sign-out";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import * as storage from "@/lib/storage";
@@ -119,6 +119,17 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     if (authRestoring || session) return;
     setPassword("");
   }, [authRestoring, session]);
+
+  // The session ended on the server and couldn't be renewed (refresh token expired or revoked): back to
+  // sign-in, instead of a Home screen that can't load anything.
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        setSession(null);
+        setError("Your session expired. Sign in again.");
+      }),
+    [],
+  );
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim();

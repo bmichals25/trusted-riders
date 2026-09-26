@@ -20,6 +20,77 @@ export type FleetFetchOptions = {
   throttleKey?: string;
 };
 
+/**
+ * What renewing an expired session gave (lib/fleet-api.ts refreshSession):
+ *   refreshed: a new access token, so the request is retried once with it;
+ *   expired: the refresh token was refused too, so the caller sees the 401 and the TR signs in again;
+ *   unavailable: offline or a server error, so the request counts as failed and the session is kept.
+ */
+export type SessionRefreshOutcome =
+  | { kind: "refreshed"; token: string }
+  | { kind: "expired" }
+  | { kind: "unavailable" };
+
+type SessionRefresher = (staleToken: string) => Promise<SessionRefreshOutcome>;
+
+let sessionRefresher: SessionRefresher | null = null;
+
+/** Set once by lib/fleet-api.ts (the transport can't import it: fleet-api imports the transport). */
+export function setSessionRefresher(refresher: SessionRefresher | null): void {
+  sessionRefresher = refresher;
+}
+
+// Requests that carry no access token, or that must not trigger a refresh themselves.
+const NO_SESSION_REFRESH_PATHS = new Set(["/api/login", "/api/token/refresh", "/api/logout"]);
+
+function bearerToken(init: RequestInit): string | null {
+  const value = new Headers(init.headers).get("Authorization");
+  const match = value ? /^Bearer\s+(.+)$/i.exec(value) : null;
+  return match ? match[1] : null;
+}
+
+/**
+ * 401, or Flask-JWT-Extended's 422 for a token it can't verify (e.g. after a JWT_SECRET_KEY rotation). A 422
+ * with any other message is an ordinary validation error.
+ */
+export async function isSessionFailure(res: Response): Promise<boolean> {
+  if (res.status === 401) return true;
+  if (res.status !== 422) return false;
+  try {
+    const body = await res.clone().json();
+    const msg = typeof body?.msg === "string" ? body.msg.toLowerCase() : "";
+    return msg.includes("signature") || msg.includes("token") || msg.includes("authorization");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A request rejected because its access token expired: renew the session and retry once. TR access tokens
+ * last 12 hours and the refresh token 7 days (backend app/utils/sessions.py), so without this a TR was
+ * signed out at every 12-hour mark.
+ */
+async function retryWithRefreshedSession(
+  method: string,
+  path: string,
+  url: string,
+  init: RequestInit,
+  res: Response,
+): Promise<Response | null | "unchanged"> {
+  const stale = bearerToken(init);
+  if (!stale || !sessionRefresher || NO_SESSION_REFRESH_PATHS.has(path)) return "unchanged";
+  if (!(await isSessionFailure(res))) return "unchanged";
+
+  await logApi(method, path, url, res);
+  const outcome = await sessionRefresher(stale);
+  if (outcome.kind === "expired") return "unchanged";
+  if (outcome.kind === "unavailable") return null;
+
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${outcome.token}`);
+  return fetch(url, { ...init, headers });
+}
+
 // One log line per outbound API call. Prints to Metro so the backend team can
 // correlate with their server logs. Failures include the response body so 4xx
 // validation errors are visible without extra tooling.
@@ -125,7 +196,14 @@ export async function fleetFetch(
   let result: Exclude<ApiRequestResult, "skipped"> = "failed";
   const url = `${FLEET_API_URL}${path}`;
   try {
-    const res = await fetch(url, init);
+    let res = await fetch(url, init);
+    const retried = await retryWithRefreshedSession(method, path, url, init, res);
+    if (retried === null) {
+      // Couldn't renew the session right now (offline, server error): like a network failure, keep the session.
+      result = "failed";
+      return { result, res: null };
+    }
+    if (retried !== "unchanged") res = retried;
     if (await isNgrokUnavailable(res)) {
       pauseFleetApi("ngrok bandwidth limit");
       result = "paused";

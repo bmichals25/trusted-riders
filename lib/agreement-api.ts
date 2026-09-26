@@ -3,7 +3,7 @@
 //   POST /api/me/agreement/accept  {version} -> same body; 400 when the version is no longer current
 
 import { DEMO_MODE } from "./demo-mode";
-import { clearToken, getToken } from "./fleet-api";
+import { expireSession, getToken } from "./fleet-api";
 import { fleetFetch, readApiErrorMessage } from "./fleet-api-transport";
 
 export type TrAgreement = {
@@ -90,7 +90,7 @@ export async function fetchAgreement(): Promise<AgreementFetchResult> {
   );
   if (!res) return { kind: "unavailable", message: "Couldn't reach dispatch." };
   if (isSignedOutStatus(res.status)) {
-    await clearToken();
+    await expireSession();
     return { kind: "signed_out" };
   }
   if (!res.ok) {
@@ -118,7 +118,7 @@ export async function acceptAgreement(version: string): Promise<AgreementAcceptR
   });
   if (!res) return { kind: "error", message: "Couldn't reach dispatch. Check your connection and try again." };
   if (isSignedOutStatus(res.status)) {
-    await clearToken();
+    await expireSession();
     return { kind: "signed_out" };
   }
   if (res.status === 400) {

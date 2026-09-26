@@ -103,7 +103,7 @@ function loadAgreementApi(fetchImpl, { token = "token" } = {}) {
   const cleared = [];
   const api = loadTsModule("lib/agreement-api.ts", {
     "./demo-mode": { DEMO_MODE: false },
-    "./fleet-api": { getToken: () => token, clearToken: async () => cleared.push(true) },
+    "./fleet-api": { getToken: () => token, expireSession: async () => cleared.push(true) },
     "./fleet-api-transport": {
       fleetFetch: async (method, requestPath, init) => {
         const res = await fetchImpl(method, requestPath, init);

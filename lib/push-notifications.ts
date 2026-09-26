@@ -5,7 +5,7 @@ import { Platform } from "react-native";
 
 import { FLEET_API_URL } from "./config";
 import { DEMO_MODE } from "./demo-mode";
-import { getToken } from "./fleet-api";
+import { getToken, refreshSession } from "./fleet-api";
 
 type PushTokenRegistrationInput = {
   expoPushToken: string;
@@ -108,10 +108,20 @@ export async function registerPushTokenWithBackend(input: PushTokenRegistrationI
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const res = await fetch(`${FLEET_API_URL}${request.path}`, {
+  let res = await fetch(`${FLEET_API_URL}${request.path}`, {
     ...request.init,
     headers,
   });
+  if (res.status === 401 && token) {
+    // Expired session (e.g. the app reopened after 12 hours): renew it and retry once.
+    const outcome = await refreshSession(token);
+    if (outcome.kind === "refreshed") {
+      res = await fetch(`${FLEET_API_URL}${request.path}`, {
+        ...request.init,
+        headers: { ...headers, Authorization: `Bearer ${outcome.token}` },
+      });
+    }
+  }
   if (!res.ok) {
     throw new Error(`Push token registration failed (${res.status})`);
   }

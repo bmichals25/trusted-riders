@@ -1,7 +1,7 @@
 import { FLEET_API_URL } from "./config";
 import { demoChatMessages, demoChatStatus } from "./demo-data";
 import { DEMO_MODE } from "./demo-mode";
-import { getToken } from "./fleet-api";
+import { expireSession, getToken, refreshSession } from "./fleet-api";
 
 export type ChatSender = "driver" | "dispatch" | "admin" | "system";
 
@@ -73,6 +73,23 @@ async function chatFetch<T>(path: string, init?: RequestInit): Promise<T> {
     res = await fetch(url, { ...init, headers, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
+  }
+
+  // Expired session: renew it and retry once, like every other API call (lib/fleet-api-transport.ts).
+  if (res.status === 401) {
+    const outcome = await refreshSession(token);
+    if (outcome.kind === "refreshed") {
+      headers.set("Authorization", `Bearer ${outcome.token}`);
+      const retry = new AbortController();
+      const retryTimeout = setTimeout(() => retry.abort(), CHAT_FETCH_TIMEOUT_MS);
+      try {
+        res = await fetch(url, { ...init, headers, signal: retry.signal });
+      } finally {
+        clearTimeout(retryTimeout);
+      }
+    } else if (outcome.kind === "expired") {
+      await expireSession();
+    }
   }
 
   if (!res.ok) {

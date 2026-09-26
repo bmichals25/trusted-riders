@@ -6,10 +6,13 @@ import { type ApiRequestResult } from "./api-request-throttle";
 import { demoRides } from "./demo-data";
 import { DEMO_MODE } from "./demo-mode";
 import { shouldSuppressRideFetchError } from "./fleet-fetch-result";
+import { FLEET_API_URL } from "./config";
 import {
   fleetFetch,
   readApiErrorMessage,
+  setSessionRefresher,
   type FleetFetchOptions,
+  type SessionRefreshOutcome,
 } from "./fleet-api-transport";
 import {
   getCachedRideDetail,
@@ -40,8 +43,13 @@ import { ACTIVE_RIDE_KEY, clearSessionScopedCaches } from "./session-cache";
 
 // Kept in the Keychain/Keystore (lib/secure-token-store.ts), migrated out of AsyncStorage on first read.
 const TOKEN_KEY = "trustedriders-auth-token";
+// The session's refresh token (POST /api/token/refresh), next to the access token.
+const REFRESH_TOKEN_KEY = "trustedriders-refresh-token";
 
 let token: string | null = null;
+let refreshToken: string | null = null;
+let refreshInFlight: Promise<SessionRefreshOutcome> | null = null;
+const sessionExpiredListeners = new Set<() => void>();
 
 export type { FleetUser } from "./fleet-normalization";
 export { normalizeRideStatus } from "./fleet-normalization";
@@ -152,9 +160,12 @@ export async function login(email: string, password: string): Promise<FleetUser>
   }
 
   token = authToken;
+  refreshToken = typeof data?.refresh_token === "string" && data.refresh_token ? data.refresh_token : null;
   const user = normalizeUser(data.user ?? data.driver ?? data);
   console.log("[auth] login ok");
   await setSecureItem(TOKEN_KEY, authToken);
+  if (refreshToken) await setSecureItem(REFRESH_TOKEN_KEY, refreshToken);
+  else await deleteSecureItem(REFRESH_TOKEN_KEY);
   return user;
 }
 
@@ -217,9 +228,96 @@ function authHeaders(): HeadersInit | null {
 
 export async function clearToken(): Promise<void> {
   token = null;
+  refreshToken = null;
   await deleteSecureItem(TOKEN_KEY);
+  await deleteSecureItem(REFRESH_TOKEN_KEY);
   await clearSessionScopedCaches();
 }
+
+/** Called when the session can't be renewed any more (the gate then shows the sign-in screen). */
+export function onSessionExpired(listener: () => void): () => void {
+  sessionExpiredListeners.add(listener);
+  return () => {
+    sessionExpiredListeners.delete(listener);
+  };
+}
+
+/** The server refused the session and it couldn't be renewed: drop it and send the TR to sign-in. */
+export async function expireSession(): Promise<void> {
+  const hadSession = token !== null;
+  await clearToken();
+  if (!hadSession) return;
+  console.log("[auth] session expired: signing out");
+  for (const listener of sessionExpiredListeners) {
+    try {
+      listener();
+    } catch {
+      // a listener must never break the others
+    }
+  }
+}
+
+/**
+ * Renew the session: trade the refresh token for a new access token (POST /api/token/refresh). TR sessions
+ * are fixed (backend app/utils/sessions.py): the access token lasts DRIVER_ACCESS_TOKEN_HOURS (12) and the
+ * refresh token DRIVER_REFRESH_TOKEN_DAYS (7), so a TR signs in once a week, not every shift. The transport
+ * (lib/fleet-api-transport.ts) calls this when a request comes back 401, then retries it once. One refresh
+ * at a time: requests that raced on the same expired token share it.
+ */
+export function refreshSession(staleToken: string | null): Promise<SessionRefreshOutcome> {
+  if (token && staleToken && token !== staleToken) {
+    return Promise.resolve({ kind: "refreshed", token });
+  }
+  if (!refreshInFlight) {
+    refreshInFlight = requestNewAccessToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function requestNewAccessToken(): Promise<SessionRefreshOutcome> {
+  if (DEMO_MODE || !refreshToken) return { kind: "expired" };
+  let res: Response;
+  try {
+    res = await fetch(`${FLEET_API_URL}/api/token/refresh`, {
+      method: "POST",
+      headers: { Accept: "application/json", Authorization: `Bearer ${refreshToken}` },
+    });
+  } catch {
+    console.log("[auth] session refresh: network error, keeping the session");
+    return { kind: "unavailable" };
+  }
+  if (res.ok) {
+    let data: Record<string, unknown> | null = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    const next = extractAuthToken(data);
+    if (!next) return { kind: "unavailable" };
+    token = next;
+    await setSecureItem(TOKEN_KEY, next);
+    const rotated = data?.refresh_token;
+    if (typeof rotated === "string" && rotated) {
+      refreshToken = rotated;
+      await setSecureItem(REFRESH_TOKEN_KEY, rotated);
+    }
+    console.log("[auth] session refreshed");
+    return { kind: "refreshed", token: next };
+  }
+  if (res.status === 401 || res.status === 422) {
+    console.log(`[auth] session refresh refused (${res.status})`);
+    refreshToken = null;
+    await deleteSecureItem(REFRESH_TOKEN_KEY);
+    return { kind: "expired" };
+  }
+  console.log(`[auth] session refresh failed (${res.status}), keeping the session`);
+  return { kind: "unavailable" };
+}
+
+setSessionRefresher(refreshSession);
 
 /**
  * Best-effort POST /api/logout: the server revokes this token (and its session) so a copy of it is
@@ -257,6 +355,7 @@ export async function restoreToken(): Promise<string | null> {
 
   const stored = await getSecureItem(TOKEN_KEY);
   if (stored) token = stored;
+  refreshToken = await getSecureItem(REFRESH_TOKEN_KEY);
   return stored;
 }
 
@@ -336,7 +435,7 @@ export async function updateLocation(loc: {
   // JWT_SECRET_KEY. Same remedy either way: drop the dead token so the
   // auth gate forces a fresh login.
   if (res && (res.status === 401 || (res.status === 422 && (await isAuthFailure(res))))) {
-    await clearToken();
+    await expireSession();
     return "failed";
   }
   return result;
@@ -423,7 +522,7 @@ export async function fetchRideList(): Promise<RideList> {
     throw new FleetApiError(0, "Fleet API unavailable while loading rides.", path);
   }
   if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
-    await clearToken();
+    await expireSession();
     throw new FleetApiError(res.status, "Session expired while loading rides.", path);
   }
   if (res.status === 404) {
@@ -644,7 +743,7 @@ export async function updateRideStatus(rideId: string, status: RideStatus): Prom
 
   if (!res) return false;
   if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
-    await clearToken();
+    await expireSession();
     return false;
   }
   return res.ok;
@@ -681,7 +780,7 @@ export async function respondToRideRequest(
 
   if (!res) return { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
   if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
-    await clearToken();
+    await expireSession();
     return { ok: false, message: "Your session expired. Sign in again." };
   }
   if (res.status === 409) return { ok: false, message: "This ride has already started, so it can't be changed here. Message dispatch instead." };
