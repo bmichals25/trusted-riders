@@ -62,7 +62,18 @@
       ],
       "expo-video",
       "expo-image",
-      "expo-secure-store"
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "TrustedRide Certified uses Face ID so you can sign in without typing your password."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "TrustedRide Certified uses Face ID so you can sign in without typing your password."
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": true

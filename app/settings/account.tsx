@@ -17,7 +17,7 @@ import { colors, spacing } from "@/lib/theme";
 
 export default function AccountSettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut, session } = useAuth();
+  const { signOut, session, biometricSignInLabel, turnOffBiometricSignIn } = useAuth();
   const { notification } = useHaptics();
   const [signingOut, setSigningOut] = useState(false);
   const profileName = session?.name ?? "Trusted Rider";
@@ -27,6 +27,18 @@ export default function AccountSettingsScreen() {
     notification(NotificationFeedbackType.Warning);
     setSigningOut(true);
     await signOut();
+  };
+
+  const handleTurnOffBiometric = () => {
+    if (!biometricSignInLabel) return;
+    Alert.alert(
+      `Turn off ${biometricSignInLabel} sign-in?`,
+      `You'll sign in with your password. It's offered again the next time you do.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Turn Off", style: "destructive", onPress: () => void turnOffBiometricSignIn() },
+      ],
+    );
   };
 
   const handleSignOut = () => {
@@ -58,9 +70,19 @@ export default function AccountSettingsScreen() {
           <FadeInBlock delay={60}>
             <SettingsSection>
               <ReadoutRow label="Profile" value={profileName} iconName="person.crop.circle.fill" />
+              {biometricSignInLabel ? (
+                <ActionRow
+                  label={`Sign in with ${biometricSignInLabel}`}
+                  value="On"
+                  detail="Tap to turn off"
+                  iconName="faceid"
+                  iconTone="blue"
+                  onPress={handleTurnOffBiometric}
+                />
+              ) : null}
               <ActionRow
                 label="Sign Out"
-                detail="Ends session and clears token"
+                detail={biometricSignInLabel ? `Ends session; also turns off ${biometricSignInLabel}` : "Ends session and clears token"}
                 iconName="rectangle.portrait.and.arrow.right"
                 destructive
                 disabled={signingOut}

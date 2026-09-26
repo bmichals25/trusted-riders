@@ -54,6 +54,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>TrustedRide Certified uses the camera to scan another Trusted Rider's verification QR code.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>TrustedRide Certified uses Face ID so you can sign in without typing your password.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>TrustedRide Certified needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
 	<key>NSLocationAlwaysUsageDescription</key>

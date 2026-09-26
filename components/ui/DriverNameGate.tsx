@@ -1,8 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { AppLoadingAnimation } from "@/components/ui/AppLoadingAnimation";
 import { DriverLoginScreen } from "@/features/auth/driver-login-screen";
 import { login, onSessionExpired, requestPasswordReset, restoreToken } from "@/lib/fleet-api";
+import {
+  biometricSignInEmail,
+  biometricSupport,
+  readBiometricSignIn,
+  removeBiometricSignIn,
+  saveBiometricSignIn,
+} from "@/lib/biometric-sign-in";
 import { signOutDriver } from "@/lib/sign-out";
 import { DEMO_MODE } from "@/lib/demo-mode";
 import * as storage from "@/lib/storage";
@@ -23,11 +30,21 @@ const STARTUP_REVEAL_HARD_TIMEOUT_MS = 8000;
 /** signOut(message): the sign-in screen then shows message (e.g. why the session ended). */
 export const SESSION_EXPIRED_MESSAGE = "Your session expired. Sign in again.";
 
-type AuthContextValue = { signOut: (message?: string) => Promise<void>; session: DriverSession | null };
+type AuthContextValue = {
+  signOut: (message?: string) => Promise<void>;
+  session: DriverSession | null;
+  /** "Face ID" / "Touch ID" when biometric sign-in is saved on this phone, else null (Settings > Account). */
+  biometricSignInLabel: string | null;
+  turnOffBiometricSignIn: () => Promise<void>;
+};
 const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
   session: null,
+  biometricSignInLabel: null,
+  turnOffBiometricSignIn: async () => {},
 });
+
+type BiometricState = { available: boolean; label: string; savedEmail: string | null };
 
 type StartupPresentationValue = {
   reloadAppToHome: () => void;
@@ -70,6 +87,18 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const [startupAnimationKey, setStartupAnimationKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [biometric, setBiometric] = useState<BiometricState>({ available: false, label: "Face ID", savedEmail: null });
+
+  const refreshBiometric = useCallback(async () => {
+    if (DEMO_MODE) return;
+    const [support, savedEmail] = await Promise.all([biometricSupport(), biometricSignInEmail()]);
+    setBiometric({ ...support, savedEmail: support.available ? savedEmail : null });
+  }, []);
+
+  // On boot and whenever the sign-in screen comes back: is "Sign in with Face ID" on offer?
+  useEffect(() => {
+    if (!session) void refreshBiometric();
+  }, [session, refreshBiometric]);
 
   useEffect(() => {
     if (DEMO_MODE) {
@@ -134,6 +163,31 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     [],
   );
 
+  const completeSignIn = async (signInEmail: string, signInPassword: string) => {
+    const user = await login(signInEmail, signInPassword);
+    await storage.set(DRIVER_NAME_KEY, user.name);
+    await storage.set(DRIVER_EMAIL_KEY, signInEmail);
+    setSession({ name: user.name });
+  };
+
+  // After a password sign-in: offer Face ID / Touch ID for next time (once per sign-in, never nagging
+  // a TR who already has it for this email).
+  const offerBiometricSignIn = (signInEmail: string, signInPassword: string) => {
+    const { available, label, savedEmail } = biometric;
+    if (!available || savedEmail === signInEmail) return;
+    Alert.alert(`Sign in with ${label}?`, `Next time, use ${label} instead of typing your password.`, [
+      { text: "Not now", style: "cancel" },
+      {
+        text: `Use ${label}`,
+        onPress: () => {
+          void saveBiometricSignIn({ email: signInEmail, password: signInPassword }, label).then((saved) => {
+            if (saved) setBiometric((current) => ({ ...current, savedEmail: signInEmail }));
+          });
+        },
+      },
+    ]);
+  };
+
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) return;
@@ -141,11 +195,10 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
 
     setSubmitting(true);
     setError(null);
+    const typedPassword = password;
     try {
-      const user = await login(trimmedEmail, password);
-      await storage.set(DRIVER_NAME_KEY, user.name);
-      await storage.set(DRIVER_EMAIL_KEY, trimmedEmail);
-      setSession({ name: user.name });
+      await completeSignIn(trimmedEmail, typedPassword);
+      offerBiometricSignIn(trimmedEmail, typedPassword);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in.");
     } finally {
@@ -153,18 +206,57 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     }
   };
 
+  const handleBiometricLogin = async () => {
+    if (submitting) return;
+    setError(null);
+    const saved = await readBiometricSignIn();
+    if (saved === "cancelled") return;
+    if (saved === "unavailable") {
+      setError(`${biometric.label} sign-in is no longer set up on this phone. Sign in with your password.`);
+      void refreshBiometric();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await completeSignIn(saved.email, saved.password);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to sign in.";
+      setEmail(saved.email);
+      if (/invalid email or password/i.test(message)) {
+        // The password changed since it was saved: forget it, the TR signs in (and saves) again.
+        await removeBiometricSignIn();
+        void refreshBiometric();
+        setError(`Your password has changed. Sign in with the new one to use ${biometric.label} again.`);
+      } else {
+        setError(message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const turnOffBiometricSignIn = useCallback(async () => {
+    await removeBiometricSignIn();
+    setBiometric((current) => ({ ...current, savedEmail: null }));
+  }, []);
+
   const signOut = useCallback(async (message?: string) => {
     // Stops background location, unregisters this device's push token, revokes the token on the
     // server and wipes every "trustedriders-*" key, including the cached name and email (a shared
-    // phone must not show the previous Trusted Rider anything).
-    await signOutDriver();
+    // phone must not show the previous Trusted Rider anything). A choice to sign out also forgets Face ID
+    // sign-in; a session that ended on its own (message) keeps it for the same TR.
+    await signOutDriver({ keepBiometricSignIn: !!message });
     setEmail("");
     setPassword("");
     setError(message ?? null);
     setSession(null);
   }, []);
 
-  const authValue = useMemo<AuthContextValue>(() => ({ signOut, session }), [signOut, session]);
+  const biometricSignInLabel = biometric.savedEmail ? biometric.label : null;
+  const authValue = useMemo<AuthContextValue>(
+    () => ({ signOut, session, biometricSignInLabel, turnOffBiometricSignIn }),
+    [signOut, session, biometricSignInLabel, turnOffBiometricSignIn],
+  );
   const handleEmailChange = useCallback((value: string) => {
     if (error) setError(null);
     setEmail(value);
@@ -208,6 +300,8 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     <AuthContext.Provider value={authValue}>{children(session)}</AuthContext.Provider>
   ) : authRestoring ? null : (
     <DriverLoginScreen
+      biometricLabel={biometricSignInLabel}
+      onBiometricSignIn={handleBiometricLogin}
       canSubmit={!!email.trim() && !!password && !submitting}
       email={email}
       error={error}

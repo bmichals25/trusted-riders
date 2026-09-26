@@ -32,6 +32,8 @@ type FocusedField = "email" | "password" | "resetEmail" | null;
 type LoginMode = "signIn" | "forgot" | "sent";
 
 export function DriverLoginScreen({
+  biometricLabel,
+  onBiometricSignIn,
   canSubmit,
   email,
   error,
@@ -44,6 +46,9 @@ export function DriverLoginScreen({
   passwordVisible,
   submitting,
 }: {
+  /** "Face ID" / "Touch ID" when a biometric sign-in is saved on this phone; null hides the button. */
+  biometricLabel: string | null;
+  onBiometricSignIn: () => void;
   canSubmit: boolean;
   email: string;
   error: string | null;
@@ -413,6 +418,20 @@ export function DriverLoginScreen({
                   )}
                 </AnimatedPressable>
 
+                {biometricLabel ? (
+                  <Pressable
+                    style={({ pressed }) => [s.biometricButton, pressed ? s.biometricButtonPressed : null]}
+                    onPress={onBiometricSignIn}
+                    disabled={submitting}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sign in with ${biometricLabel}`}
+                    accessibilityHint="Uses the sign-in saved on this phone."
+                    accessibilityState={{ disabled: submitting }}
+                  >
+                    <Text style={s.biometricButtonText}>Sign in with {biometricLabel}</Text>
+                  </Pressable>
+                ) : null}
+
                 <TextLink
                   label="Forgot password?"
                   hint="Sends a password reset link to your email."
@@ -609,6 +628,27 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     minHeight: 56,
     marginTop: 6,
+  },
+  biometricButton: {
+    width: "100%",
+    borderRadius: radii.sm,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    minHeight: 52,
+    marginTop: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  biometricButtonPressed: {
+    backgroundColor: "rgba(15, 23, 42, 0.06)",
+  },
+  biometricButtonText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 2.2,
   },
   primaryButtonReady: {
     backgroundColor: colors.primary,

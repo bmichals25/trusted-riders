@@ -184,3 +184,46 @@ test("no hardcoded sample ride is served when a ride detail fetch fails", () => 
   const source = fs.readFileSync(path.join(root, "lib/fleet-ride-detail-cache.ts"), "utf8");
   assert.doesNotMatch(source, /Fallback|William St|Greenwich St/);
 });
+
+function loadSignOut(savedEmail) {
+  const calls = [];
+  const record = (name) => async (...args) => void calls.push([name, ...args]);
+  const signOut = loadTsModule("lib/sign-out.ts", {
+    "./biometric-sign-in": {
+      biometricSignInEmail: async () => savedEmail,
+      markBiometricSignIn: record("markBiometric"),
+      removeBiometricSignIn: record("removeBiometric"),
+    },
+    "./fleet-api": { clearToken: record("clearToken"), logoutFromServer: record("logout") },
+    "./location-context": { stopBackgroundLocationUpdates: record("stopLocation") },
+    "./passenger-photo": { clearPassengerPhotoCache: record("clearPhotos") },
+    "./push-notifications": { unregisterPushToken: record("unregisterPush") },
+    "./session-cache": { clearAllAppStorage: record("wipe") },
+  });
+  return { signOut, calls };
+}
+
+test("choosing to sign out also forgets Face ID sign-in", async () => {
+  const { signOut, calls } = loadSignOut("marcus@example.test");
+  await signOut.signOutDriver();
+  const names = calls.map(([name]) => name);
+  assert.ok(names.includes("removeBiometric"));
+  assert.ok(!names.includes("markBiometric"));
+  assert.ok(names.indexOf("wipe") < names.indexOf("removeBiometric"));
+});
+
+test("a session that expired keeps Face ID sign-in for the same TR (marker restored after the wipe)", async () => {
+  const { signOut, calls } = loadSignOut("marcus@example.test");
+  await signOut.signOutDriver({ keepBiometricSignIn: true });
+  const names = calls.map(([name]) => name);
+  assert.ok(!names.includes("removeBiometric"));
+  assert.deepEqual(calls.find(([name]) => name === "markBiometric"), ["markBiometric", "marcus@example.test"]);
+  assert.ok(names.indexOf("wipe") < names.indexOf("markBiometric"));
+});
+
+test("an expired session with no Face ID saved leaves nothing behind", async () => {
+  const { signOut, calls } = loadSignOut(null);
+  await signOut.signOutDriver({ keepBiometricSignIn: true });
+  assert.ok(calls.some(([name]) => name === "removeBiometric"));
+  assert.ok(!calls.some(([name]) => name === "markBiometric"));
+});
