@@ -20,7 +20,10 @@ const STARTUP_REVEAL_DELAY_MS = 0;
 // home content stays hidden behind it.
 const STARTUP_REVEAL_HARD_TIMEOUT_MS = 8000;
 
-type AuthContextValue = { signOut: () => Promise<void>; session: DriverSession | null };
+/** signOut(message): the sign-in screen then shows message (e.g. why the session ended). */
+export const SESSION_EXPIRED_MESSAGE = "Your session expired. Sign in again.";
+
+type AuthContextValue = { signOut: (message?: string) => Promise<void>; session: DriverSession | null };
 const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
   session: null,
@@ -126,7 +129,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     () =>
       onSessionExpired(() => {
         setSession(null);
-        setError("Your session expired. Sign in again.");
+        setError(SESSION_EXPIRED_MESSAGE);
       }),
     [],
   );
@@ -150,14 +153,14 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
     }
   };
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (message?: string) => {
     // Stops background location, unregisters this device's push token, revokes the token on the
     // server and wipes every "trustedriders-*" key, including the cached name and email (a shared
     // phone must not show the previous Trusted Rider anything).
     await signOutDriver();
     setEmail("");
     setPassword("");
-    setError(null);
+    setError(message ?? null);
     setSession(null);
   }, []);
 

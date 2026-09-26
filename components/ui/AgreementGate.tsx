@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, StyleSheet, View } from "react-native";
 
-import { useAuth } from "@/components/ui/DriverNameGate";
+import { SESSION_EXPIRED_MESSAGE, useAuth } from "@/components/ui/DriverNameGate";
 import { AgreementScreen } from "@/features/agreement/agreement-screen";
 import { acceptAgreement, fetchAgreement, type TrAgreement } from "@/lib/agreement-api";
 import { onAgreementRequired } from "@/lib/agreement-events";
@@ -43,7 +43,8 @@ export function AgreementGate({ children }: { children: React.ReactNode }) {
       setLoading(false);
 
       if (result.kind === "signed_out") {
-        await signOut();
+        // The session ended on the server: wipe the device and say why on the sign-in screen.
+        await signOut(SESSION_EXPIRED_MESSAGE);
         return;
       }
       if (result.kind === "unavailable") {
@@ -104,7 +105,8 @@ export function AgreementGate({ children }: { children: React.ReactNode }) {
         return;
       }
       if (result.kind === "signed_out") {
-        await signOut();
+        // The session ended on the server: wipe the device and say why on the sign-in screen.
+        await signOut(SESSION_EXPIRED_MESSAGE);
         return;
       }
       if (result.kind === "outdated") {
