@@ -1,3 +1,25 @@
+# EAS uses this file INSTEAD of .gitignore when it exists, so it repeats what the build must not upload.
 .agents/
 android/
 skills-lock.json
+
+# from .gitignore
+node_modules/
+dist/
+.expo/
+.claude/
+tmp/
+.pytest_cache/
+__pycache__/
+.venv/
+temp_chat_backend/
+.netlify
+*.bak
+expo-env.d.ts
+
+# native build output and pods (EAS runs pod install itself), local files
+ios/Pods/
+ios/build/
+ios/**/xcuserdata/
+artifacts/
+.env.local.bak-*

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>TrustedRide Certified Prototype</string>
+	<string>TrustedRide</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -53,15 +53,15 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>TrustedRide Certified uses the camera to scan another Trusted Rider's verification QR code.</string>
+	<string>TrustedRide uses the camera to scan another Trusted Rider's verification QR code.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>TrustedRide Certified uses Face ID so you can sign in without typing your password.</string>
+	<string>TrustedRide uses Face ID so you can sign in without typing your password.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>TrustedRide Certified needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
+	<string>TrustedRide needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>TrustedRide Certified needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
+	<string>TrustedRide needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TrustedRide Certified needs your location to show your position on the map and calculate routes to pickups.</string>
+	<string>TrustedRide needs your location to show your position on the map and calculate routes to pickups.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

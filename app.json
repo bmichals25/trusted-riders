@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TrustedRide Certified Prototype",
+    "name": "TrustedRide",
     "slug": "trustedriders-prototype",
     "scheme": "trustedriders",
     "icon": "./assets/TRC_APP_ICON_2.png",
@@ -14,9 +14,9 @@
       "buildNumber": "22",
       "supportsTablet": false,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "TrustedRide Certified needs your location to show your position on the map and calculate routes to pickups.",
-        "NSLocationAlwaysUsageDescription": "TrustedRide Certified needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "TrustedRide Certified needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
+        "NSLocationWhenInUseUsageDescription": "TrustedRide needs your location to show your position on the map and calculate routes to pickups.",
+        "NSLocationAlwaysUsageDescription": "TrustedRide needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "TrustedRide needs always-on location access to share your position with dispatch during active rides, even when the app is not open.",
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
           "waze"
@@ -55,7 +55,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "TrustedRide Certified needs always-on location access to navigate to pickups and share your position with dispatch during active rides, even when the app is not open.",
+          "locationAlwaysAndWhenInUsePermission": "TrustedRide needs always-on location access to navigate to pickups and share your position with dispatch during active rides, even when the app is not open.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
@@ -65,13 +65,13 @@
       [
         "expo-secure-store",
         {
-          "faceIDPermission": "TrustedRide Certified uses Face ID so you can sign in without typing your password."
+          "faceIDPermission": "TrustedRide uses Face ID so you can sign in without typing your password."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "TrustedRide Certified uses Face ID so you can sign in without typing your password."
+          "faceIDPermission": "TrustedRide uses Face ID so you can sign in without typing your password."
         }
       ]
     ],
