@@ -21,5 +21,6 @@ expo-env.d.ts
 ios/Pods/
 ios/build/
 ios/**/xcuserdata/
+ios/.xcode.env.local
 artifacts/
 .env.local.bak-*
