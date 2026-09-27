@@ -54,6 +54,8 @@ export type DispatchedRide = {
   routeCoords: RideCoordinate[];
   scheduledDate: string;
   scheduledTime: string;
+  /** Scheduled pickup, epoch ms (null for an open return leg or an unparseable time). */
+  pickupAt?: number | null;
   transitType: TransitType;
   tripType: "One-Way" | "Round-Trip";
   notes: string;

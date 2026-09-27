@@ -13,6 +13,7 @@ import { AgreementGate } from "@/components/ui/AgreementGate";
 import { DriverNameGate } from "@/components/ui/DriverNameGate";
 import { DispatchMessageToast } from "@/components/ui/DispatchMessageToast";
 import { LocationSetupGate } from "@/components/ui/LocationSetupGate";
+import { RideLiveActivitySync } from "@/components/ui/RideLiveActivitySync";
 import { RideStatusToast } from "@/components/ui/RideStatusToast";
 import { DispatchProvider } from "@/lib/dispatch-context";
 import { HapticsProvider } from "@/lib/haptics-context";
@@ -60,6 +61,7 @@ export default function RootLayout() {
             </LocationSetupGate>
             <RideStatusToast />
             <DispatchMessageToast />
+            <RideLiveActivitySync />
             </DispatchProvider>
             </HapticsProvider>
             </LocationProvider>

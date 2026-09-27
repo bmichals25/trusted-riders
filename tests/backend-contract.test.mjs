@@ -747,6 +747,7 @@ test("fleet normalization maps backend ride shapes into mobile ride models", () 
     passengerHasPhoto: false,
     passengerPhotoUpdatedAt: null,
     pickupAddress: "67 West St, Brooklyn, NY",
+    pickupAt: 1779971400000,
     dropoffAddress: "420 W 14th St, New York, NY",
     pickupCoords: {
       latitude: 40.71,

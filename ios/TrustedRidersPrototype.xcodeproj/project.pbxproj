@@ -7,26 +7,65 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0D681AEB03A0C5DDE494AC25 /* RideLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1ED92E2E12A42CC382F6566 /* RideLiveActivity.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		27E3893CC22D05101429F299 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 06126F7CA33EB9D29F665DF8 /* SwiftUI.framework */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		43B58FE61E6A4D0FEAF749EE /* libPods-TrustedRidersPrototype.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1B84BC66959C41DDE33F3876 /* libPods-TrustedRidersPrototype.a */; };
+		59FCC157A54D2B106FD8AC0B /* TrustedRideLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 339A7407EF4596B06770C8BB /* TrustedRideLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		6A046FB0254BBBFB19A1BA17 /* RideActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAFEAD5B04B72D63AD4B9275 /* RideActivityAttributes.swift */; };
 		9C686DA50C09C882ACE9AA62 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1DC1992AD17779A3D38774D3 /* PrivacyInfo.xcprivacy */; };
+		B3303CF6AAF24EE715411237 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 02A75FEF6BE7E71126E4BBED /* Foundation.framework */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C3A2E95EDBC77AADB99ADEBC /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BABA157B2644E7A5EFECBE /* ExpoModulesProvider.swift */; };
+		C5F76A725666FDA90454CB60 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA905ADA0AB0029D039438D8 /* WidgetKit.framework */; };
+		E2DDA9722CE97AA4E500CFB6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3E777D22282C795FF9EC8434 /* Assets.xcassets */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		043A1E84B09D179AA6DA7754 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CAE0218BD0164CCBD05CBA40;
+			remoteInfo = TrustedRideLiveActivity;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BE03924402E4D380C738F08C /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				59FCC157A54D2B106FD8AC0B /* TrustedRideLiveActivity.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		02A75FEF6BE7E71126E4BBED /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		06126F7CA33EB9D29F665DF8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/SwiftUI.framework; sourceTree = DEVELOPER_DIR; };
 		13B07F961A680F5B00A75B9A /* TrustedRidersPrototype.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TrustedRidersPrototype.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = TrustedRidersPrototype/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = TrustedRidersPrototype/Info.plist; sourceTree = "<group>"; };
 		1B84BC66959C41DDE33F3876 /* libPods-TrustedRidersPrototype.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TrustedRidersPrototype.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1DC1992AD17779A3D38774D3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = TrustedRidersPrototype/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		21A27CEF0899A7EBD43E9B4D /* Pods-TrustedRidersPrototype.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TrustedRidersPrototype.release.xcconfig"; path = "Target Support Files/Pods-TrustedRidersPrototype/Pods-TrustedRidersPrototype.release.xcconfig"; sourceTree = "<group>"; };
+		339A7407EF4596B06770C8BB /* TrustedRideLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TrustedRideLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		3E777D22282C795FF9EC8434 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		94BABA157B2644E7A5EFECBE /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-TrustedRidersPrototype/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = TrustedRidersPrototype/SplashScreen.storyboard; sourceTree = "<group>"; };
+		AA905ADA0AB0029D039438D8 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/WidgetKit.framework; sourceTree = DEVELOPER_DIR; };
 		B74A10E8E4445352D53C6D22 /* Pods-TrustedRidersPrototype.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TrustedRidersPrototype.debug.xcconfig"; path = "Target Support Files/Pods-TrustedRidersPrototype/Pods-TrustedRidersPrototype.debug.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		CAFEAD5B04B72D63AD4B9275 /* RideActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RideActivityAttributes.swift; sourceTree = "<group>"; };
+		D6A0041693DCBDC01ED7F1C3 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E1ED92E2E12A42CC382F6566 /* RideLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RideLiveActivity.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = TrustedRidersPrototype/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* TrustedRidersPrototype-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "TrustedRidersPrototype-Bridging-Header.h"; path = "TrustedRidersPrototype/TrustedRidersPrototype-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -38,6 +77,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				43B58FE61E6A4D0FEAF749EE /* libPods-TrustedRidersPrototype.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9EB81FDED1E0EBAF58A5799F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3303CF6AAF24EE715411237 /* Foundation.framework in Frameworks */,
+				C5F76A725666FDA90454CB60 /* WidgetKit.framework in Frameworks */,
+				27E3893CC22D05101429F299 /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,8 +120,19 @@
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				1B84BC66959C41DDE33F3876 /* libPods-TrustedRidersPrototype.a */,
+				301E92D43BEBFC8DB9521767 /* iOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		301E92D43BEBFC8DB9521767 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				02A75FEF6BE7E71126E4BBED /* Foundation.framework */,
+				AA905ADA0AB0029D039438D8 /* WidgetKit.framework */,
+				06126F7CA33EB9D29F665DF8 /* SwiftUI.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		36DAF2004A0CC3A44150D84A /* Pods */ = {
@@ -109,6 +169,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				36DAF2004A0CC3A44150D84A /* Pods */,
 				77B5B207EB5FD1A43B379FD5 /* ExpoModulesProviders */,
+				E5805E7052B6FFBF4CD4CD78 /* TrustedRideLiveActivity */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -119,6 +180,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* TrustedRidersPrototype.app */,
+				339A7407EF4596B06770C8BB /* TrustedRideLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -130,6 +192,18 @@
 			);
 			name = Supporting;
 			path = TrustedRidersPrototype/Supporting;
+			sourceTree = "<group>";
+		};
+		E5805E7052B6FFBF4CD4CD78 /* TrustedRideLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				E1ED92E2E12A42CC382F6566 /* RideLiveActivity.swift */,
+				CAFEAD5B04B72D63AD4B9275 /* RideActivityAttributes.swift */,
+				3E777D22282C795FF9EC8434 /* Assets.xcassets */,
+				D6A0041693DCBDC01ED7F1C3 /* Info.plist */,
+			);
+			name = TrustedRideLiveActivity;
+			path = TrustedRideLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -147,15 +221,34 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				55B0E7B6F40A413D7C9E0B0C /* [CP] Embed Pods Frameworks */,
+				BE03924402E4D380C738F08C /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D4BAF904F4E4775295591D3E /* PBXTargetDependency */,
 			);
 			name = TrustedRidersPrototype;
 			productName = TrustedRidersPrototype;
 			productReference = 13B07F961A680F5B00A75B9A /* TrustedRidersPrototype.app */;
 			productType = "com.apple.product-type.application";
+		};
+		CAE0218BD0164CCBD05CBA40 /* TrustedRideLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D7504E5C61C7513A0CC7233B /* Build configuration list for PBXNativeTarget "TrustedRideLiveActivity" */;
+			buildPhases = (
+				CC6DD6A4B9438639F21DAFF5 /* Sources */,
+				9EB81FDED1E0EBAF58A5799F /* Frameworks */,
+				83BF23C5F39AEBDA77508A67 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TrustedRideLiveActivity;
+			productName = TrustedRideLiveActivity;
+			productReference = 339A7407EF4596B06770C8BB /* TrustedRideLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -186,6 +279,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* TrustedRidersPrototype */,
+				CAE0218BD0164CCBD05CBA40 /* TrustedRideLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -199,6 +293,14 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
 				9C686DA50C09C882ACE9AA62 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		83BF23C5F39AEBDA77508A67 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E2DDA9722CE97AA4E500CFB6 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -338,7 +440,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CC6DD6A4B9438639F21DAFF5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0D681AEB03A0C5DDE494AC25 /* RideLiveActivity.swift in Sources */,
+				6A046FB0254BBBFB19A1BA17 /* RideActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D4BAF904F4E4775295591D3E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = TrustedRideLiveActivity;
+			target = CAE0218BD0164CCBD05CBA40 /* TrustedRideLiveActivity */;
+			targetProxy = 043A1E84B09D179AA6DA7754 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
@@ -412,6 +532,34 @@
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
+		};
+		47A2D399DAC1BD15E90918E2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = "";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F2UK2BP6A8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TrustedRideLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustedriders.prototype.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -535,6 +683,35 @@
 			};
 			name = Release;
 		};
+		8A9AC2C36433AAE27D271F81 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = "";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F2UK2BP6A8;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TrustedRideLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
+				PRODUCT_BUNDLE_IDENTIFIER = com.trustedriders.prototype.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -552,6 +729,15 @@
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D7504E5C61C7513A0CC7233B /* Build configuration list for PBXNativeTarget "TrustedRideLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8A9AC2C36433AAE27D271F81 /* Release */,
+				47A2D399DAC1BD15E90918E2 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

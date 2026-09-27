@@ -58,6 +58,7 @@ export function normalizeRide(raw: Record<string, unknown>): DispatchedRide | nu
     routeCoords: pickRouteCoords(raw),
     scheduledDate: openReturn ? OPEN_RETURN_DATE_LABEL : formatRideDate(pickupDate ?? pickupTime),
     scheduledTime: openReturn ? OPEN_RETURN_TIME_LABEL : formatRideTime(pickupTime),
+    pickupAt: openReturn ? null : parseBackendDate(pickupTime)?.getTime() ?? null,
     transitType: normalizeTransitType(pickString(raw, ["transit_type", "transitType", "vehicle_type", "vehicle"])),
     tripType: trip ? "Round-Trip" : normalizeTripType(pickString(raw, ["trip_type", "tripType", "ride_type"])),
     notes:

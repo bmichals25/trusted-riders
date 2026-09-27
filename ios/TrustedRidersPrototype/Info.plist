@@ -62,6 +62,8 @@
 	<string>TrustedRide needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TrustedRide needs your location to show your position on the map and calculate routes to pickups.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>
