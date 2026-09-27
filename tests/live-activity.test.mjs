@@ -1,4 +1,4 @@
-// Ride Live Activity: which ride shows on the Lock Screen / Dynamic Island, and that it carries no PHI.
+// Ride Live Activity: which ride shows on the Lock Screen / Dynamic Island, and what its payload may carry.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -69,12 +69,34 @@ test("statuses map to the four steps plus the final ones", () => {
   assert.deepEqual(steps, ["upcoming", "upcoming", "en_route", "at_pickup", "on_board", "completed", "cancelled"]);
 });
 
-test("the payload is PHI-free: ride number, step, pickup time and leg only", () => {
-  const payload = live.rideActivityPayload(ride({ trip: { outboundRideId: "40", leg: "return" } }));
-  assert.deepEqual(Object.keys(payload).sort(), ["legLabel", "pickupAtMs", "rideNumber", "step"]);
-  assert.deepEqual({ ...payload }, { rideNumber: "40", step: "upcoming", pickupAtMs: NOW + 30 * MIN, legLabel: "Ride home" });
+test("the payload carries the name for the Dynamic Island, but never addresses, needs, notes or phones", () => {
+  const payload = live.rideActivityPayload(ride({ trip: { outboundRideId: "40", leg: "return" } }), undefined, { photoFile: "p.jpg" });
+  assert.deepEqual({ ...payload }, {
+    rideNumber: "40",
+    step: "upcoming",
+    pickupAtMs: NOW + 30 * MIN,
+    legLabel: "Ride home",
+    etaAtMs: null,
+    passengerName: "Jane Patient",
+    photoFile: "p.jpg",
+  });
   const text = JSON.stringify(payload);
-  for (const phi of ["Jane", "Private Lane", "Dialysis", "oxygen", "555-0100"]) assert.ok(!text.includes(phi), phi);
+  for (const phi of ["Private Lane", "Dialysis", "oxygen", "555-0100"]) assert.ok(!text.includes(phi), phi);
+});
+
+test("the ETA is sent only while en route", () => {
+  const eta = { etaAtMs: NOW + 6 * MIN };
+  assert.equal(live.rideActivityPayload(ride({ status: "en_route" }), undefined, eta).etaAtMs, NOW + 6 * MIN);
+  assert.equal(live.rideActivityPayload(ride(), undefined, eta).etaAtMs, null);
+  assert.equal(live.rideActivityPayload(ride({ status: "picked_up" }), undefined, eta).etaAtMs, null);
+});
+
+test("driving time becomes an arrival time rounded to the minute", () => {
+  assert.equal(live.etaAtFromDrivingTime(NOW, 6 * 60 + 20), NOW + 6 * MIN);
+  assert.equal(live.etaAtFromDrivingTime(NOW, 6 * 60 + 40), NOW + 7 * MIN);
+  assert.equal(live.etaAtFromDrivingTime(NOW, null), null);
+  assert.equal(live.etaAtFromDrivingTime(NOW, -5), null);
+  assert.equal(live.etaAtFromDrivingTime(NOW, Number.NaN), null);
 });
 
 test("a ride that just finished sends its final state; one that vanished ends the activity", () => {

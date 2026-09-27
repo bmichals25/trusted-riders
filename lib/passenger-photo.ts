@@ -9,6 +9,9 @@
 // written to AsyncStorage or the ride caches; those keep just the has-photo flag and timestamp.
 // Sign-out clears the memory cache (clearPassengerPhotoCache), so the next TR on a shared phone can't
 // be served the previous TR's passengers from memory.
+// One exception: the ride Live Activity's Dynamic Island can't reach the network, so the native module
+// (modules/ride-activity, PassengerPhotoStore) keeps one small copy in the App Group container with complete
+// file protection, deleted when the activity ends or the TR signs out.
 
 import { Image, type ImageSource } from "expo-image";
 import { useMemo } from "react";

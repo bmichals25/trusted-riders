@@ -1,10 +1,15 @@
 import ActivityKit
 import SwiftUI
+import UIKit
 import WidgetKit
 
 // The ride Live Activity: a Lock Screen card and the Dynamic Island while a ride is upcoming or under way.
-// Started, updated and ended by the app (modules/ride-activity, lib/live-activity.ts). PHI-free by design:
-// ride number, step and pickup time only (RideActivityAttributes.swift).
+// Started, updated and ended by the app (modules/ride-activity, lib/live-activity.ts).
+//
+// Privacy: the Lock Screen card is readable on a locked phone, so it shows no PHI (ride number, step, pickup
+// time, ETA). The passenger's name and photo appear only in the Dynamic Island's expanded view, which iOS
+// shows only on an unlocked phone in use. The compact and minimal views (also used by Apple Watch and CarPlay)
+// never show them.
 
 @main
 struct TrustedRideLiveActivityBundle: WidgetBundle {
@@ -85,39 +90,34 @@ private func showsCountdown(_ context: ActivityViewContext<RideActivityAttribute
   return RideStep(context.state.step) == .upcoming && !context.isStale && pickupAt > .now
 }
 
-/// Pickup countdown while the ride is upcoming and the pickup is ahead; the pickup time otherwise.
-private struct PickupTime: View {
+/// Whole minutes until the ETA while en route (at least 1), or nil.
+private func etaMinutes(_ state: RideActivityAttributes.ContentState) -> Int? {
+  guard RideStep(state.step) == .en_route, let etaAt = state.etaAt else { return nil }
+  return max(1, Int((etaAt.timeIntervalSinceNow / 60).rounded(.up)))
+}
+
+/// "Arriving in 6 min · 11:52 AM" while en route with an ETA; the pickup countdown while upcoming.
+private struct StatusLine: View {
   let context: ActivityViewContext<RideActivityAttributes>
-  var compact = false
+  var font: Font = .subheadline.weight(.semibold)
 
   var body: some View {
     let state = context.state
-    let step = RideStep(state.step)
-    if let pickupAt = state.pickupAt, showsCountdown(context) {
-      VStack(alignment: .trailing, spacing: 0) {
-        if !compact {
-          Text("Pickup in").font(.caption2).foregroundStyle(.white.opacity(0.7))
-        }
+    if let minutes = etaMinutes(state), let etaAt = state.etaAt {
+      (Text("Arriving in \(minutes) min · ") + Text(etaAt, style: .time))
+        .font(font)
+        .foregroundStyle(Brand.yellow)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    } else if showsCountdown(context), let pickupAt = state.pickupAt {
+      HStack(spacing: 4) {
+        Text("Pickup in")
         Text(timerInterval: Date.now...pickupAt, countsDown: true)
-          .font(compact ? .body.weight(.semibold) : .title3.weight(.bold))
           .monospacedDigit()
-          .multilineTextAlignment(.trailing)
-          .foregroundStyle(Brand.yellow)
       }
-    } else if let pickupAt = state.pickupAt, step.index < 3 {
-      VStack(alignment: .trailing, spacing: 0) {
-        if !compact {
-          Text("Pickup").font(.caption2).foregroundStyle(.white.opacity(0.7))
-        }
-        Text(pickupAt, style: .time)
-          .font(compact ? .body.weight(.semibold) : .title3.weight(.bold))
-          .monospacedDigit()
-          .foregroundStyle(.white)
-      }
-    } else {
-      Image(systemName: step.symbol)
-        .font(compact ? .body : .title2)
-        .foregroundStyle(step.tint)
+      .font(font)
+      .foregroundStyle(Brand.yellow)
+      .lineLimit(1)
     }
   }
 }
@@ -141,6 +141,8 @@ private struct StepBar: View {
           Text(labels[i])
             .font(.system(size: 10, weight: i == step.index ? .bold : .regular))
             .foregroundStyle(.white.opacity(i <= step.index ? 0.95 : 0.5))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
             .frame(maxWidth: .infinity)
         }
       }
@@ -157,36 +159,124 @@ private struct StepBar: View {
   }
 }
 
+/// "Pickup 12:24 AM" (small, trailing): shown until the passenger is on board.
+private struct PickupCaption: View {
+  let state: RideActivityAttributes.ContentState
+
+  var body: some View {
+    if let pickupAt = state.pickupAt, RideStep(state.step).index < 3 {
+      (Text("Pickup ") + Text(pickupAt, style: .time))
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white.opacity(0.8))
+        .lineLimit(1)
+        .fixedSize()
+    }
+  }
+}
+
+/// Lock Screen card. No PHI (see the file header).
 private struct LockScreenView: View {
   let context: ActivityViewContext<RideActivityAttributes>
 
   var body: some View {
     let step = RideStep(context.state.step)
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(alignment: .center, spacing: 10) {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(spacing: 8) {
         Image("Badge")
           .resizable()
           .scaledToFit()
-          .frame(width: 32, height: 32)
+          .frame(width: 22, height: 22)
           .accessibilityHidden(true)
-        VStack(alignment: .leading, spacing: 2) {
-          Text("TrustedRide · \(rideTitle(context))")
-            .font(.caption)
-            .foregroundStyle(.white.opacity(0.7))
-            .lineLimit(1)
-          Text(step.title)
-            .font(.headline)
-            .foregroundStyle(.white)
-            .lineLimit(1)
-        }
+        Text("TrustedRide · \(rideTitle(context))")
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(.white.opacity(0.8))
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
         Spacer(minLength: 8)
-        PickupTime(context: context)
+        PickupCaption(state: context.state)
       }
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Image(systemName: step.symbol)
+          .foregroundStyle(step.tint)
+        Text(step.title)
+          .foregroundStyle(.white)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+      }
+      .font(.title3.weight(.bold))
+      StatusLine(context: context)
       StepBar(step: step)
+        .padding(.top, 2)
     }
-    .padding(16)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 14)
     .activityBackgroundTint(Brand.navy)
     .activitySystemActionForegroundColor(.white)
+  }
+}
+
+/// The passenger's photo from the App Group (PassengerPhotoStore), else their initials. Dynamic Island only.
+private struct PassengerAvatar: View {
+  let state: RideActivityAttributes.ContentState
+  var size: CGFloat = 44
+
+  var body: some View {
+    Group {
+      if let file = state.photoFile,
+         let url = RideActivityShared.photoURL(file),
+         let image = UIImage(contentsOfFile: url.path) {
+        Image(uiImage: image)
+          .resizable()
+          .scaledToFill()
+      } else {
+        ZStack {
+          Circle().fill(Color.white.opacity(0.18))
+          Text(initials(state.passengerName))
+            .font(.system(size: size * 0.38, weight: .bold))
+            .foregroundStyle(.white)
+        }
+      }
+    }
+    .frame(width: size, height: size)
+    .clipShape(Circle())
+    .accessibilityHidden(true)
+  }
+
+  private func initials(_ name: String?) -> String {
+    let words = (name ?? "")
+      .replacingOccurrences(of: "(demo)", with: "")
+      .split(separator: " ")
+    let letters = words.prefix(2).compactMap(\.first).map(String.init).joined()
+    return letters.isEmpty ? "TR" : letters.uppercased()
+  }
+}
+
+/// Minutes to pickup, the countdown, or the step: the Dynamic Island's trailing slot.
+private struct IslandTrailing: View {
+  let context: ActivityViewContext<RideActivityAttributes>
+  var compact = false
+
+  var body: some View {
+    let step = RideStep(context.state.step)
+    if let minutes = etaMinutes(context.state) {
+      Text("\(minutes) min")
+        .font(compact ? .caption.weight(.semibold) : .headline)
+        .monospacedDigit()
+        .foregroundStyle(Brand.yellow)
+        .lineLimit(1)
+    } else if showsCountdown(context), let pickupAt = context.state.pickupAt {
+      Text(timerInterval: Date.now...pickupAt, countsDown: true)
+        .font(compact ? .caption.weight(.semibold) : .headline)
+        .monospacedDigit()
+        .multilineTextAlignment(.trailing)
+        .foregroundStyle(Brand.yellow)
+        .frame(maxWidth: compact ? 48 : 72, alignment: .trailing)
+    } else {
+      Text(step.short)
+        .font(compact ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+        .foregroundStyle(compact ? .white : step.tint)
+        .lineLimit(1)
+    }
   }
 }
 
@@ -199,20 +289,39 @@ struct RideLiveActivity: Widget {
       return DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
           HStack(spacing: 6) {
-            Image("Badge").resizable().scaledToFit().frame(width: 22, height: 22)
-            Text(rideTitle(context)).font(.subheadline.weight(.semibold)).lineLimit(1)
+            Image("Badge").resizable().scaledToFit().frame(width: 20, height: 20)
+            Text(rideTitle(context))
+              .font(.subheadline.weight(.semibold))
+              .lineLimit(1)
+              .minimumScaleFactor(0.8)
           }
           .padding(.leading, 4)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          PickupTime(context: context, compact: true)
+          IslandTrailing(context: context)
             .padding(.trailing, 4)
         }
         DynamicIslandExpandedRegion(.bottom) {
-          VStack(alignment: .leading, spacing: 8) {
-            Label(step.title, systemImage: step.symbol)
-              .font(.headline)
-              .foregroundStyle(.white)
+          VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+              PassengerAvatar(state: context.state)
+              VStack(alignment: .leading, spacing: 2) {
+                if let name = context.state.passengerName, !name.isEmpty {
+                  Text(name)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                }
+                Label(step.title, systemImage: step.symbol)
+                  .font(.subheadline.weight(.semibold))
+                  .foregroundStyle(step.tint)
+                  .lineLimit(1)
+                  .minimumScaleFactor(0.8)
+                StatusLine(context: context, font: .caption.weight(.semibold))
+              }
+              Spacer(minLength: 0)
+            }
             StepBar(step: step)
           }
           .padding(.horizontal, 4)
@@ -220,15 +329,7 @@ struct RideLiveActivity: Widget {
       } compactLeading: {
         Image(systemName: step.symbol).foregroundStyle(step.tint)
       } compactTrailing: {
-        if let pickupAt = context.state.pickupAt, showsCountdown(context) {
-          Text(timerInterval: Date.now...pickupAt, countsDown: true)
-            .monospacedDigit()
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Brand.yellow)
-            .frame(maxWidth: 48)
-        } else {
-          Text(step.short).font(.caption.weight(.semibold)).foregroundStyle(.white)
-        }
+        IslandTrailing(context: context, compact: true)
       } minimal: {
         Image(systemName: step.symbol).foregroundStyle(step.tint)
       }

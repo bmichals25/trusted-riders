@@ -1,8 +1,9 @@
 // The ride Live Activity (Lock Screen card + Dynamic Island): which ride it shows and what it says.
 // Native side: modules/ride-activity (ActivityKit bridge) and ios/TrustedRideLiveActivity (the SwiftUI views).
 //
-// It is readable without unlocking the phone, so it carries no PHI: the ride number, the step and the pickup
-// time. Never add passenger names, addresses, phone numbers or notes to the payload.
+// Privacy: the Lock Screen card is readable without unlocking, so the views show only the ride number, step,
+// pickup time and ETA there. The passenger's name and photo go only to the Dynamic Island's expanded view,
+// which iOS shows only on an unlocked phone. Never add addresses, phone numbers, needs or notes.
 
 import type { RideActivityPayload } from "../modules/ride-activity";
 import type { DispatchedRide, RideStatus } from "./rides";
@@ -57,13 +58,33 @@ export function pickLiveActivityRide(
   return best;
 }
 
-export function rideActivityPayload(ride: DispatchedRide, status: RideStatus = ride.status): RideActivityPayload {
+/** Live extras the app works out on the phone: the ETA while en route and the saved photo's file name. */
+export type RideActivityExtras = { etaAtMs?: number | null; photoFile?: string | null };
+
+export function rideActivityPayload(
+  ride: DispatchedRide,
+  status: RideStatus = ride.status,
+  extras: RideActivityExtras = {},
+): RideActivityPayload {
+  const step = rideActivityStep(status);
   return {
     rideNumber: tripDisplayNumber(ride),
-    step: rideActivityStep(status),
+    step,
     pickupAtMs: typeof ride.pickupAt === "number" ? ride.pickupAt : null,
     legLabel: ride.trip?.leg === "return" ? "Ride home" : null,
+    etaAtMs: step === "en_route" ? extras.etaAtMs ?? null : null,
+    passengerName: ride.passengerName || null,
+    photoFile: extras.photoFile ?? null,
   };
+}
+
+/**
+ * Expected arrival (epoch ms) from a driving time in seconds, rounded to the minute so the activity isn't
+ * updated for every few seconds of change. Null for no or nonsensical times.
+ */
+export function etaAtFromDrivingTime(nowMs: number, seconds: number | null | undefined): number | null {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return null;
+  return Math.round((nowMs + seconds * 1000) / 60_000) * 60_000;
 }
 
 /**

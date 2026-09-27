@@ -12,5 +12,7 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
   # Live Activities need iOS 16.2+; the app still runs on 15.1, so ActivityKit is weak-linked.
   s.weak_frameworks = 'ActivityKit'
+  # Driving ETA to pickup (MKDirections).
+  s.frameworks = 'MapKit'
   s.source_files = '**/*.swift'
 end
