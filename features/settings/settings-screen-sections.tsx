@@ -3,6 +3,7 @@ import { SymbolIcon, type AppSymbolName } from "@/components/ui/SymbolIcon";
 import { ActivityIndicator, Pressable, Switch, Text, View } from "react-native";
 
 import { BackChevron } from "@/components/ui/BackChevron";
+import { firstCharacter } from "@/lib/chat-text";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { colors, radii, shadows, spacing, typography } from "@/lib/theme";
@@ -44,7 +45,7 @@ export function OperatorSummary({
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
+    .map(firstCharacter)
     .join("") || "TR";
 
   return (

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { listRideChatMessages, type RideChatMessage } from "@/lib/chat-api";
+import { chatPreviewText } from "@/lib/chat-text";
 import { useDispatchActions } from "@/lib/dispatch-context";
 import { NotificationFeedbackType } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
@@ -97,7 +98,8 @@ export function DispatchMessageToast() {
         setNotice({
           id: `dispatch-${latestIncoming.id}`,
           senderName: latestIncoming.sender_name || "Dispatch",
-          preview: latestIncoming.text,
+          // One line, emoji kept whole (never cut mid-surrogate pair).
+          preview: chatPreviewText(latestIncoming.text),
         });
       } catch {
         // Chat endpoints may be absent in some backend environments. Keep the

@@ -2,6 +2,7 @@ import { Image, type ImageSource } from "expo-image";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { GradientCard } from "@/components/ui/gradient-card";
+import { firstCharacter } from "@/lib/chat-text";
 import { colors } from "@/lib/theme";
 
 /**
@@ -77,6 +78,6 @@ export function initialsFor(name: string) {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
+    .map(firstCharacter) // whole characters: part[0] would be half of an emoji
     .join("") || "TR";
 }
