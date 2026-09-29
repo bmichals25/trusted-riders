@@ -1,4 +1,4 @@
-// Tiny markdown subset for the Trusted Rider agreement (BEN-20): "#"–"###"
+// Tiny markdown subset for the TrustedRider agreement (BEN-20): "#"–"###"
 // headings, paragraphs, "-"/"*" bullets, "1." numbered items, "> " callouts and
 // **bold** inline. Anything else is shown as plain paragraph text. Keeps the
 // agreement screen free of a markdown dependency.

@@ -1,6 +1,6 @@
 // "Agreement required" signal (BEN-20). Any Fleet API call answered with
 // 403 {"code": "agreement_required"} notifies the AgreementGate, which brings
-// the Trusted Rider agreement back up. No imports so the API transport can use
+// the TrustedRider agreement back up. No imports so the API transport can use
 // it without an import cycle.
 
 export const AGREEMENT_REQUIRED_CODE = "agreement_required";

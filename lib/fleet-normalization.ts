@@ -15,7 +15,7 @@ export type FleetUser = { name: string; email: string };
 export function normalizeUser(raw: unknown): FleetUser {
   const user = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
   return {
-    name: pickString(user, ["name", "driver_name", "driverName", "email"]) ?? "Trusted Rider",
+    name: pickString(user, ["name", "driver_name", "driverName", "email"]) ?? "TrustedRider",
     email: pickString(user, ["email"]) ?? "",
   };
 }

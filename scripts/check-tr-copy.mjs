@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * BEN-14 copy sweep: list user-visible "driver"/"Driver" text (and the old one-word
- * "TrustedRider(s)") that should read "Trusted Rider" / "TR".
+ * BEN-14 copy sweep: list user-visible "driver"/"Driver" text (and the two-word
+ * "Trusted Rider(s)") that should read "TrustedRider" (one word) / "TR".
  *
  * Parses every source file with @babel/parser and only looks at string literals,
  * template-literal text and JSX text. It ignores:
@@ -29,8 +29,8 @@ const EXTS = new Set([".js", ".jsx", ".ts", ".tsx", ".mjs"]);
 const SKIP_DIRS = new Set(["node_modules", "dist", "build", ".git", "ios", "android", "tests", "__tests__"]);
 
 const WORD = /\bdrivers?\b/i;
-// Old one-word branding; the copy standard is "Trusted Rider(s)" (or "TR").
-const ONE_WORD = /\bTrustedRiders?\b/;
+// The brand is one word: "TrustedRider(s)" (or "TR"). Flag the two-word spelling.
+const TWO_WORDS = /\bTrusted Riders?\b/;
 const KEY_LIKE = /^[a-z0-9_./:#?=&{}$-]+$/; // no spaces, no capitals: route, key, field, css class
 const CANONICAL = new Set([
   "driver declined",
@@ -151,7 +151,7 @@ let hits = 0;
 for (const file of files) {
   const rel = relative(ROOT, file);
   const code = readFileSync(file, "utf8");
-  if (!WORD.test(code) && !ONE_WORD.test(code)) continue;
+  if (!WORD.test(code) && !TWO_WORDS.test(code)) continue;
   let ast;
   try {
     ast = parse(code, {
@@ -166,7 +166,7 @@ for (const file of files) {
   collect(ast, (text, line) => {
     const t = String(text).replace(/\s+/g, " ").trim();
     if (!t) return;
-    if (!WORD.test(t) && !ONE_WORD.test(t)) return;
+    if (!WORD.test(t) && !TWO_WORDS.test(t)) return;
     if (CANONICAL.has(t)) return;
     if (KEY_LIKE.test(t)) return;
     if (allow.has(`${rel}|${t}`)) return;
@@ -176,6 +176,6 @@ for (const file of files) {
 }
 
 if (hits) {
-  console.error(`\n${hits} user-visible "driver" string(s) found. Use "Trusted Rider" / "TR", or allowlist in scripts/tr-copy-allowlist.txt with a reason.`);
+  console.error(`\n${hits} user-visible "driver" string(s) found. Use "TrustedRider" / "TR", or allowlist in scripts/tr-copy-allowlist.txt with a reason.`);
   process.exit(1);
 }

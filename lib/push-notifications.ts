@@ -141,7 +141,7 @@ export function buildPushTokenUnregisterRequest(expoPushToken: string): { path: 
 
 /**
  * Sign-out (BEN-29): tell the backend to forget this device's push token, so the next person who signs
- * in on a shared phone never gets the previous Trusted Rider's pushes. Best effort and never throws;
+ * in on a shared phone never gets the previous TrustedRider's pushes. Best effort and never throws;
  * never prompts for notification permission (no permission = no token was registered).
  */
 export async function unregisterPushToken(timeoutMs = 5000): Promise<void> {

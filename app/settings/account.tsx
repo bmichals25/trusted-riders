@@ -20,7 +20,7 @@ export default function AccountSettingsScreen() {
   const { signOut, session, biometricSignInLabel, turnOffBiometricSignIn } = useAuth();
   const { notification } = useHaptics();
   const [signingOut, setSigningOut] = useState(false);
-  const profileName = session?.name ?? "Trusted Rider";
+  const profileName = session?.name ?? "TrustedRider";
 
   const performSignOut = async () => {
     if (signingOut) return;

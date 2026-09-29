@@ -1,4 +1,4 @@
-// Trusted Rider agreement (BEN-20): markdown subset, API contract and the agreement_required signal.
+// TrustedRider agreement (BEN-20): markdown subset, API contract and the agreement_required signal.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -43,9 +43,9 @@ test("agreement markdown renders headings, paragraphs, bullets, numbers, callout
   const blocks = plain(md.parseAgreementMarkdown([
     "> **DRAFT: placeholder text.** Do not rely on it.",
     "",
-    "# Trusted Rider Agreement",
+    "# TrustedRider Agreement",
     "",
-    "As a Trusted Rider you accompany",
+    "As a TrustedRider you accompany",
     "passengers to appointments.",
     "",
     "## 1. Your role",
@@ -59,8 +59,8 @@ test("agreement markdown renders headings, paragraphs, bullets, numbers, callout
 
   assert.deepEqual(blocks, [
     { type: "callout", spans: [{ text: "DRAFT: placeholder text.", bold: true }, { text: " Do not rely on it.", bold: false }] },
-    { type: "heading", level: 1, spans: [{ text: "Trusted Rider Agreement", bold: false }] },
-    { type: "paragraph", spans: [{ text: "As a Trusted Rider you accompany passengers to appointments.", bold: false }] },
+    { type: "heading", level: 1, spans: [{ text: "TrustedRider Agreement", bold: false }] },
+    { type: "paragraph", spans: [{ text: "As a TrustedRider you accompany passengers to appointments.", bold: false }] },
     { type: "heading", level: 2, spans: [{ text: "1. Your role", bold: false }] },
     { type: "bullet", spans: [{ text: "Stay with your passenger.", bold: false }] },
     { type: "bullet", spans: [{ text: "Never leave them ", bold: false }, { text: "alone", bold: true }, { text: ".", bold: false }] },
@@ -79,7 +79,7 @@ test("agreement_required 403 bodies notify listeners; other responses don't", as
   });
 
   const required = new Response(
-    JSON.stringify({ error: "Please review and accept the Trusted Rider agreement in the app first.", code: "agreement_required" }),
+    JSON.stringify({ error: "Please review and accept the TrustedRider agreement in the app first.", code: "agreement_required" }),
     { status: 403, headers: { "Content-Type": "application/json" } },
   );
   assert.equal(await events.detectAgreementRequired(required), true);
@@ -124,7 +124,7 @@ function loadAgreementApi(fetchImpl, { token = "token" } = {}) {
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const AGREEMENT_BODY = {
   version: "2026-09-draft-1",
-  title: "Trusted Rider Chaperone & Privacy Agreement",
+  title: "TrustedRider Chaperone & Privacy Agreement",
   body_markdown: "# Title\n",
   accepted: false,
   accepted_at: null,
@@ -142,7 +142,7 @@ test("fetchAgreement reads GET /api/me/agreement and maps its fields", async () 
     kind: "ok",
     agreement: {
       version: "2026-09-draft-1",
-      title: "Trusted Rider Chaperone & Privacy Agreement",
+      title: "TrustedRider Chaperone & Privacy Agreement",
       bodyMarkdown: "# Title\n",
       accepted: false,
       acceptedAt: null,

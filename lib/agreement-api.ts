@@ -1,4 +1,4 @@
-// Trusted Rider agreement API (BEN-20).
+// TrustedRider agreement API (BEN-20).
 //   GET  /api/me/agreement         -> {version, title, body_markdown, accepted, accepted_at}
 //   POST /api/me/agreement/accept  {version} -> same body; 400 when the version is no longer current
 
@@ -34,7 +34,7 @@ export const AGREEMENT_ACCEPT_PATH = "/api/me/agreement/accept";
 
 const DEMO_AGREEMENT: TrAgreement = {
   version: "demo",
-  title: "Trusted Rider Chaperone & Privacy Agreement",
+  title: "TrustedRider Chaperone & Privacy Agreement",
   bodyMarkdown: "Demo mode.",
   accepted: true,
   acceptedAt: null,
@@ -47,7 +47,7 @@ export function normalizeAgreement(raw: unknown): TrAgreement | null {
   if (!version) return null;
   return {
     version,
-    title: typeof body.title === "string" && body.title.trim() ? body.title.trim() : "Trusted Rider Agreement",
+    title: typeof body.title === "string" && body.title.trim() ? body.title.trim() : "TrustedRider Agreement",
     bodyMarkdown: typeof body.body_markdown === "string" ? body.body_markdown : "",
     accepted: body.accepted === true,
     acceptedAt: typeof body.accepted_at === "string" ? body.accepted_at : null,

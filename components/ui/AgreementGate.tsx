@@ -15,7 +15,7 @@ type Phase = "checking" | "accepted" | "required";
 const FOREGROUND_RECHECK_MS = 60_000;
 
 /**
- * One-time onboarding step after sign-in (BEN-20): until the driver accepts the current Trusted Rider
+ * One-time onboarding step after sign-in (BEN-20): until the driver accepts the current TrustedRider
  * agreement, the whole app is replaced by the agreement screen. Checked after login and on every app
  * start with a stored session; any API call answered with 403 agreement_required brings it back.
  *

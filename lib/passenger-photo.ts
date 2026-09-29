@@ -1,4 +1,4 @@
-// Passenger profile photos for the assigned Trusted Rider.
+// Passenger profile photos for the assigned TrustedRider.
 //
 // The photo only comes from GET /api/rides/<ride_id>/passenger-photo on the configured Fleet API, with
 // the session token in the Authorization header (never in the URL, so it can't end up in logs or an

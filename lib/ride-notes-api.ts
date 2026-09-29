@@ -110,7 +110,7 @@ async function toRideNotesError(res: Response, fallback: string): Promise<RideNo
     // The transport already re-opened the agreement screen for this 403 (BEN-20); just explain it here.
     const body = await res.clone().json().catch(() => null);
     if (isAgreementRequiredBody(body)) {
-      return new RideNotesError(403, "Accept the Trusted Rider agreement to see and add ride notes.");
+      return new RideNotesError(403, "Accept the TrustedRider agreement to see and add ride notes.");
     }
   }
   if (res.status === 404 || res.status === 403) return new RideNotesError(res.status, "This ride is no longer assigned to you.");

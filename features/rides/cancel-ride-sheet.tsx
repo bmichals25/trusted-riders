@@ -77,8 +77,8 @@ export function CancelRideSheet({
               </Text>
               <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
                 {ride.trip
-                  ? "Both rides (there and home) go back to dispatch to reassign to another Trusted Rider."
-                  : "The ride goes back to dispatch to reassign to another Trusted Rider."}{" "}
+                  ? "Both rides (there and home) go back to dispatch to reassign to another TrustedRider."
+                  : "The ride goes back to dispatch to reassign to another TrustedRider."}{" "}
                 The passenger's trip isn't cancelled.
                 {"\n"}Pickup: {ride.scheduledDate} · {ride.scheduledTime}
               </Text>

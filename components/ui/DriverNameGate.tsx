@@ -243,7 +243,7 @@ export function DriverNameGate({ children }: { children: (session: DriverSession
   const signOut = useCallback(async (message?: string) => {
     // Stops background location, unregisters this device's push token, revokes the token on the
     // server and wipes every "trustedriders-*" key, including the cached name and email (a shared
-    // phone must not show the previous Trusted Rider anything). A choice to sign out also forgets Face ID
+    // phone must not show the previous TrustedRider anything). A choice to sign out also forgets Face ID
     // sign-in; a session that ended on its own (message) keeps it for the same TR.
     await signOutDriver({ keepBiometricSignIn: !!message });
     setEmail("");

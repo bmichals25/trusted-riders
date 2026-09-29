@@ -15,7 +15,7 @@ import { parseAgreementMarkdown, type AgreementBlock, type InlineSpan } from "@/
 import { colors, radii, shadows, spacing, typography } from "@/lib/theme";
 
 /**
- * Full-screen, non-dismissible onboarding step (BEN-20): the Trusted Rider chaperone & privacy
+ * Full-screen, non-dismissible onboarding step (BEN-20): the TrustedRider chaperone & privacy
  * agreement. Same visual language as the location onboarding step (LocationSetupGate): surfaceLow
  * backdrop, white floating card, blue icon tile, bold uppercase blue primary button.
  */
@@ -53,7 +53,7 @@ export function AgreementScreen({
         </View>
         <Text style={s.kicker}>One-time step</Text>
         <Text style={s.title} accessibilityRole="header">
-          {agreement?.title ?? "Trusted Rider Agreement"}
+          {agreement?.title ?? "TrustedRider Agreement"}
         </Text>
         <Text style={s.subtitle}>
           Please read this before your first ride. You'll need to accept it to take rides.
@@ -94,7 +94,7 @@ export function AgreementScreen({
           onPress={() => agreement && setCheckedVersion(checked ? null : agreement.version)}
           accessibilityRole="checkbox"
           accessibilityState={{ checked, disabled: !agreement || submitting }}
-          accessibilityLabel="I have read and agree to the Trusted Rider agreement"
+          accessibilityLabel="I have read and agree to the TrustedRider agreement"
         >
           <View style={[s.checkbox, checked && s.checkboxChecked]}>
             {checked ? <Text style={s.checkmark}>✓</Text> : null}

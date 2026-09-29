@@ -1,4 +1,4 @@
-// Trusted Rider sign-out (BEN-29). Order matters: the server calls need the token, so they run
+// TrustedRider sign-out (BEN-29). Order matters: the server calls need the token, so they run
 // first (each best effort with a short timeout, so signing out offline still works), then the
 // device is wiped.
 //

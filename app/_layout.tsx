@@ -28,7 +28,7 @@ export default function RootLayout() {
       <AppErrorBoundary>
         <DriverNameGate>
           {(driverSession) => (
-            // Trusted Rider agreement (BEN-20): shown instead of the app until accepted.
+            // TrustedRider agreement (BEN-20): shown instead of the app until accepted.
             <AgreementGate>
             <LocationProvider>
             <HapticsProvider>

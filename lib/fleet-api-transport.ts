@@ -211,7 +211,7 @@ export async function fleetFetch(
     }
 
     await logApi(method, path, url, res);
-    // 403 {"code": "agreement_required"}: bring the Trusted Rider agreement back up (BEN-20).
+    // 403 {"code": "agreement_required"}: bring the TrustedRider agreement back up (BEN-20).
     if (res.status === 403) await detectAgreementRequired(res);
     result = res.ok ? "sent" : "failed";
     return { result, res };

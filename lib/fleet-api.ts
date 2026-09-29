@@ -786,7 +786,7 @@ export async function respondToRideRequest(
   if (res.status === 409) return { ok: false, message: "This ride has already started, so it can't be changed here. Message dispatch instead." };
   if (res.status === 404) return { ok: false, message: "This ride is no longer assigned to you." };
   if (res.status === 403) {
-    // e.g. the Trusted Rider agreement hasn't been accepted yet (the agreement screen opens on its own).
+    // e.g. the TrustedRider agreement hasn't been accepted yet (the agreement screen opens on its own).
     const message = await readApiErrorMessage(res);
     if (message) return { ok: false, message };
   }

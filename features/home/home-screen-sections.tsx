@@ -147,7 +147,7 @@ export function RideRequestActions({ ride, onRespond }: { ride: DispatchedRide; 
       ride.trip ? "Decline this round trip?" : `Decline ride #${ride.id}?`,
       ride.trip
         ? "Both rides (there and home) go back to dispatch to give to another TR."
-        : "Dispatch will be told and will reassign it to another Trusted Rider.",
+        : "Dispatch will be told and will reassign it to another TrustedRider.",
       [
         { text: "Keep ride", style: "cancel" },
         { text: "Decline", style: "destructive", onPress: () => void respond("decline") },

@@ -183,7 +183,7 @@ export async function sendGpsCommandMessage(
     rideId: DISPATCH_CHAT_ROOM_ID,
     text: "",
     sender: "driver",
-    senderName: "Trusted Rider",
+    senderName: "TrustedRider",
     clientMessageId: `driver-gps-manual-${command}-${Date.now()}`,
     metadata: buildGpsResponseMetadata(command),
   });
@@ -194,7 +194,7 @@ export async function sendRideEndCommandMessage(): Promise<RideChatMessage> {
     rideId: DISPATCH_CHAT_ROOM_ID,
     text: "",
     sender: "driver",
-    senderName: "Trusted Rider",
+    senderName: "TrustedRider",
     clientMessageId: `driver-ride-end-${Date.now()}`,
     metadata: buildRideEndMetadata(),
   });
@@ -274,7 +274,7 @@ export function normalizeChatMessage(
     text: readMessageText(record),
     sender: normalizedSender,
     sender_name: isEchoedDriverMessage
-      ? "Trusted Rider"
+      ? "TrustedRider"
       : typeof record.sender_name === "string"
         ? record.sender_name
         : null,

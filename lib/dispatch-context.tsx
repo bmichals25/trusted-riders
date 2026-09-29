@@ -560,7 +560,7 @@ export function DispatchProvider({
         rideId: "dispatch",
         text: "",
         sender: "driver",
-        senderName: "Trusted Rider",
+        senderName: "TrustedRider",
         clientMessageId: `driver-gps-${requestMessageId}-${Date.now()}`,
         metadata: { command: "gps_yes" },
       });
