@@ -32,7 +32,16 @@ function isExtender(codePoint: number): boolean {
 /** The user-perceived characters of `text`: 🙏, 👍🏽 and 👩‍⚕️ each count as one. */
 export function splitGraphemes(text: string): string[] {
   const segmenter = graphemeSegmenter();
-  if (segmenter) return Array.from(segmenter.segment(text), (part) => part.segment);
+  if (segmenter) {
+    // Trust the engine's segmenter only when it round-trips: some runtimes expose Intl.Segmenter
+    // whose segments aren't iterable (Array.from gives []), which would drop every character.
+    try {
+      const parts = Array.from(segmenter.segment(text) ?? [], (part) => part?.segment ?? "");
+      if (parts.join("") === text) return parts;
+    } catch {
+      // fall through to the code-point splitter
+    }
+  }
 
   // Fallback (Hermes has no Intl.Segmenter): whole code points, with joiners/modifiers kept on the
   // character they belong to, and regional-indicator pairs (flags) kept together.

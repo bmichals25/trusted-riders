@@ -21,12 +21,34 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { type ImageSource } from "expo-image";
+
+import { Avatar, initialsFor } from "@/components/ui/Avatar";
 import { TypingBubble } from "@/features/chat/chat-accessories";
 import { CheckpointUpdateCard } from "@/features/chat/chat-checkpoint";
-import { type CheckpointCardData, type Message } from "@/features/chat/chat-model";
+import {
+  isLastInSenderRun,
+  type CheckpointCardData,
+  type Message,
+} from "@/features/chat/chat-model";
+import { chatSenderPhotoSource, type ChatSenderPhoto } from "@/lib/chat-photo";
+import { getToken } from "@/lib/fleet-api";
 import { colors, radii, spacing } from "@/lib/theme";
 
-export function ChatContextStrip({ label }: { label: string }) {
+/** Sender avatars next to bubbles: small, like a group chat in Messages. */
+const BUBBLE_AVATAR_SIZE = 28;
+const BUBBLE_AVATAR_GAP = 8;
+
+export function ChatContextStrip({
+  label,
+  riderName,
+  riderPhoto,
+}: {
+  label: string;
+  /** The ride's passenger: shows their photo (initials while it loads or when there is none). */
+  riderName?: string;
+  riderPhoto?: ImageSource | null;
+}) {
   return (
     <View
       accessible
@@ -40,26 +62,32 @@ export function ChatContextStrip({ label }: { label: string }) {
         gap: 10,
       }}
     >
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{
-          width: 30,
-          height: 30,
-          borderRadius: radii.sm,
-          backgroundColor: colors.greenSoft,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <SymbolIcon
-          name="checkmark.message.fill"
-          size={15}
-          type="hierarchical"
-          tintColor={colors.greenStrong}
-          weight="semibold"
-        />
-      </View>
+      {riderName ? (
+        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <Avatar initials={initialsFor(riderName)} size={30} source={riderPhoto} />
+        </View>
+      ) : (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: radii.sm,
+            backgroundColor: colors.greenSoft,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <SymbolIcon
+            name="checkmark.message.fill"
+            size={15}
+            type="hierarchical"
+            tintColor={colors.greenStrong}
+            weight="semibold"
+          />
+        </View>
+      )}
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "900" }} numberOfLines={1}>
           {label}
@@ -80,6 +108,8 @@ export type ChatRow =
       deliveryLabel: string;
       a11yLabel: string;
       checkpoint?: CheckpointCardData;
+      /** Set on the last bubble of a run from one sender; earlier bubbles keep an empty slot. */
+      avatar: { initials: string; source: ImageSource | null } | null;
     };
 
 export function ChatMessageList({
@@ -90,6 +120,8 @@ export function ChatMessageList({
   loadError,
   lastOperatorMessageId,
   readMessageIds,
+  ownName,
+  ownPhoto,
   onCheckpointPress,
   onScrollToLatest,
   onRetry,
@@ -101,12 +133,20 @@ export function ChatMessageList({
   loadError: string | null;
   lastOperatorMessageId?: string;
   readMessageIds: Set<string>;
+  /** The signed-in TR, for the avatar on their own bubbles. */
+  ownName: string;
+  ownPhoto: ChatSenderPhoto | null;
   onCheckpointPress: (checkpoint: CheckpointCardData) => void;
   onScrollToLatest: () => void;
   onRetry: () => void;
 }) {
+  const token = getToken();
   const rows = useMemo<ChatRow[]>(() => {
     const out: ChatRow[] = [];
+    const ownAvatar = {
+      initials: initialsFor(ownName),
+      source: ownPhoto ? chatSenderPhotoSource(ownPhoto, true, "thumb", token) : null,
+    };
     for (let index = 0; index < messages.length; index += 1) {
       const item = messages[index];
       const previous = index > 0 ? messages[index - 1] : undefined;
@@ -116,6 +156,25 @@ export function ChatMessageList({
       const isOperator = item.sender === "operator";
       const isLastOperatorMessage = item.id === lastOperatorMessageId;
       const isRead = readMessageIds.has(item.id);
+      const next = messages[index + 1];
+      const endsRun = isLastInSenderRun(messages, index) || (!!next && shouldShowDateSeparator(item, next));
+      const avatar = !endsRun
+        ? null
+        : isOperator
+          ? ownAvatar
+          : {
+            initials: initialsFor(item.senderName?.trim() || "Dispatch"),
+            source: chatSenderPhotoSource(
+              {
+                userId: item.senderUserId ?? null,
+                hasPhoto: item.senderHasPhoto === true,
+                photoUpdatedAt: item.senderPhotoUpdatedAt ?? null,
+              },
+              false,
+              "thumb",
+              token,
+            ),
+          };
       const deliveryLabel =
         item.timestamp === "Not sent"
           ? "Not sent"
@@ -133,10 +192,11 @@ export function ChatMessageList({
         deliveryLabel,
         a11yLabel: messageAccessibilityLabel(item, isOperator, isLastOperatorMessage, isRead),
         checkpoint: item.checkpoint,
+        avatar,
       });
     }
     return out;
-  }, [messages, lastOperatorMessageId, readMessageIds]);
+  }, [messages, lastOperatorMessageId, readMessageIds, ownName, ownPhoto, token]);
 
   const renderRow = useCallback(
     ({ item }: { item: ChatRow }) => {
@@ -151,6 +211,7 @@ export function ChatMessageList({
           deliveryLabel={item.deliveryLabel}
           a11yLabel={item.a11yLabel}
           checkpoint={item.checkpoint}
+          avatar={item.avatar}
           onCheckpointPress={onCheckpointPress}
         />
       );
@@ -206,6 +267,7 @@ const MessageRow = memo(function MessageRow({
   deliveryLabel,
   a11yLabel,
   checkpoint,
+  avatar,
   onCheckpointPress,
 }: {
   text: string;
@@ -214,17 +276,36 @@ const MessageRow = memo(function MessageRow({
   deliveryLabel: string;
   a11yLabel: string;
   checkpoint?: CheckpointCardData;
+  avatar: { initials: string; source: ImageSource | null } | null;
   onCheckpointPress: (checkpoint: CheckpointCardData) => void;
 }) {
+  // [avatar] bubble for dispatch, bubble [avatar] for the TR; the avatar sits by the run's last bubble,
+  // earlier bubbles keep the same slot empty so the run lines up.
+  const avatarSlot = (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ width: BUBBLE_AVATAR_SIZE, alignSelf: "flex-end", marginBottom: 26 }}
+    >
+      {avatar ? <Avatar initials={avatar.initials} size={BUBBLE_AVATAR_SIZE} source={avatar.source} /> : null}
+    </View>
+  );
   return (
+    <View
+      style={{
+        flexDirection: isOperator ? "row-reverse" : "row",
+        alignItems: "flex-end",
+        gap: BUBBLE_AVATAR_GAP,
+      }}
+    >
+    {avatarSlot}
     <View
       accessible={!checkpoint}
       accessibilityLabel={checkpoint ? undefined : a11yLabel}
       style={[
         styles.rowContainer,
         {
-          alignSelf: isOperator ? "flex-end" : "flex-start",
-          maxWidth: checkpoint ? "86%" : "78%",
+          maxWidth: checkpoint ? "82%" : "74%",
         },
       ]}
     >
@@ -249,6 +330,7 @@ const MessageRow = memo(function MessageRow({
       <Text style={[styles.deliveryLabel, { alignSelf: isOperator ? "flex-end" : "flex-start" }]}>
         {deliveryLabel}
       </Text>
+    </View>
     </View>
   );
 });

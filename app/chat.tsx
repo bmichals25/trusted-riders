@@ -15,7 +15,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BackChevron } from "@/components/ui/BackChevron";
-import { useDispatchActions } from "@/lib/dispatch-context";
+import { useDispatchActions, useDispatchData } from "@/lib/dispatch-context";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { CheckpointDetailModal } from "@/features/chat/chat-checkpoint";
 import { mapApiMessage, type CheckpointCardData, type Message } from "@/features/chat/chat-model";
@@ -23,6 +23,7 @@ import { ChatOpeningBlock } from "@/features/chat/chat-opening-block";
 import { ChatComposer, ChatContextStrip, ChatMessageList, type ChatRow } from "@/features/chat/chat-thread";
 import {
   getRideChatStatus,
+  isOwnChatSender,
   listRideChatMessages,
   markRideChatRead,
   sendRideChatMessage,
@@ -30,7 +31,9 @@ import {
   type ChatReadReceipt,
   type RideChatMessage,
 } from "@/lib/chat-api";
+import { type ChatSenderPhoto } from "@/lib/chat-photo";
 import { DISPATCH_PHONE, formatPhone } from "@/lib/config";
+import { usePassengerPhotoSource } from "@/lib/passenger-photo";
 import { useHaptics } from "@/lib/haptics-context";
 import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { colors, radii } from "@/lib/theme";
@@ -50,6 +53,21 @@ export default function ChatScreen() {
   const contextLabel = rideId
     ? `Ride ${rideId}${riderLabel ? ` · ${riderLabel}` : ""}`
     : riderLabel ?? "Dispatch link active";
+  const { rides, recentlyFinishedRides } = useDispatchData();
+  // The ride this chat was opened from, for its passenger's photo in the context strip (initials when the
+  // ride isn't loaded or has no photo; the server stops serving it once the ride is over).
+  const contextRide = useMemo(
+    () => [...rides, ...recentlyFinishedRides].find((ride) => ride.id === rideId) ?? null,
+    [rides, recentlyFinishedRides, rideId],
+  );
+  const riderPhoto = usePassengerPhotoSource(
+    {
+      id: contextRide?.id ?? String(rideId ?? ""),
+      passengerHasPhoto: contextRide?.passengerHasPhoto === true,
+      passengerPhotoUpdatedAt: contextRide?.passengerPhotoUpdatedAt ?? null,
+    },
+    "thumb",
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [inputText, setInputText] = useState("");
@@ -77,6 +95,14 @@ export default function ChatScreen() {
     () => [...messages].reverse().find((message) => message.sender === "operator")?.id,
     [messages],
   );
+  // The TR's own name and photo flags come back on their messages (sender_user_id is the TR).
+  const ownSender = useMemo(() => {
+    const own = [...messages].reverse().find((message) => message.sender === "operator" && message.senderUserId);
+    const photo: ChatSenderPhoto | null = own
+      ? { userId: own.senderUserId ?? null, hasPhoto: own.senderHasPhoto === true, photoUpdatedAt: own.senderPhotoUpdatedAt ?? null }
+      : null;
+    return { name: own?.senderName?.trim() ?? "", photo };
+  }, [messages]);
   const readMessageIds = useMemo(
     () =>
       new Set(
@@ -90,7 +116,7 @@ export default function ChatScreen() {
   const refreshChatStatus = useCallback(async () => {
     try {
       const status = await getRideChatStatus(roomId);
-      setIsOtherTyping(status.typing.some((state) => state.sender !== "driver"));
+      setIsOtherTyping(status.typing.some((state) => !isOwnChatSender(state.sender)));
       setReadReceipts(status.read_receipts);
     } catch {
       // Message loading surfaces backend availability. Status is best effort.
@@ -112,7 +138,7 @@ export default function ChatScreen() {
   }, []);
 
   const markLatestIncomingRead = useCallback((incoming: RideChatMessage[]) => {
-    const latestIncoming = [...incoming].reverse().find((message) => message.sender !== "driver");
+    const latestIncoming = [...incoming].reverse().find((message) => !isOwnChatSender(message.sender));
     if (!latestIncoming || latestIncoming.id === lastReadMarkedIdRef.current) return;
 
     lastReadMarkedIdRef.current = latestIncoming.id;
@@ -375,7 +401,7 @@ export default function ChatScreen() {
       keyboardVerticalOffset={headerHeight}
     >
       <ChatOpeningBlock delay={20} distance={8}>
-        <ChatContextStrip label={contextLabel} />
+        <ChatContextStrip label={contextLabel} riderName={riderLabel} riderPhoto={riderPhoto} />
       </ChatOpeningBlock>
 
       <ChatOpeningBlock delay={70} distance={12} style={{ flex: 1 }}>
@@ -387,6 +413,8 @@ export default function ChatScreen() {
           loadError={loadError}
           lastOperatorMessageId={lastOperatorMessageId}
           readMessageIds={readMessageIds}
+          ownName={ownSender.name}
+          ownPhoto={ownSender.photo}
           onCheckpointPress={openCheckpoint}
           onScrollToLatest={() => {
             if (!isInitialLoading && messages.length > 0) {

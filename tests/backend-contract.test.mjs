@@ -88,6 +88,9 @@ test("chat helpers use the driver-scoped backend contract", () => {
     client_message_id: null,
     metadata: { source: "dispatch" },
     created_at: "2026-05-28T12:00:00Z",
+    sender_user_id: null,
+    sender_has_photo: false,
+    sender_photo_updated_at: null,
   });
 
   const echoedDriverMessage = chatApi.normalizeChatMessage({

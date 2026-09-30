@@ -14,6 +14,10 @@ export type RideChatMessage = {
   client_message_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
+  /** Account that wrote it (the dispatcher, or this TR); null for automatic and older messages. */
+  sender_user_id?: number | null;
+  sender_has_photo?: boolean;
+  sender_photo_updated_at?: string | null;
 };
 
 export type ChatTypingState = {
@@ -262,18 +266,20 @@ export function normalizeChatMessage(
   const clientMessageId = typeof record.client_message_id === "string" ? record.client_message_id : null;
   const sender = typeof record.sender === "string" ? record.sender : "admin";
   const isEchoedDriverMessage = clientMessageId?.startsWith("driver-") === true;
-  const normalizedSender = isEchoedDriverMessage
-    ? "driver"
-    : isChatSender(sender)
-      ? sender
-      : "admin";
+  const normalizedSender = normalizeChatSender(sender, clientMessageId);
+  const senderUserId = typeof record.sender_user_id === "number" && Number.isSafeInteger(record.sender_user_id)
+    ? record.sender_user_id
+    : null;
+  const senderHasPhoto = senderUserId !== null && record.sender_has_photo === true;
 
   return {
     id: String(record.id ?? clientMessageId ?? `${Date.now()}`),
     ride_id: String(record.ride_id ?? record.rideId ?? fallbackRideId),
     text: readMessageText(record),
     sender: normalizedSender,
-    sender_name: isEchoedDriverMessage
+    // The backend names the TR on their own messages; an echoed "driver-" id under another sender
+    // (older backends) keeps the generic label.
+    sender_name: isEchoedDriverMessage && !isOwnChatSender(sender)
       ? "TrustedRider"
       : typeof record.sender_name === "string"
         ? record.sender_name
@@ -281,7 +287,35 @@ export function normalizeChatMessage(
     client_message_id: clientMessageId,
     metadata: normalizeMetadataForDisplay(metadata),
     created_at: typeof record.created_at === "string" ? record.created_at : new Date().toISOString(),
+    sender_user_id: senderUserId,
+    sender_has_photo: senderHasPhoto,
+    sender_photo_updated_at: senderHasPhoto && typeof record.sender_photo_updated_at === "string"
+      ? record.sender_photo_updated_at
+      : null,
   };
+}
+
+/**
+ * Sender values the backend stores for the TrustedRider's own messages: "trusted rider" when the app
+ * sends one (routes/chat.py) and for server-written ones (Ready to Return, ride declines, GPS replies),
+ * "driver" from older builds and demo data. Case, spacing and _/- don't matter.
+ */
+const OWN_SENDER_VALUES = new Set(["driver", "trusted rider", "trustedrider", "tr", "operator"]);
+
+export function isOwnChatSender(sender: unknown): boolean {
+  if (typeof sender !== "string") return false;
+  const key = sender.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+  return OWN_SENDER_VALUES.has(key) || OWN_SENDER_VALUES.has(key.replace(/ /g, ""));
+}
+
+/** The app's sender for a backend message: "driver" for the TR's own, else dispatch/admin/system. */
+export function normalizeChatSender(sender: unknown, clientMessageId?: string | null): ChatSender {
+  // "driver-" client ids are the app's own sends (and server messages written on the TR's behalf).
+  if (clientMessageId?.startsWith("driver-") === true || isOwnChatSender(sender)) return "driver";
+  const key = typeof sender === "string" ? sender.trim().toLowerCase() : "";
+  if (key === "dispatch" || key === "dispatcher") return "dispatch";
+  if (key === "system") return "system";
+  return "admin";
 }
 
 export function unwrapCreateMessageResponse(raw: unknown): unknown {
@@ -349,10 +383,6 @@ function readMessageText(record: Record<string, unknown>): string {
   }
 
   return "";
-}
-
-function isChatSender(value: string): value is ChatSender {
-  return value === "driver" || value === "dispatch" || value === "admin" || value === "system";
 }
 
 export function formatChatTimestamp(

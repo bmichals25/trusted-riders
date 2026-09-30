@@ -12,6 +12,11 @@ export type Message = {
   metadata?: Record<string, unknown>;
   checkpoint?: CheckpointCardData;
   pending?: boolean;
+  /** Who wrote it, for the sender avatar (initials + photo). */
+  senderName?: string | null;
+  senderUserId?: number | null;
+  senderHasPhoto?: boolean;
+  senderPhotoUpdatedAt?: string | null;
 };
 
 export type CheckpointCardData = {
@@ -40,7 +45,24 @@ export function mapApiMessage(message: RideChatMessage): Message {
     createdAt: message.created_at,
     metadata: message.metadata,
     checkpoint: getCheckpointCardData(message.text, message.metadata, timestamp),
+    senderName: message.sender_name,
+    senderUserId: message.sender_user_id ?? null,
+    senderHasPhoto: message.sender_has_photo === true,
+    senderPhotoUpdatedAt: message.sender_photo_updated_at ?? null,
   };
+}
+
+/** A key per sender, so consecutive bubbles from the same person group under one avatar. */
+export function messageSenderKey(message: Message): string {
+  if (message.sender === "operator") return "me";
+  if (message.senderUserId) return `user:${message.senderUserId}`;
+  return `name:${(message.senderName ?? "").trim().toLowerCase() || "dispatch"}`;
+}
+
+/** True when the next message is from someone else (or there is none): the bubble that shows the avatar. */
+export function isLastInSenderRun(messages: Message[], index: number): boolean {
+  const next = messages[index + 1];
+  return !next || messageSenderKey(next) !== messageSenderKey(messages[index]);
 }
 
 function humanizeToken(value: unknown): string {
