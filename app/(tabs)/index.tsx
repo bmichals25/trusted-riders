@@ -190,7 +190,9 @@ export default function HomeScreen() {
                 />
               </Section>
             </FadeInBlock>
-          ) : hasLoadedRides && !backendError && upcomingEntries.length > 0 ? (
+          ) : null}
+
+          {hasLoadedRides && !backendError && upcomingEntries.length > 0 ? (
             <FadeInBlock
               delay={145}
               duration={520}
@@ -202,7 +204,8 @@ export default function HomeScreen() {
               <Section title="Upcoming Rides" count={upcomingEntries.length}>
                 <View style={{ gap: spacing.md }}>
                   {upcomingEntries.map(({ key, ride }, index) => {
-                    const isNextUpcomingRide = index === 0;
+                    // Under a ride in progress every card is compact; otherwise the next ride gets the big card.
+                    const isNextUpcomingRide = !activeRide && index === 0;
                     return (
                       <FadeInBlock
                         key={key}
@@ -234,7 +237,9 @@ export default function HomeScreen() {
                 </View>
               </Section>
             </FadeInBlock>
-          ) : readyRide ? null : hasLoadedRides && !backendError ? (
+          ) : null}
+
+          {activeRide || (hasLoadedRides && !backendError && upcomingEntries.length > 0) ? null : readyRide ? null : hasLoadedRides && !backendError ? (
             <FadeInBlock
               delay={145}
               duration={520}
