@@ -2,6 +2,7 @@
   "expo": {
     "name": "TrustedRide",
     "slug": "trustedriders-prototype",
+    "version": "1.0.0",
     "scheme": "trustedriders",
     "icon": "./assets/TRC_APP_ICON_2.png",
     "orientation": "portrait",

@@ -24,3 +24,5 @@ ios/**/xcuserdata/
 ios/.xcode.env.local
 artifacts/
 .env.local.bak-*
+# Local dev server address; builds get theirs from eas.json
+.env.local
