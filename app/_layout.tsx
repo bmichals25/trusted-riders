@@ -13,6 +13,7 @@ import { AgreementGate } from "@/components/ui/AgreementGate";
 import { DriverNameGate } from "@/components/ui/DriverNameGate";
 import { DispatchMessageToast } from "@/components/ui/DispatchMessageToast";
 import { LocationSetupGate } from "@/components/ui/LocationSetupGate";
+import { OnboardingDestination, OnboardingGate } from "@/components/ui/OnboardingGate";
 import { RideLiveActivitySync } from "@/components/ui/RideLiveActivitySync";
 import { RideStatusToast } from "@/components/ui/RideStatusToast";
 import { DispatchProvider } from "@/lib/dispatch-context";
@@ -32,6 +33,8 @@ export default function RootLayout() {
             <AgreementGate>
             <LocationProvider>
             <HapticsProvider>
+            {/* First sign-in welcome + permissions (once per TrustedRider on this phone). */}
+            <OnboardingGate>
             <DispatchProvider
               driverName={driverSession.name}
             >
@@ -39,6 +42,7 @@ export default function RootLayout() {
             <NavigationMemory />
             <LocationSetupGate>
             <NotificationTapNavigation />
+            <OnboardingDestination />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen
@@ -63,6 +67,7 @@ export default function RootLayout() {
             <DispatchMessageToast />
             <RideLiveActivitySync />
             </DispatchProvider>
+            </OnboardingGate>
             </HapticsProvider>
             </LocationProvider>
             </AgreementGate>

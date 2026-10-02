@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useStartupPresentation } from "@/components/ui/DriverNameGate";
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { replayOnboarding } from "@/components/ui/OnboardingGate";
 import { PageTransition } from "@/components/ui/PageTransition";
 import {
   ActionRow,
@@ -61,6 +62,18 @@ export default function AppSettingsScreen() {
                 iconName="arrow.clockwise"
                 iconTone="blue"
                 onPress={handleReloadApp}
+              />
+              <ActionRow
+                label="Show the Welcome Again"
+                detail="Replay the first sign-in walkthrough"
+                value="Show"
+                iconName="hand.wave.fill"
+                iconTone="blue"
+                onPress={() => {
+                  selection();
+                  router.replace("/");
+                  replayOnboarding();
+                }}
                 last
               />
             </SettingsSection>

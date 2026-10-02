@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,7 +47,12 @@ export default function ScheduleScreen() {
   const [fetchedRides, setFetchedRides] = useState<DispatchedRide[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [mode, setMode] = useState<CalendarMode>("day");
-  const [section, setSection] = useState<ScheduleSection>("rides");
+  // ?section=availability opens My availability (e.g. from onboarding).
+  const { section: sectionParam } = useLocalSearchParams<{ section?: string }>();
+  const [section, setSection] = useState<ScheduleSection>(sectionParam === "availability" ? "availability" : "rides");
+  useEffect(() => {
+    if (sectionParam === "availability") setSection("availability");
+  }, [sectionParam]);
   // "Today" follows the clock (it used to be fixed when the tab first mounted, so after midnight the
   // schedule still opened on yesterday).
   const today = useToday(isFocused);

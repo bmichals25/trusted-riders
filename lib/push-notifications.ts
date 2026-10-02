@@ -100,6 +100,32 @@ export async function registerForPushNotifications(): Promise<string | null> {
   return token;
 }
 
+export type NotificationPermissionState = "granted" | "denied" | "undetermined" | "unavailable";
+
+function permissionState(permission: unknown): NotificationPermissionState {
+  if (hasNotificationPermission(permission)) return "granted";
+  const record = (permission ?? {}) as Record<string, unknown>;
+  return record.status === "denied" || record.canAskAgain === false ? "denied" : "undetermined";
+}
+
+/** Notification permission without prompting (onboarding shows whether it's on). */
+export async function getNotificationPermission(): Promise<NotificationPermissionState> {
+  if (DEMO_MODE || Platform.OS === "web") return "unavailable";
+  const notifications = getNotificationsModule();
+  if (!notifications) return "unavailable";
+  return permissionState(await notifications.getPermissionsAsync());
+}
+
+/** Ask iOS for notification permission (onboarding); the push token is registered once the app opens. */
+export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
+  if (DEMO_MODE || Platform.OS === "web") return "unavailable";
+  const notifications = getNotificationsModule();
+  if (!notifications) return "unavailable";
+  const existing = await notifications.getPermissionsAsync();
+  if (hasNotificationPermission(existing)) return "granted";
+  return permissionState(await notifications.requestPermissionsAsync());
+}
+
 export async function registerPushTokenWithBackend(input: PushTokenRegistrationInput): Promise<void> {
   const request = buildPushTokenRegistrationRequest(input);
   const token = getToken();
