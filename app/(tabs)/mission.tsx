@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { AvailabilityEditor } from "@/features/availability/availability-editor";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { CalendarSurface, ScheduleNotice, ScheduleToolbar } from "@/features/schedule/schedule-calendar";
 import {
@@ -27,7 +28,14 @@ import { ImpactFeedbackStyle } from "@/lib/haptics";
 import { useHaptics } from "@/lib/haptics-context";
 import { type DispatchedRide } from "@/lib/rides";
 import { groupRidesByTrip } from "@/lib/round-trip";
-import { colors, spacing } from "@/lib/theme";
+import { colors, radii, shadows, spacing } from "@/lib/theme";
+
+type ScheduleSection = "rides" | "availability";
+
+const SECTIONS: { key: ScheduleSection; label: string }[] = [
+  { key: "rides", label: "Rides" },
+  { key: "availability", label: "My availability" },
+];
 
 
 export default function ScheduleScreen() {
@@ -39,6 +47,7 @@ export default function ScheduleScreen() {
   const [fetchedRides, setFetchedRides] = useState<DispatchedRide[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [mode, setMode] = useState<CalendarMode>("day");
+  const [section, setSection] = useState<ScheduleSection>("rides");
   // "Today" follows the clock (it used to be fixed when the tab first mounted, so after midnight the
   // schedule still opened on yesterday).
   const today = useToday(isFocused);
@@ -133,6 +142,11 @@ export default function ScheduleScreen() {
             react-native-screens scrolls to top when the active bottom tab is re-tapped. The
             toolbar and notice are declared after it but still render above it. */}
         <View style={{ flex: 1, paddingHorizontal: spacing.md, paddingBottom: insets.bottom + spacing.sm, gap: spacing.sm, flexDirection: "column-reverse" }}>
+          {section === "availability" ? (
+            <FadeInBlock delay={40} style={{ flex: 1, minHeight: 0 }}>
+              <AvailabilityEditor />
+            </FadeInBlock>
+          ) : (
           <FadeInBlock delay={90} style={{ flex: 1, minHeight: 0 }}>
             <CalendarSurface
               mode={mode}
@@ -150,24 +164,80 @@ export default function ScheduleScreen() {
               onRefresh={onRefresh}
             />
           </FadeInBlock>
+          )}
 
-          {backendError ? (
+          {section === "rides" && backendError ? (
             <FadeInBlock delay={120}>
               <ScheduleNotice title="Backend rides unavailable" body={backendError} />
             </FadeInBlock>
           ) : null}
 
-          <FadeInBlock delay={40}>
-            <ScheduleToolbar
-              mode={mode}
-              selectedDate={selectedDate}
-              onPrevious={() => stepDate(-1)}
-              onNext={() => stepDate(1)}
-              onModeChange={selectMode}
-            />
-          </FadeInBlock>
+          {section === "rides" ? (
+            <FadeInBlock delay={40}>
+              <ScheduleToolbar
+                mode={mode}
+                selectedDate={selectedDate}
+                onPrevious={() => stepDate(-1)}
+                onNext={() => stepDate(1)}
+                onModeChange={selectMode}
+              />
+            </FadeInBlock>
+          ) : null}
+
+          <SectionSwitch
+            value={section}
+            onChange={(next) => {
+              impact(ImpactFeedbackStyle.Light);
+              setSection(next);
+            }}
+          />
         </View>
       </View>
     </PageTransition>
+  );
+}
+
+/** Rides | My availability, at the top of the Schedule tab. */
+function SectionSwitch({ value, onChange }: { value: ScheduleSection; onChange: (next: ScheduleSection) => void }) {
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={{
+        flexDirection: "row",
+        padding: 3,
+        gap: 3,
+        borderRadius: radii.md,
+        borderCurve: "continuous",
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.slate200,
+        ...shadows.soft,
+      }}
+    >
+      {SECTIONS.map((item) => {
+        const active = item.key === value;
+        return (
+          <Pressable
+            key={item.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            onPress={() => !active && onChange(item.key)}
+            style={{
+              flex: 1,
+              minHeight: 38,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: radii.sm,
+              borderCurve: "continuous",
+              backgroundColor: active ? colors.primary : "transparent",
+            }}
+          >
+            <Text style={{ color: active ? colors.surface : colors.primarySoft, fontSize: 15, fontWeight: "800" }}>
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }

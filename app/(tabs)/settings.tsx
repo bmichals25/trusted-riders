@@ -31,13 +31,6 @@ export default function SettingsScreen() {
           <FadeInBlock delay={140}>
             <SettingsSection>
               <ActionRow
-                label="My availability"
-                detail="When you can drive, for dispatch"
-                iconName="calendar.badge.clock"
-                iconTone="green"
-                onPress={() => router.push("/settings/availability")}
-              />
-              <ActionRow
                 label="Location & Tracking"
                 detail="Live GPS, telemetry, and permissions"
                 iconName="location.fill"

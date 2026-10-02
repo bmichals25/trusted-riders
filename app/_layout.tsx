@@ -54,7 +54,6 @@ export default function RootLayout() {
               />
               <Stack.Screen name="ride-requests" />
               <Stack.Screen name="ride-details" />
-              <Stack.Screen name="settings/availability" />
               <Stack.Screen name="settings/location" />
               <Stack.Screen name="settings/app" />
               <Stack.Screen name="settings/account" />

@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
-import { PageTransition } from "@/components/ui/PageTransition";
-import { SettingsSubHeader } from "@/features/settings/settings-screen-sections";
 import {
   PRESETS,
   STEP_MINUTES,
@@ -33,11 +30,11 @@ const MODES: { key: DayMode; label: string }[] = [
 ];
 
 /**
- * My availability: when the TrustedRider can drive over the next two weeks, day by day.
- * Dispatch sees it on the Schedule (Availability) and is warned when assigning a ride outside it.
+ * My availability (Schedule tab → My availability): when the TrustedRider can drive over the next two
+ * weeks, day by day. Dispatch sees it on its Schedule (Availability) and is warned when assigning a ride
+ * outside it. Fills its parent: the day list scrolls, the save bar sits underneath.
  */
-export default function AvailabilityScreen() {
-  const insets = useSafeAreaInsets();
+export function AvailabilityEditor() {
   const { selection, notification } = useHaptics();
   const [saved, setSaved] = useState<AvailabilityDay[]>([]);
   const [days, setDays] = useState<AvailabilityDay[]>([]);
@@ -92,157 +89,140 @@ export default function AvailabilityScreen() {
   };
 
   return (
-    <PageTransition>
-      <View style={{ flex: 1, backgroundColor: colors.surfaceLow }}>
-        <SettingsSubHeader title="My availability" topInset={insets.top} />
-        <ScrollView
-          contentInsetAdjustmentBehavior="never"
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: insets.bottom + 120 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <FadeInBlock delay={40}>
-            <Text
-              style={{
-                color: colors.primarySoft,
-                ...typography.footnote,
-                fontWeight: "600",
-                marginHorizontal: spacing.md + 4,
-                marginBottom: spacing.md,
-              }}
-            >
-              Tell dispatch when you can drive. They see this when assigning rides, and you'll be asked to
-              confirm any ride outside these hours.
-            </Text>
-          </FadeInBlock>
+    <View style={{ flex: 1, minHeight: 0, gap: spacing.sm }}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="never"
+        style={{ flex: 1, marginHorizontal: -spacing.md }}
+        contentContainerStyle={{ paddingTop: spacing.xs, paddingBottom: spacing.md }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <FadeInBlock delay={40}>
+          <Text
+            style={{
+              color: colors.primarySoft,
+              ...typography.footnote,
+              fontWeight: "600",
+              marginHorizontal: spacing.md + 4,
+              marginBottom: spacing.md,
+            }}
+          >
+            Tell dispatch when you can drive. They see this when assigning rides, and you'll be asked to
+            confirm any ride outside these hours.
+          </Text>
+        </FadeInBlock>
 
-          {loading ? (
-            <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.primary} />
-          ) : (
-            <>
-              {unsetThisWeek > 0 ? (
-                <FadeInBlock delay={60}>
-                  <View
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: spacing.xl }} color={colors.primary} />
+        ) : (
+          <>
+            {unsetThisWeek > 0 ? (
+              <FadeInBlock delay={60}>
+                <View
+                  style={{
+                    marginHorizontal: spacing.md,
+                    marginBottom: spacing.md,
+                    padding: spacing.sm + 2,
+                    borderRadius: radii.md,
+                    borderCurve: "continuous",
+                    backgroundColor: colors.amberSoft,
+                  }}
+                >
+                  <Text style={{ color: colors.amberStrong, fontSize: 13, fontWeight: "800" }}>
+                    {unsetThisWeek === 7 ? "This week isn't set yet" : `${unsetThisWeek} day${unsetThisWeek === 1 ? "" : "s"} this week not set`}
+                  </Text>
+                </View>
+              </FadeInBlock>
+            ) : null}
+
+            {[
+              { title: "Next 7 days", slice: days.slice(0, 7) },
+              { title: "The week after", slice: days.slice(7) },
+            ].map((group, gi) =>
+              group.slice.length ? (
+                <FadeInBlock key={group.title} delay={80 + gi * 60}>
+                  <Text
                     style={{
-                      marginHorizontal: spacing.md,
-                      marginBottom: spacing.md,
-                      padding: spacing.sm + 2,
-                      borderRadius: radii.md,
-                      borderCurve: "continuous",
-                      backgroundColor: colors.amberSoft,
+                      color: colors.slate500,
+                      ...typography.sectionKicker,
+                      marginHorizontal: spacing.md + spacing.md,
+                      marginBottom: spacing.sm,
                     }}
                   >
-                    <Text style={{ color: colors.amberStrong, fontSize: 13, fontWeight: "800" }}>
-                      {unsetThisWeek === 7 ? "This week isn't set yet" : `${unsetThisWeek} day${unsetThisWeek === 1 ? "" : "s"} this week not set`}
-                    </Text>
+                    {group.title}
+                  </Text>
+                  <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.lg, gap: spacing.sm }}>
+                    {group.slice.map((day, i) => (
+                      <DayCard
+                        key={day.date}
+                        day={day}
+                        isToday={gi === 0 && i === 0}
+                        onMode={(mode) => {
+                          selection();
+                          updateDay(day.date, (d) => withMode(d, mode));
+                        }}
+                        onWindows={(windows) => updateDay(day.date, (d) => ({ ...d, windows }))}
+                        onTick={selection}
+                      />
+                    ))}
                   </View>
                 </FadeInBlock>
-              ) : null}
-
-              {[
-                { title: "Next 7 days", slice: days.slice(0, 7) },
-                { title: "The week after", slice: days.slice(7) },
-              ].map((group, gi) =>
-                group.slice.length ? (
-                  <FadeInBlock key={group.title} delay={80 + gi * 60}>
-                    <Text
-                      style={{
-                        color: colors.slate500,
-                        ...typography.sectionKicker,
-                        marginHorizontal: spacing.md + spacing.md,
-                        marginBottom: spacing.sm,
-                      }}
-                    >
-                      {group.title}
-                    </Text>
-                    <View style={{ marginHorizontal: spacing.md, marginBottom: spacing.lg, gap: spacing.sm }}>
-                      {group.slice.map((day, i) => (
-                        <DayCard
-                          key={day.date}
-                          day={day}
-                          isToday={gi === 0 && i === 0}
-                          onMode={(mode) => {
-                            selection();
-                            updateDay(day.date, (d) => withMode(d, mode));
-                          }}
-                          onWindows={(windows) => updateDay(day.date, (d) => ({ ...d, windows }))}
-                          onTick={selection}
-                        />
-                      ))}
-                    </View>
-                  </FadeInBlock>
-                ) : null,
-              )}
-            </>
-          )}
-        </ScrollView>
-
-        <View
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            paddingHorizontal: spacing.md,
-            paddingTop: spacing.sm,
-            paddingBottom: insets.bottom + spacing.sm,
-            backgroundColor: colors.surface,
-            borderTopWidth: 1,
-            borderTopColor: colors.slate200,
-            gap: 6,
-          }}
-        >
-          {error ? (
-            <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 13, fontWeight: "700" }}>
-              {error}
-            </Text>
-          ) : overlapping ? (
-            <Text style={{ color: colors.error, fontSize: 13, fontWeight: "700" }}>
-              Two time ranges on the same day overlap. Adjust them before saving.
-            </Text>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !changes.length || saving || overlapping }}
-            disabled={!changes.length || saving || overlapping}
-            onPress={save}
-            style={({ pressed }) => ({
-              minHeight: 50,
-              borderRadius: radii.md,
-              borderCurve: "continuous",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor:
-                !changes.length && justSaved
-                  ? colors.greenSoft
-                  : !changes.length || overlapping
-                    ? colors.slate300
-                    : pressed
-                      ? colors.primaryPressed
-                      : colors.primary,
-            })}
-          >
-            {saving ? (
-              <ActivityIndicator color={colors.surface} />
-            ) : (
-              <Text
-                style={{
-                  color: !changes.length && justSaved ? colors.greenStrong : colors.surface,
-                  fontSize: 16,
-                  fontWeight: "900",
-                }}
-              >
-                {changes.length
-                  ? `Save ${changes.length} day${changes.length === 1 ? "" : "s"}`
-                  : justSaved
-                    ? "✓ Saved. Dispatch can see it"
-                    : "No changes"}
-              </Text>
+              ) : null,
             )}
-          </Pressable>
-        </View>
+          </>
+        )}
+      </ScrollView>
+
+      <View style={{ gap: 6 }}>
+        {error ? (
+          <Text accessibilityRole="alert" style={{ color: colors.error, fontSize: 13, fontWeight: "700" }}>
+            {error}
+          </Text>
+        ) : overlapping ? (
+          <Text style={{ color: colors.error, fontSize: 13, fontWeight: "700" }}>
+            Two time ranges on the same day overlap. Adjust them before saving.
+          </Text>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !changes.length || saving || overlapping }}
+          disabled={!changes.length || saving || overlapping}
+          onPress={save}
+          style={({ pressed }) => ({
+            minHeight: 50,
+            borderRadius: radii.md,
+            borderCurve: "continuous",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor:
+              !changes.length && justSaved
+                ? colors.greenSoft
+                : !changes.length || overlapping
+                  ? colors.slate300
+                  : pressed
+                    ? colors.primaryPressed
+                    : colors.primary,
+          })}
+        >
+          {saving ? (
+            <ActivityIndicator color={colors.surface} />
+          ) : (
+            <Text
+              style={{
+                color: !changes.length && justSaved ? colors.greenStrong : colors.surface,
+                fontSize: 16,
+                fontWeight: "900",
+              }}
+            >
+              {changes.length
+                ? `Save ${changes.length} day${changes.length === 1 ? "" : "s"}`
+                : justSaved
+                  ? "✓ Saved. Dispatch can see it"
+                  : "No changes"}
+            </Text>
+          )}
+        </Pressable>
       </View>
-    </PageTransition>
+    </View>
   );
 }
 
