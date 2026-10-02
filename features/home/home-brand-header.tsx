@@ -163,8 +163,8 @@ function DispatchChatButton({ onPress, unreadCount }: { onPress: () => void; unr
       accessibilityRole="button"
       accessibilityLabel={
         unreadCount > 0
-          ? `Open dispatch messages, ${visibleUnreadCount} unread`
-          : "Open dispatch messages"
+          ? `Open coordinator messages, ${visibleUnreadCount} unread`
+          : "Open coordinator messages"
       }
       hitSlop={8}
       style={({ pressed }) => ({

@@ -57,9 +57,9 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>TrustedRide uses Face ID so you can sign in without typing your password.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>TrustedRide needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
+	<string>TrustedRide needs always-on location access to share your position with your coordinator during active rides, even when the app is not open.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
-	<string>TrustedRide needs always-on location access to share your position with dispatch during active rides, even when the app is not open.</string>
+	<string>TrustedRide needs always-on location access to share your position with your coordinator during active rides, even when the app is not open.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TrustedRide needs your location to show your position on the map and calculate routes to pickups.</string>
 	<key>NSSupportsLiveActivities</key>

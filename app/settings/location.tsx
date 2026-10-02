@@ -81,7 +81,7 @@ export default function LocationSettingsScreen() {
             <SettingsSection kicker="Operations">
               <ToggleRow
                 label="Live Location"
-                description="Share GPS with dispatch during active rides"
+                description="Share GPS with your coordinator during active rides"
                 value={isTracking}
                 critical
                 iconName="location.fill"

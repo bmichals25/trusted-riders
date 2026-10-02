@@ -52,7 +52,7 @@ export function ChatContextStrip({
   return (
     <View
       accessible
-      accessibilityLabel={`${label}. Dispatch link active.`}
+      accessibilityLabel={`${label}. Coordinator chat.`}
       style={{
         paddingHorizontal: spacing.md,
         paddingVertical: 10,
@@ -163,7 +163,7 @@ export function ChatMessageList({
         : isOperator
           ? ownAvatar
           : {
-            initials: initialsFor(item.senderName?.trim() || "Dispatch"),
+            initials: initialsFor(item.senderName?.trim() || "Coordinator"),
             source: chatSenderPhotoSource(
               {
                 userId: item.senderUserId ?? null,
@@ -367,7 +367,7 @@ function ChatUnavailableState({
   onRetry: () => void;
 }) {
   const title = loadError ? "Chat unavailable" : "No messages yet";
-  const body = loadError ?? "Dispatch messages and ride updates will appear here.";
+  const body = loadError ?? "Messages from your coordinator and ride updates will appear here.";
 
   return (
     <View
@@ -461,7 +461,7 @@ function ChatLoadingState() {
     <View
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel="Loading dispatch chat"
+      accessibilityLabel="Loading coordinator chat"
       style={{
         width: "100%",
         gap: 12,
@@ -541,8 +541,8 @@ export function ChatComposer({
         onChangeText={onChangeText}
         placeholder="Type a message..."
         placeholderTextColor={colors.slate400}
-        accessibilityLabel="Message dispatch"
-        accessibilityHint="Enter a message to send to dispatch."
+        accessibilityLabel="Message your coordinator"
+        accessibilityHint="Enter a message to send to your coordinator."
         accessibilityValue={{ text: value ? `${value.length} characters entered` : "No message entered" }}
         autoCapitalize="sentences"
         autoCorrect
@@ -617,7 +617,7 @@ function messageAccessibilityLabel(
   isLastOperatorMessage: boolean,
   isRead: boolean,
 ) {
-  const sender = isOperator ? "You" : "Dispatch";
+  const sender = isOperator ? "You" : "Coordinator";
   const delivery = message.timestamp === "Not sent"
     ? "Not sent"
     : isLastOperatorMessage && !message.pending

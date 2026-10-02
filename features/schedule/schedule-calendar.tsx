@@ -235,7 +235,7 @@ function ScheduleEmptyState({ mode, minHeight }: { mode: CalendarMode; minHeight
         ? "No rides this week"
         : "No rides this month";
   const body = mode === "list"
-    ? "Pull to refresh when dispatch assigns new work."
+    ? "Pull to refresh when your coordinator assigns new work."
     : "Pull to refresh, or switch views.";
 
   return (

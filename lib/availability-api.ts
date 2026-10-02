@@ -61,7 +61,7 @@ export async function fetchMyAvailability(): Promise<AvailabilityLoadResult> {
     failureBackoffMs: 0,
     throttleKey: `GET ${AVAILABILITY_PATH}`,
   });
-  if (!res) return { kind: "error", message: "Couldn't reach dispatch. Check your connection and try again." };
+  if (!res) return { kind: "error", message: "Couldn't reach your coordinator. Check your connection and try again." };
   if (isSignedOutStatus(res.status)) {
     await expireSession();
     return { kind: "signed_out" };
@@ -93,7 +93,7 @@ export async function saveMyAvailability(days: AvailabilityDay[]): Promise<Avail
   if (!getToken()) return { kind: "signed_out" };
   const { path, init } = buildSaveAvailabilityRequest(days);
   const { res } = await fleetFetch("PUT", path, init, { minIntervalMs: 500, failureBackoffMs: 0, throttleKey: `PUT ${path}` });
-  if (!res) return { kind: "error", message: "Couldn't reach dispatch. Your changes aren't saved yet; try again." };
+  if (!res) return { kind: "error", message: "Couldn't reach your coordinator. Your changes aren't saved yet; try again." };
   if (isSignedOutStatus(res.status)) {
     await expireSession();
     return { kind: "signed_out" };

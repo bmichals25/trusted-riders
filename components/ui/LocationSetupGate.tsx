@@ -76,7 +76,7 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
         </Text>
         <Text style={s.subtitle}>
           TrustedRide Certified needs location access to show your position on the map,
-          navigate to pickups, and share live updates with dispatch during
+          navigate to pickups, and share live updates with your coordinator during
           active rides.
         </Text>
 
@@ -106,7 +106,7 @@ export function LocationSetupGate({ children }: { children: React.ReactNode }) {
             disabled={requesting}
             accessibilityRole="button"
             accessibilityLabel={requesting ? "Requesting location access" : "Enable tracking"}
-            accessibilityHint="Requests location access for maps, pickup navigation, and dispatch updates."
+            accessibilityHint="Requests location access for maps, pickup navigation, and live updates to your coordinator."
             accessibilityState={{ disabled: requesting, busy: requesting }}
           >
             {requesting ? (

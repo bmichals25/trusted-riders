@@ -28,9 +28,9 @@ function getNoticeTitle(notice: RideStatusNotice): string {
 
 function getNoticeMessage(notice: RideStatusNotice): string {
   // Tell the driver what to do next rather than echoing internal status names.
-  if (notice.nextStatus === "en_route") return `Dispatch started ${notice.passengerName}. Head to the pickup.`;
+  if (notice.nextStatus === "en_route") return `Your coordinator started ${notice.passengerName}. Head to the pickup.`;
   if (notice.nextStatus === "completed") return `${notice.passengerName} is complete. Nice work.`;
-  if (notice.nextStatus === "cancelled") return `Dispatch cancelled ${notice.passengerName}. No action needed.`;
+  if (notice.nextStatus === "cancelled") return `Your coordinator cancelled ${notice.passengerName}. No action needed.`;
   if (notice.nextStatus === "accepted") return `${notice.passengerName} is scheduled for you.`;
   return `${notice.passengerName} is now ${STATUS_LABELS[notice.nextStatus]}.`;
 }

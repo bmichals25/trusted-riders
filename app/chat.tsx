@@ -48,11 +48,11 @@ export default function ChatScreen() {
     returnTo?: string;
   }>();
   const roomId = "dispatch";
-  const chatTitle = "Dispatch Messages";
+  const chatTitle = "Coordinator Messages";
   const riderLabel = typeof riderName === "string" && !/^ride\b/i.test(riderName) ? riderName : undefined;
   const contextLabel = rideId
     ? `Ride ${rideId}${riderLabel ? ` · ${riderLabel}` : ""}`
-    : riderLabel ?? "Dispatch link active";
+    : riderLabel ?? "Coordinator chat";
   const { rides, recentlyFinishedRides } = useDispatchData();
   // The ride this chat was opened from, for its passenger's photo in the context strip (initials when the
   // ride isn't loaded or has no photo; the server stops serving it once the ride is over).
@@ -340,7 +340,7 @@ export default function ChatScreen() {
       if (!canOpen) {
         Alert.alert(
           "Calling unavailable",
-          `This device cannot open phone calls. Dispatch: ${formatPhone(DISPATCH_PHONE)}`,
+          `This device cannot open phone calls. Your coordinator: ${formatPhone(DISPATCH_PHONE)}`,
         );
         return;
       }
@@ -348,7 +348,7 @@ export default function ChatScreen() {
     } catch {
       Alert.alert(
         "Calling unavailable",
-        `Could not open the phone app. Dispatch: ${formatPhone(DISPATCH_PHONE)}`,
+        `Could not open the phone app. Your coordinator: ${formatPhone(DISPATCH_PHONE)}`,
       );
     }
   }, [impact]);
@@ -371,7 +371,7 @@ export default function ChatScreen() {
           <Pressable
             onPress={callAdmin}
             accessibilityRole="button"
-            accessibilityLabel="Call dispatch admin"
+            accessibilityLabel="Call your coordinator"
             hitSlop={8}
             style={({ pressed }) => ({
               width: 40,

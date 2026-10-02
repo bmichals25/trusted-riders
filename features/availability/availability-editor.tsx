@@ -106,7 +106,7 @@ export function AvailabilityEditor() {
               marginBottom: spacing.md,
             }}
           >
-            Tell dispatch when you can drive. They see this when assigning rides, and you'll be asked to
+            Tell your coordinator when you can drive. They see this when assigning rides, and you'll be asked to
             confirm any ride outside these hours.
           </Text>
         </FadeInBlock>
@@ -216,7 +216,7 @@ export function AvailabilityEditor() {
               {changes.length
                 ? `Save ${changes.length} day${changes.length === 1 ? "" : "s"}`
                 : justSaved
-                  ? "✓ Saved. Dispatch can see it"
+                  ? "✓ Saved. Your coordinator can see it"
                   : "No changes"}
             </Text>
           )}

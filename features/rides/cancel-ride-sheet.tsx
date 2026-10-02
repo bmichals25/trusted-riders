@@ -48,7 +48,7 @@ export function CancelRideSheet({
     const text = details.trim() ? (reason === "Other" ? details.trim() : `${reason}: ${details.trim()}`) : reason;
     const result = await onConfirm(text);
     setSubmitting(false);
-    if (!result.ok) setError(result.message ?? "Couldn't reach dispatch. Try again.");
+    if (!result.ok) setError(result.message ?? "Couldn't reach your coordinator. Try again.");
   };
 
   return (
@@ -77,8 +77,8 @@ export function CancelRideSheet({
               </Text>
               <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
                 {ride.trip
-                  ? "Both rides (there and home) go back to dispatch to reassign to another TrustedRider."
-                  : "The ride goes back to dispatch to reassign to another TrustedRider."}{" "}
+                  ? "Both rides (there and home) go back to your coordinator to reassign to another TrustedRider."
+                  : "The ride goes back to your coordinator to reassign to another TrustedRider."}{" "}
                 The passenger's trip isn't cancelled.
                 {"\n"}Pickup: {ride.scheduledDate} · {ride.scheduledTime}
               </Text>
@@ -117,11 +117,11 @@ export function CancelRideSheet({
               <TextInput
                 value={details}
                 onChangeText={setDetails}
-                placeholder={needsDetails ? "Tell dispatch what happened" : "Anything dispatch should know? (optional)"}
+                placeholder={needsDetails ? "Tell your coordinator what happened" : "Anything your coordinator should know? (optional)"}
                 placeholderTextColor={colors.slate500}
                 multiline
                 maxLength={280}
-                accessibilityLabel="Details for dispatch"
+                accessibilityLabel="Details for your coordinator"
                 style={{
                   minHeight: 72,
                   borderRadius: radii.sm,
@@ -138,7 +138,7 @@ export function CancelRideSheet({
             <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
               <SymbolIcon name="exclamationmark.triangle.fill" size={15} type="hierarchical" tintColor={colors.amber} weight="semibold" />
               <Text style={{ flex: 1, color: colors.slate500, fontSize: 13, fontWeight: "600", lineHeight: 18 }}>
-                If pickup is soon, also message dispatch so they can find someone quickly.
+                If pickup is soon, also message your coordinator so they can find someone quickly.
               </Text>
             </View>
 

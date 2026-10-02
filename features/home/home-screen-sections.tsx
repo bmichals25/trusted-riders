@@ -52,7 +52,7 @@ export function CurrentRideCard({
     setAdvanceError(null);
     const ok = await onAdvance(step.next);
     setAdvancing(false);
-    if (!ok) setAdvanceError("Couldn't update dispatch. Check your connection and try again.");
+    if (!ok) setAdvanceError("Couldn't let your coordinator know. Check your connection and try again.");
   };
 
   return (
@@ -139,15 +139,15 @@ export function RideRequestActions({ ride, onRespond }: { ride: DispatchedRide; 
     setError(null);
     const result = await onRespond(ride, response);
     setBusy(null);
-    if (!result.ok) setError(result.message ?? "Couldn't update dispatch. Try again.");
+    if (!result.ok) setError(result.message ?? "Couldn't let your coordinator know. Try again.");
   };
 
   const confirmDecline = () => {
     Alert.alert(
       ride.trip ? "Decline this round trip?" : `Decline ride #${ride.id}?`,
       ride.trip
-        ? "Both rides (there and home) go back to dispatch to give to another TR."
-        : "Dispatch will be told and will reassign it to another TrustedRider.",
+        ? "Both rides (there and home) go back to your coordinator to give to another TR."
+        : "Your coordinator will be told and will reassign it to another TrustedRider.",
       [
         { text: "Keep ride", style: "cancel" },
         { text: "Decline", style: "destructive", onPress: () => void respond("decline") },
@@ -159,8 +159,8 @@ export function RideRequestActions({ ride, onRespond }: { ride: DispatchedRide; 
     <View style={{ gap: spacing.sm }}>
       <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700", lineHeight: 18 }}>
         {ride.trip
-          ? "Dispatch assigned you this round trip: the ride there and the ride home. Your answer covers both."
-          : "Dispatch assigned you this ride. Let them know if you can take it."}
+          ? "Your coordinator assigned you this round trip: the ride there and the ride home. Your answer covers both."
+          : "Your coordinator assigned you this ride. Let them know if you can take it."}
       </Text>
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
         <DeclineButton label={busy === "decline" ? "Declining…" : "Decline"} onPress={confirmDecline} disabled={!!busy} />
@@ -389,7 +389,7 @@ export function EmptyRideState({
   return (
     <View
       accessible
-      accessibilityLabel="Standing by. No current or upcoming rides are assigned. Dispatch updates will appear here automatically. Pull down or tap refresh to check now."
+      accessibilityLabel="Standing by. No current or upcoming rides are assigned. Updates from your coordinator will appear here automatically. Pull down or tap refresh to check now."
       style={[cardStyle, { gap: spacing.md }]}
     >
       <View style={{ gap: 7 }}>

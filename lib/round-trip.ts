@@ -267,10 +267,10 @@ export function asSentence(text: string): string {
  */
 export function readyToReturnStatusText(state: "waiting" | "arranged", readyAt: string, note: string): string {
   const sentences = [
-    readyAt ? `You told dispatch at ${readyAt}.` : "Dispatch has your message.",
+    readyAt ? `You told your coordinator at ${readyAt}.` : "Your coordinator has your message.",
     note.trim() ? `Note: ${asSentence(note)}` : "",
     state === "arranged"
-      ? "Dispatch will start the ride home in the app when it's time."
+      ? "Your coordinator will start the ride home in the app when it's time."
       : "Stay with the passenger; check chat for updates.",
   ];
   return sentences.filter(Boolean).join(" ");

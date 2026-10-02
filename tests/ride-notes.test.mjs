@@ -225,7 +225,7 @@ test("ride notes API lists and adds notes on the driver endpoint", async () => {
 test("ride notes API surfaces network failures", async () => {
   const { api } = loadNotesApi({ respond: () => null });
   await assert.rejects(api.fetchRideNotes("42"), (error) => error.status === 0);
-  await assert.rejects(api.addRideNote("42", "hello"), /Couldn't reach dispatch/);
+  await assert.rejects(api.addRideNote("42", "hello"), /Couldn't reach your coordinator/);
 });
 
 test("demo mode serves seeded notes and appends added notes locally", async () => {

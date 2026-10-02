@@ -42,7 +42,7 @@ export const demoRides: DispatchedRide[] = [
       {
         id: "demo-1027-n1",
         authorRole: "dispatch",
-        authorName: "Dispatch",
+        authorName: "Coordinator",
         text: "Meet at entrance B. Front desk will page her when you arrive.",
         createdAt: new Date(now - 40 * 60_000).toISOString(),
       },
@@ -68,7 +68,7 @@ export const demoRides: DispatchedRide[] = [
     scheduledTime: "9:10 AM",
     transitType: "Ambulatory",
     tripType: "Round-Trip",
-    notes: "Dispatch confirmed spouse is riding along. Use north lobby pickup lane.",
+    notes: "Coordinator confirmed spouse is riding along. Use north lobby pickup lane.",
     emergencyContact: "Maya Bennett, +1 (678) 555-0144",
     status: "en_route",
     createdAt: now - 68 * 60_000,
@@ -86,7 +86,7 @@ export const demoRides: DispatchedRide[] = [
       {
         id: "demo-1024-n1",
         authorRole: "dispatch",
-        authorName: "Dispatch",
+        authorName: "Coordinator",
         text: "Spouse is riding along. Use the north lobby pickup lane.",
         createdAt: new Date(now - 70 * 60_000).toISOString(),
       },
@@ -165,9 +165,9 @@ export function demoChatMessages(rideId: string): RideChatMessage[] {
     {
       id: `${ride.id}-m1`,
       ride_id: ride.id,
-      text: `Dispatch assigned ride #${ride.id}. Please confirm when you are en route.`,
+      text: `You've been assigned ride #${ride.id}. Please confirm when you are en route.`,
       sender: "dispatch",
-      sender_name: "Dispatch",
+      sender_name: "Coordinator",
       client_message_id: null,
       metadata: {},
       created_at: new Date(now - 18 * 60_000).toISOString(),
@@ -187,7 +187,7 @@ export function demoChatMessages(rideId: string): RideChatMessage[] {
       ride_id: ride.id,
       text: `${ride.passengerName.split(" ")[0]} is ready at the listed pickup entrance. Notes are current.`,
       sender: "dispatch",
-      sender_name: "Dispatch",
+      sender_name: "Coordinator",
       client_message_id: null,
       metadata: {},
       created_at: new Date(now - 7 * 60_000).toISOString(),
@@ -202,7 +202,7 @@ export function demoChatStatus(rideId: string): RideChatStatus {
     read_receipts: {
       dispatch: {
         sender: "dispatch",
-        sender_name: "Dispatch",
+        sender_name: "Coordinator",
         last_read_message_id: `${rideId}-m2`,
         read_at: new Date(now - 12 * 60_000).toISOString(),
       },

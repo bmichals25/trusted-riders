@@ -245,7 +245,7 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
   ).then(() => {
     assert.deepEqual(plain(scheduledNotifications), [{
       content: {
-        title: "Dispatch is requesting GPS",
+        title: "Your coordinator is requesting GPS",
         body: "Tap to approve or deny location sharing.",
         data: {
           command: "gps_ask",
@@ -256,7 +256,7 @@ test("push notification helpers register Expo tokens and parse gps requests", ()
     }, {
       content: {
         title: "GPS tracking turned off",
-        body: "Dispatch turned off live location sharing for this ride.",
+        body: "Your coordinator turned off live location sharing for this ride.",
         data: {
           command: "gps_off",
           message_id: "m4",

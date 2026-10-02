@@ -244,7 +244,7 @@ function RideDetailsActionBar({
               label="Cancel ride"
               tone="danger"
               onPress={onCancel}
-              accessibilityHint="Gives this ride back to dispatch to reassign"
+              accessibilityHint="Gives this ride back to your coordinator to reassign"
             />
           ) : null}
         </View>
@@ -474,7 +474,7 @@ function TripContextPanel({ ride }: { ride: DispatchedRide }) {
   return (
     <View style={{ backgroundColor: colors.surfaceLow, borderRadius: radii.sm, padding: spacing.md, gap: spacing.sm }}>
       <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "800" }}>
-        Dispatch Context
+        Coordinator Notes
       </Text>
       <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "700", lineHeight: 20 }}>
         {hasNotes ? ride.notes : fallback}

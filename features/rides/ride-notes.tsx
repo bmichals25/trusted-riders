@@ -144,7 +144,7 @@ export function RideNotesPanel({ ride }: { ride: DispatchedRide }) {
               if (sendError) setSendError(null);
             }}
             editable={!sending}
-            placeholder="Add a note for dispatch"
+            placeholder="Add a note for your coordinator"
             placeholderTextColor={colors.slate400}
             multiline
             maxLength={RIDE_NOTE_MAX_LENGTH}
@@ -201,7 +201,7 @@ export function RideNotesPanel({ ride }: { ride: DispatchedRide }) {
 }
 
 function RideNoteRow({ note, isOwn }: { note: RideNote; isOwn: boolean }) {
-  const label = note.authorRole === "dispatch" ? "Dispatch" : isOwn ? "You" : "TR";
+  const label = note.authorRole === "dispatch" ? "Coordinator" : isOwn ? "You" : "TR";
   const time = formatRideNoteTime(note.createdAt);
   const tone = note.authorRole === "dispatch"
     ? { bg: colors.blueSoft, text: colors.blueStrong }

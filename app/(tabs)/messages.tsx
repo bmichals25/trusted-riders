@@ -23,7 +23,7 @@ export default function MessagesTabScreen() {
   return (
     <View
       accessibilityRole="progressbar"
-      accessibilityLabel="Opening dispatch chat"
+      accessibilityLabel="Opening coordinator chat"
       style={{
         flex: 1,
         backgroundColor: colors.surfaceLow,
@@ -65,13 +65,13 @@ export default function MessagesTabScreen() {
         </View>
         <View style={{ gap: 5 }}>
           <Text style={{ color: colors.primary, fontSize: 22, fontWeight: "900", lineHeight: 28 }}>
-            Opening dispatch chat
+            Opening coordinator chat
           </Text>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           <ActivityIndicator color={colors.blue} size="small" />
           <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "700" }}>
-            Connecting to dispatch
+            Connecting to your coordinator
           </Text>
         </View>
       </View>

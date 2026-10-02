@@ -92,7 +92,7 @@ function PassengerDetails({
 
       {passenger.notes ? (
         <View style={{ backgroundColor: colors.surfaceLow, borderRadius: radii.sm, padding: spacing.sm, gap: 4 }}>
-          <SectionKicker>Notes from dispatch</SectionKicker>
+          <SectionKicker>Notes from your coordinator</SectionKicker>
           <Text selectable style={{ color: colors.primary, fontSize: 15, fontWeight: "600", lineHeight: 21 }}>
             {passenger.notes}
           </Text>

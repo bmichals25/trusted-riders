@@ -262,7 +262,7 @@ export default function HomeScreen() {
               replayOnFocus={replayHomeEntrance}
             >
               <Section title="Current Ride">
-                <LoadingState title="Loading ride information" body="Checking dispatch…" />
+                <LoadingState title="Loading ride information" body="Checking with your coordinator…" />
               </Section>
             </FadeInBlock>
           )}

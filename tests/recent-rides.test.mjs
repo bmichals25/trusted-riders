@@ -194,15 +194,15 @@ test("the Ready to Return status line punctuates the TR's note", () => {
   assert.equal(roundTrip.asSentence("  "), "");
   assert.equal(
     roundTrip.readyToReturnStatusText("waiting", "12:09 AM", "Appointment ran long"),
-    "You told dispatch at 12:09 AM. Note: Appointment ran long. Stay with the passenger; check chat for updates.",
+    "You told your coordinator at 12:09 AM. Note: Appointment ran long. Stay with the passenger; check chat for updates.",
   );
   assert.equal(
     roundTrip.readyToReturnStatusText("arranged", "", "Waiting on paperwork: pharmacy is slow."),
-    "Dispatch has your message. Note: Waiting on paperwork: pharmacy is slow. Dispatch will start the ride home in the app when it's time.",
+    "Your coordinator has your message. Note: Waiting on paperwork: pharmacy is slow. Your coordinator will start the ride home in the app when it's time.",
   );
   assert.equal(
     roundTrip.readyToReturnStatusText("waiting", "12:09 AM", ""),
-    "You told dispatch at 12:09 AM. Stay with the passenger; check chat for updates.",
+    "You told your coordinator at 12:09 AM. Stay with the passenger; check chat for updates.",
   );
 });
 

@@ -296,8 +296,8 @@ function LocationMapModal({
             </Text>
             <Text style={{ color: colors.slate500, fontSize: 13, fontWeight: "800", lineHeight: 18 }} numberOfLines={2}>
               {isTracking
-                ? "Dispatch is receiving GPS updates for the active ride."
-                : "Tracking stays off until approved by you or dispatch."}
+                ? "Your coordinator is receiving GPS updates for the active ride."
+                : "Tracking stays off until approved by you or your coordinator."}
             </Text>
           </View>
           <Pressable
@@ -451,7 +451,7 @@ function LocationMapModal({
             </Text>
           ) : (
             <Text style={{ color: colors.slate500, fontSize: 12, fontWeight: "800", lineHeight: 17 }}>
-              Always permission is required when tracking is active so dispatch keeps receiving updates while the phone is locked.
+              Always permission is required when tracking is active so your coordinator keeps receiving updates while the phone is locked.
             </Text>
           )}
 

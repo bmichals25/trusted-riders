@@ -97,7 +97,7 @@ export function DispatchMessageToast() {
         noteIncomingDispatchMessages(newIncoming.length);
         setNotice({
           id: `dispatch-${latestIncoming.id}`,
-          senderName: latestIncoming.sender_name || "Dispatch",
+          senderName: latestIncoming.sender_name || "Coordinator",
           // One line, emoji kept whole (never cut mid-surrogate pair).
           preview: chatPreviewText(latestIncoming.text),
         });
@@ -143,7 +143,7 @@ export function DispatchMessageToast() {
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`New message from ${notice.senderName}. Open dispatch chat.`}
+        accessibilityLabel={`New message from ${notice.senderName}. Open coordinator chat.`}
         onPress={() => {
           dismiss();
           router.push({
@@ -175,7 +175,7 @@ export function DispatchMessageToast() {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "900" }}>
-              New dispatch message
+              New message from your coordinator
             </Text>
             <Text numberOfLines={2} style={{ color: colors.primarySoft, fontSize: 13, lineHeight: 18, marginTop: 2 }}>
               {notice.senderName}: {notice.preview}

@@ -391,7 +391,7 @@ export function normalizeRideNote(raw: unknown): RideNote | null {
   return {
     id,
     authorRole,
-    authorName: pickString(note, ["author_name", "authorName"]) ?? (authorRole === "tr" ? "TR" : "Dispatch"),
+    authorName: pickString(note, ["author_name", "authorName"]) ?? (authorRole === "tr" ? "TR" : "Coordinator"),
     text,
     createdAt: pickString(note, ["created_at", "createdAt"]) ?? "",
   };

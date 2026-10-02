@@ -128,7 +128,7 @@ function EmptyUpcomingRides({ refreshing }: { refreshing: boolean }) {
   return (
     <View
       accessible
-      accessibilityLabel="No upcoming rides. Pull down to refresh and keep this screen ready for dispatch assignments."
+      accessibilityLabel="No upcoming rides. Pull down to refresh and keep this screen ready for new assignments from your coordinator."
       style={{
         backgroundColor: colors.surfaceLow,
         borderRadius: radii.sm,

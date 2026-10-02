@@ -84,7 +84,7 @@ export async function addRideNote(rideId: string, text: string, authorName = "Yo
     { minIntervalMs: 500, failureBackoffMs: 0, throttleKey: `POST ${path}` },
   );
   if (!res) {
-    throw new RideNotesError(0, result === "skipped" ? "Still sending your last note." : "Couldn't reach dispatch. Check your connection and try again.");
+    throw new RideNotesError(0, result === "skipped" ? "Still sending your last note." : "Couldn't reach your coordinator. Check your connection and try again.");
   }
   if (!res.ok) throw await toRideNotesError(res, "Couldn't add the note. Try again.");
 

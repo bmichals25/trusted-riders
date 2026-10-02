@@ -778,19 +778,19 @@ export async function respondToRideRequest(
     { minIntervalMs: 1000, failureBackoffMs: 0, throttleKey: `PATCH ${path} ${response}` },
   );
 
-  if (!res) return { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
+  if (!res) return { ok: false, message: "Couldn't reach your coordinator. Check your connection and try again." };
   if (res.status === 401 || (res.status === 422 && (await isAuthFailure(res)))) {
     await expireSession();
     return { ok: false, message: "Your session expired. Sign in again." };
   }
-  if (res.status === 409) return { ok: false, message: "This ride has already started, so it can't be changed here. Message dispatch instead." };
+  if (res.status === 409) return { ok: false, message: "This ride has already started, so it can't be changed here. Message your coordinator instead." };
   if (res.status === 404) return { ok: false, message: "This ride is no longer assigned to you." };
   if (res.status === 403) {
     // e.g. the TrustedRider agreement hasn't been accepted yet (the agreement screen opens on its own).
     const message = await readApiErrorMessage(res);
     if (message) return { ok: false, message };
   }
-  return res.ok ? { ok: true } : { ok: false, message: `Dispatch couldn't record that (${res.status}). Try again.` };
+  return res.ok ? { ok: true } : { ok: false, message: `Couldn't record that (${res.status}). Try again.` };
 }
 
 async function isAuthFailure(res: Response): Promise<boolean> {

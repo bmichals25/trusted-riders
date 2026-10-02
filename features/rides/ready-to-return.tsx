@@ -164,7 +164,7 @@ export function ReadyToReturnCard({
         <View style={{ gap: spacing.sm }}>
           <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
             When {ride.passengerName.startsWith("Ride #") ? "the passenger is" : `${ride.passengerName} is`} ready to go
-            home, tap Ready to Return. Dispatch will arrange the ride.
+            home, tap Ready to Return. Your coordinator will arrange the ride.
           </Text>
           <Pressable
             onPress={() => setSheetOpen(true)}
@@ -195,7 +195,7 @@ export function ReadyToReturnCard({
           }}
         >
           <Text style={{ color: state === "arranged" ? colors.greenStrong : colors.amberStrong, fontSize: 15, fontWeight: "800" }}>
-            {state === "arranged" ? `Ride home: ${trip.transportMethod}` : "Dispatch is arranging the ride home"}
+            {state === "arranged" ? `Ride home: ${trip.transportMethod}` : "Your coordinator is arranging the ride home"}
           </Text>
           {state === "arranged" && trip.transportNote ? (
             <Text style={{ color: colors.primary, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>{trip.transportNote}</Text>
@@ -276,7 +276,7 @@ export function ReadyToReturnSheet({
     setError(null);
     const result = await onConfirm(buildReadyToReturnNote(picked, details));
     setSubmitting(false);
-    if (!result.ok) setError(result.message ?? "Couldn't reach dispatch. Try again, or message them in chat.");
+    if (!result.ok) setError(result.message ?? "Couldn't reach your coordinator. Try again, or message them in chat.");
   };
 
   return (
@@ -298,14 +298,14 @@ export function ReadyToReturnSheet({
             <View style={{ gap: 6 }}>
               <Text style={{ color: colors.primary, fontSize: 21, fontWeight: "900" }}>Ready to return?</Text>
               <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
-                Dispatch gets a message that the passenger is ready to go home from {ride.pickupAddress}. They'll
+                Your coordinator gets a message that the passenger is ready to go home from {ride.pickupAddress}. They'll
                 arrange the ride and tell you in chat.
               </Text>
             </View>
 
             <View style={{ gap: spacing.sm }}>
               <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 }}>
-                Note for dispatch (optional)
+                Note for your coordinator (optional)
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
                 {READY_TO_RETURN_NOTES.map((option) => {
@@ -334,11 +334,11 @@ export function ReadyToReturnSheet({
               <TextInput
                 value={details}
                 onChangeText={setDetails}
-                placeholder="Anything else dispatch should know?"
+                placeholder="Anything else your coordinator should know?"
                 placeholderTextColor={colors.slate500}
                 multiline
                 maxLength={READY_TO_RETURN_NOTE_MAX}
-                accessibilityLabel="Note for dispatch"
+                accessibilityLabel="Note for your coordinator"
                 style={{
                   minHeight: 72,
                   borderRadius: radii.sm,
@@ -379,7 +379,7 @@ export function ReadyToReturnSheet({
                 onPress={submit}
                 disabled={submitting}
                 accessibilityRole="button"
-                accessibilityLabel="Tell dispatch"
+                accessibilityLabel="Tell your coordinator"
                 accessibilityState={{ disabled: submitting, busy: submitting }}
                 style={({ pressed }) => ({
                   flex: 1,
@@ -392,7 +392,7 @@ export function ReadyToReturnSheet({
                 })}
               >
                 <Text style={{ color: colors.surface, fontSize: 16, fontWeight: "800" }}>
-                  {submitting ? "Sending…" : "Tell dispatch"}
+                  {submitting ? "Sending…" : "Tell your coordinator"}
                 </Text>
               </Pressable>
             </View>
@@ -431,7 +431,7 @@ export function TripLegPanel({
       <Text style={{ color: colors.slate500, fontSize: 14, fontWeight: "600", lineHeight: 20 }}>
         {entry && entry.ride.id !== ride.id ? `These details are for the ${thisLabel}. ` : ""}
         {tripFinished
-          ? `This round trip is finished.${ride.status === "completed" ? " You can still add a note for dispatch below." : ""}`
+          ? `This round trip is finished.${ride.status === "completed" ? " You can still add a note for your coordinator below." : ""}`
           : `${trip.returnTimeOpen
               ? "The ride home starts when you tap Ready to Return after the appointment."
               : "The ride home is booked for a set time."} Accepting or declining covers both legs.`}

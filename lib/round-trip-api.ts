@@ -25,7 +25,7 @@ export async function sendReadyToReturn(rideId: string, note: string): Promise<R
     { minIntervalMs: 1000, failureBackoffMs: 0, throttleKey: `POST ${path}` },
   );
 
-  if (!res) return { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
+  if (!res) return { ok: false, message: "Couldn't reach your coordinator. Check your connection and try again." };
   if (res.ok) {
     let duplicate = false;
     try {
@@ -36,7 +36,7 @@ export async function sendReadyToReturn(rideId: string, note: string): Promise<R
     return { ok: true, duplicate };
   }
   if (res.status === 401) return { ok: false, message: "Your session expired. Sign in again." };
-  if (res.status === 404) return { ok: false, message: "This ride is no longer assigned to you. Message dispatch." };
+  if (res.status === 404) return { ok: false, message: "This ride is no longer assigned to you. Message your coordinator." };
   const message = await readApiErrorMessage(res);
-  return { ok: false, message: message ?? `Dispatch couldn't record that (${res.status}). Try again or message dispatch.` };
+  return { ok: false, message: message ?? `Couldn't record that (${res.status}). Try again or message your coordinator.` };
 }

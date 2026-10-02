@@ -283,7 +283,7 @@ export function DispatchProvider({
       result = await respondToRideRequest(ride.id, response, reason);
     } catch (error) {
       console.log("[dispatch] ride request response failed", error instanceof Error ? error.message : error);
-      result = { ok: false, message: "Couldn't reach dispatch. Check your connection and try again." };
+      result = { ok: false, message: "Couldn't reach your coordinator. Check your connection and try again." };
     }
     if (!result.ok) return result;
     // Round trip: the answer covers both legs (the backend applies it to the other leg too).
@@ -589,7 +589,7 @@ export function DispatchProvider({
 
     Alert.alert(
       "Turn on location tracking?",
-      "Dispatch is requesting GPS access for this ride.",
+      "Your coordinator is requesting GPS access for this ride.",
       [
         {
           text: "Deny",
@@ -654,7 +654,7 @@ export function DispatchProvider({
         ride_id: "dispatch",
         text: "",
         sender: "dispatch",
-        sender_name: "Dispatch",
+        sender_name: "Coordinator",
         client_message_id: null,
         metadata: { command: "gps_ask" },
         created_at: new Date().toISOString(),

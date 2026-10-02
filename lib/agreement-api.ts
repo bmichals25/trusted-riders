@@ -88,7 +88,7 @@ export async function fetchAgreement(): Promise<AgreementFetchResult> {
     { headers: authHeaders() },
     { minIntervalMs: 1500, failureBackoffMs: 0, throttleKey: `GET ${AGREEMENT_PATH}` },
   );
-  if (!res) return { kind: "unavailable", message: "Couldn't reach dispatch." };
+  if (!res) return { kind: "unavailable", message: "Couldn't reach your coordinator." };
   if (isSignedOutStatus(res.status)) {
     await expireSession();
     return { kind: "signed_out" };
@@ -116,7 +116,7 @@ export async function acceptAgreement(version: string): Promise<AgreementAcceptR
     failureBackoffMs: 0,
     throttleKey: `POST ${path}`,
   });
-  if (!res) return { kind: "error", message: "Couldn't reach dispatch. Check your connection and try again." };
+  if (!res) return { kind: "error", message: "Couldn't reach your coordinator. Check your connection and try again." };
   if (isSignedOutStatus(res.status)) {
     await expireSession();
     return { kind: "signed_out" };
@@ -130,7 +130,7 @@ export async function acceptAgreement(version: string): Promise<AgreementAcceptR
   if (!res.ok) {
     return {
       kind: "error",
-      message: (await readApiErrorMessage(res)) ?? `Dispatch couldn't record that (${res.status}). Try again.`,
+      message: (await readApiErrorMessage(res)) ?? `Couldn't record that (${res.status}). Try again.`,
     };
   }
   try {
@@ -139,5 +139,5 @@ export async function acceptAgreement(version: string): Promise<AgreementAcceptR
   } catch {
     // fall through
   }
-  return { kind: "error", message: "Dispatch didn't confirm your acceptance. Try again." };
+  return { kind: "error", message: "Your acceptance wasn't confirmed. Try again." };
 }
