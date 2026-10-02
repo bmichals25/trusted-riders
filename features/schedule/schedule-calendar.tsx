@@ -38,12 +38,15 @@ export function ScheduleToolbar({
   onPrevious,
   onNext,
   onModeChange,
+  listTitle = "All scheduled rides",
 }: {
   mode: CalendarMode;
   selectedDate: Date;
   onPrevious: () => void;
   onNext: () => void;
   onModeChange: (mode: CalendarMode) => void;
+  /** Header text in List mode (the availability section shows its own). */
+  listTitle?: string;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -51,7 +54,7 @@ export function ScheduleToolbar({
         <View style={[dateStripStyle, { flex: 1 }]}>
           <View style={{ flex: 1, minWidth: 0, alignItems: "center", paddingVertical: 3 }}>
             <Text style={{ color: colors.primary, fontSize: 17, fontWeight: "900", lineHeight: 22 }} numberOfLines={1}>
-              All scheduled rides
+              {listTitle}
             </Text>
           </View>
         </View>

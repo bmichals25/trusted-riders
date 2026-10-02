@@ -5,7 +5,11 @@ import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FadeInBlock } from "@/components/ui/FadeInBlock";
+import { AvailabilityCalendar } from "@/features/availability/availability-calendar";
+import { AvailabilityDaySheet } from "@/features/availability/availability-day-sheet";
 import { AvailabilityEditor } from "@/features/availability/availability-editor";
+import { type AvailabilityDay } from "@/lib/availability";
+import { fetchMyAvailability } from "@/lib/availability-api";
 import { PageTransition } from "@/components/ui/PageTransition";
 import { CalendarSurface, ScheduleNotice, ScheduleToolbar } from "@/features/schedule/schedule-calendar";
 import {
@@ -90,6 +94,31 @@ export default function ScheduleScreen() {
     return start.getFullYear() === selectedDate.getFullYear() && start.getMonth() === selectedDate.getMonth();
   });
 
+  // My availability as a calendar (Day / Week / Month): the visible range's days, keyed by date.
+  const [availability, setAvailability] = useState<Map<string, AvailabilityDay>>(new Map());
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const availabilityRange = useMemo(() => {
+    const visible = mode === "month" ? monthDays : weekDays;
+    return { from: visible[0]?.key ?? todayKey, days: visible.length || 7 };
+  }, [mode, monthDays, weekDays, todayKey]);
+  const loadAvailability = useCallback(async () => {
+    const result = await fetchMyAvailability(availabilityRange);
+    if (result.kind === "ok") {
+      setAvailability((prev) => {
+        const next = new Map(prev);
+        for (const day of result.days) next.set(day.date, day);
+        return next;
+      });
+    }
+  }, [availabilityRange]);
+  useEffect(() => {
+    if (!isFocused || section !== "availability" || mode === "list") return;
+    void loadAvailability();
+  }, [isFocused, loadAvailability, mode, section]);
+  const editingDay = editingKey
+    ? availability.get(editingKey) ?? { date: editingKey, status: null, windows: [] }
+    : null;
+
   const stepDate = useCallback((direction: -1 | 1) => {
     impact(ImpactFeedbackStyle.Light);
     const amount = mode === "week" ? 7 : 1;
@@ -149,7 +178,24 @@ export default function ScheduleScreen() {
         <View style={{ flex: 1, paddingHorizontal: spacing.md, paddingBottom: insets.bottom + spacing.sm, gap: spacing.sm, flexDirection: "column-reverse" }}>
           {section === "availability" ? (
             <FadeInBlock delay={40} style={{ flex: 1, minHeight: 0 }}>
-              <AvailabilityEditor />
+              {mode === "list" ? (
+                <AvailabilityEditor />
+              ) : (
+                <AvailabilityCalendar
+                  mode={mode}
+                  selectedKey={selectedKey}
+                  todayKey={todayKey}
+                  days={availability}
+                  weekDays={weekDays}
+                  monthDays={monthDays}
+                  rides={mode === "month" ? monthItems : weekItems}
+                  onSelectDate={selectDate}
+                  onEditDay={(key) => {
+                    impact(ImpactFeedbackStyle.Light);
+                    setEditingKey(key);
+                  }}
+                />
+              )}
             </FadeInBlock>
           ) : (
           <FadeInBlock delay={90} style={{ flex: 1, minHeight: 0 }}>
@@ -177,17 +223,16 @@ export default function ScheduleScreen() {
             </FadeInBlock>
           ) : null}
 
-          {section === "rides" ? (
-            <FadeInBlock delay={40}>
-              <ScheduleToolbar
-                mode={mode}
-                selectedDate={selectedDate}
-                onPrevious={() => stepDate(-1)}
-                onNext={() => stepDate(1)}
-                onModeChange={selectMode}
-              />
-            </FadeInBlock>
-          ) : null}
+          <FadeInBlock delay={40}>
+            <ScheduleToolbar
+              mode={mode}
+              selectedDate={selectedDate}
+              onPrevious={() => stepDate(-1)}
+              onNext={() => stepDate(1)}
+              onModeChange={selectMode}
+              listTitle={section === "availability" ? "Next two weeks" : undefined}
+            />
+          </FadeInBlock>
 
           <SectionSwitch
             value={section}
@@ -197,6 +242,15 @@ export default function ScheduleScreen() {
             }}
           />
         </View>
+        <AvailabilityDaySheet
+          day={editingDay}
+          isToday={editingKey === todayKey}
+          onClose={() => setEditingKey(null)}
+          onSaved={(day) => {
+            setAvailability((prev) => new Map(prev).set(day.date, day));
+            setEditingKey(null);
+          }}
+        />
       </View>
     </PageTransition>
   );

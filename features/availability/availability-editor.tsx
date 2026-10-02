@@ -226,7 +226,7 @@ export function AvailabilityEditor() {
   );
 }
 
-function DayCard({
+export function DayCard({
   day,
   isToday,
   onMode,

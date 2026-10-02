@@ -52,14 +52,17 @@ function parseDays(body: unknown): AvailabilityDay[] | null {
   return days.every(Boolean) ? (days as AvailabilityDay[]) : null;
 }
 
-export async function fetchMyAvailability(): Promise<AvailabilityLoadResult> {
+/** The next AVAILABILITY_DAYS days, or `days` days from `from` (a calendar's visible range, max 42). */
+export async function fetchMyAvailability(range?: { from: string; days: number }): Promise<AvailabilityLoadResult> {
   if (DEMO_MODE) return { kind: "ok", days: demoDays() };
   if (!getToken()) return { kind: "signed_out" };
-  const path = `${AVAILABILITY_PATH}?days=${AVAILABILITY_DAYS}`;
+  const path = range
+    ? `${AVAILABILITY_PATH}?from=${encodeURIComponent(range.from)}&days=${range.days}`
+    : `${AVAILABILITY_PATH}?days=${AVAILABILITY_DAYS}`;
   const { res } = await fleetFetch("GET", path, { headers: authHeaders() }, {
     minIntervalMs: 1000,
     failureBackoffMs: 0,
-    throttleKey: `GET ${AVAILABILITY_PATH}`,
+    throttleKey: `GET ${path}`,
   });
   if (!res) return { kind: "error", message: "Couldn't reach your coordinator. Check your connection and try again." };
   if (isSignedOutStatus(res.status)) {
